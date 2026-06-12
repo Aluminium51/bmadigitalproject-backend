@@ -1,8 +1,8 @@
 # start phase
 docker-compose up -d postgres
-bun run dev
 bunx prisma migrate dev --name init_database
 bunx prisma generate
+bun run dev
 
 # all in one
 docker-compose up -d --build

@@ -26,3 +26,9 @@ export const CreateUserSchema = z.object({
   internalExtension: z.string().min(1).optional(),
   
 }).openapi('CreateUserRequest');
+
+// Schema สำหรับส่งกลับเมื่อเกิดข้อผิดพลาด
+export const ErrorSchema = z.object({
+  error: z.string().openapi({ example: 'ข้อมูลซ้ำ' }),
+  field: z.string().optional().openapi({ example: 'email' }),
+}).openapi('ErrorResponse');

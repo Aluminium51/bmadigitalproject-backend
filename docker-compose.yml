@@ -1,5 +1,4 @@
 services:
-  # 1. ฐานข้อมูล PostgreSQL
   postgres:
     image: postgres:15-alpine
     container_name: bma_postgres
@@ -12,6 +11,11 @@ services:
       - "5432:5432"
     volumes:
       - bma_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d bma_db"]
+      interval: 5s     # check every 5 seconds
+      timeout: 5s      # wait up to 5 seconds for a response
+      retries: 5       # try up to 5 times
 
   backend:
     build: .
@@ -22,5 +26,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://admin:password123@postgres:5432/bma_db?schema=public
       - PORT=8081
+    depends_on:
+      postgres:
+        condition: service_healthy
 volumes:
   bma_pg_data:

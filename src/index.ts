@@ -12,7 +12,7 @@ app.use('/*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
 
-// แยกกลุ่ม API ของเวอร์ชัน 1 ออกมาอย่างชัดเจน
+// แยกกลุ่ม API ของเวอร์ชัน 1 ออกมา
 const v1 = new OpenAPIHono();
 v1.route('/users', userRoutesV1);
 // ในอนาคตถ้ามีฟีเจอร์อื่นใน v1 ก็ต่อตรงนี้ได้เลย
@@ -27,7 +27,7 @@ app.doc('/openapi-v1.json', {
 });
 app.get('/docs/v1', swaggerUI({ url: '/openapi-v1.json' }));
 
-// 3. เริ่มต้น Server ด้วย Bun
+// start Server
 const port = process.env.PORT ? parseInt(process.env.PORT) : 8081;
 console.log(`🚀 Backend is running on http://localhost:${port}`);
 console.log(`📚 Swagger UI is at http://localhost:${port}/docs/v1`);

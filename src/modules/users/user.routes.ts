@@ -1,16 +1,18 @@
 // src/modules/users/user.routes.ts
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
-import * as userService from './user.service';
-import { UserSchema, CreateUserSchema } from './user.schema';
 import { z } from '@hono/zod-openapi';
+import { UserSchema, CreateUserSchema, ErrorSchema } from './user.schema';
+import * as userController from './user.controller'; // ดึง Controller มาใช้
 
 const app = new OpenAPIHono();
 
+// ==========================================
 // Route 1: ดึงรายชื่อผู้ใช้งานทั้งหมด
+// ==========================================
 const getUsersRoute = createRoute({
   method: 'get',
   path: '/',
-  tags: ['Users'], // หมวดหมู่ใน Swagger
+  tags: ['Users'],
   summary: 'ดึงรายชื่อผู้ใช้งานทั้งหมด',
   responses: {
     200: {
@@ -20,12 +22,11 @@ const getUsersRoute = createRoute({
   },
 });
 
-app.openapi(getUsersRoute, async (c) => {
-  const users = await userService.getAllUsers();
-  return c.json(users, 200);
-});
+app.openapi(getUsersRoute, (c) => userController.getUsers(c));
 
+// ==========================================
 // Route 2: สร้างผู้ใช้งานใหม่
+// ==========================================
 const createUserRoute = createRoute({
   method: 'post',
   path: '/',
@@ -41,13 +42,21 @@ const createUserRoute = createRoute({
       content: { 'application/json': { schema: UserSchema } },
       description: 'สร้างผู้ใช้สำเร็จ',
     },
+    // ประกาศให้ Swagger รู้ว่าเส้นนี้มีโอกาสพ่น 409 และ 500 ออกมา
+    409: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'ข้อมูลซ้ำซ้อน (Conflict)',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'ข้อผิดพลาดทางเซิร์ฟเวอร์',
+    },
   },
 });
 
-app.openapi(createUserRoute, async (c) => {
-  const body = c.req.valid('json'); // ข้อมูลถูกตรวจสอบด้วย Zod เรียบร้อยแล้ว
-  const newUser = await userService.createUser(body);
-  return c.json(newUser, 201);
+app.openapi(createUserRoute, (c) => {
+  const body = c.req.valid('json'); 
+  return userController.createUser(c, body); // โยน Context และ Body ให้ Controller จัดการต่อ
 });
 
 export default app;
