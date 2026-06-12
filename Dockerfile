@@ -3,7 +3,7 @@ FROM oven/bun:1-alpine AS base
 WORKDIR /app
 
 # 1. Copy ไฟล์ที่จำเป็นสำหรับการลง Packages
-COPY package.json bun.lockb ./
+COPY package.json bun.lock ./
 COPY prisma ./prisma/
 COPY prisma.config.ts ./
 
@@ -16,8 +16,8 @@ COPY . .
 # 4. สร้าง Prisma Client ใหม่ภายใน Docker
 RUN bunx prisma generate
 
-# 5. เปิด Port 3000
-EXPOSE 3000
+# 5. เปิด Port 8081
+EXPOSE 8081
 
 # 6. สั่งรัน Production
 CMD ["bun", "run", "src/index.ts"]
