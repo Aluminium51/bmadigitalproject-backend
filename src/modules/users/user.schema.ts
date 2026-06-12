@@ -22,4 +22,7 @@ export const CreateUserSchema = z.object({
   division: z.string().min(1),
   email: z.string().email(),
   mobilePhone: z.string().min(6),
+  officePhone: z.string().min(6).optional(), 
+  internalExtension: z.string().min(1).optional(),
+  
 }).openapi('CreateUserRequest');
