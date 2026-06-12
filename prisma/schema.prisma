@@ -1,0 +1,37 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// สร้าง Enum สำหรับ Role 5 ระดับ
+enum Role {
+  SUPERADMIN
+  ADMIN
+  SECRETARY
+  ANALYTIC
+  USER
+}
+
+model User {
+  id                String   @id @default(cuid())
+  username          String   @unique
+  password          String   // เก็บ Hash เสมอ ห้ามเก็บ Text ธรรมดา
+  firstName         String
+  lastName          String
+  position          String
+  department        String
+  division          String
+  email             String   @unique
+  mobilePhone       String
+  officePhone       String?
+  internalExtension String?
+  role              Role     @default(USER) // ค่าเริ่มต้นคือระดับ User ทั่วไป
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
