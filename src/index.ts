@@ -2,6 +2,8 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
 import userRoutesV1 from './modules/users/user.routes';
+import authRoutesV1 from './modules/auth/auth.routes';
+import healthRoutes from './modules/health/health.routes';
 import { cors } from 'hono/cors';
 
 const app = new OpenAPIHono();
@@ -11,21 +13,23 @@ app.use('/*', cors({
   origin: 'http://localhost:3000',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
-
-// แยกกลุ่ม API ของเวอร์ชัน 1 ออกมา
-const v1 = new OpenAPIHono();
-v1.route('/users', userRoutesV1);
-// ในอนาคตถ้ามีฟีเจอร์อื่นใน v1 ก็ต่อตรงนี้ได้เลย
-
-// ผูกเข้ากับระบบหลัก โดยระบุตําแหน่งเส้นทางเป็น /api/v1
-app.route('/api/v1', v1);
-
+app.route('/health', healthRoutes);
 // ตั้งค่าเอกสารคู่มือ API แยกตามเวอร์ชัน
 app.doc('/openapi-v1.json', {
   openapi: '3.0.0',
   info: { title: 'BMA Platform API (v1)', version: '1.0.0' },
 });
-app.get('/docs/v1', swaggerUI({ url: '/openapi-v1.json' }));
+app.get('/docs/', swaggerUI({ url: '/openapi-v1.json' }));
+
+
+// ==========================================
+// /api/v1/*
+// ==========================================
+const v1 = new OpenAPIHono();
+v1.route('/users', userRoutesV1);
+v1.route('/auth', authRoutesV1);
+app.route('/api/v1', v1);
+
 
 // start Server
 const port = process.env.PORT ? parseInt(process.env.PORT) : 8081;

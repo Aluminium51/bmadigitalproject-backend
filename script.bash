@@ -14,3 +14,8 @@ docker-compose ps
 # stop phase
 docker-compose down
 docker-compose down -v
+
+# validation
+bunx tsc --noEmit
+bunx prisma validate
+bun build ./src/index.ts --outdir ./dist --target bun

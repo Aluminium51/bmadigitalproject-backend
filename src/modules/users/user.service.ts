@@ -6,6 +6,17 @@ export const getAllUsers = async () => {
 };
 
 export const createUser = async (data: any) => {
-  // Logic การ Hash รหัสผ่านจะอยู่ที่นี่
-  return await prisma.user.create({ data });
+  // 1. ดึง password ออกมาจาก data
+  const { password, ...restData } = data;
+
+  // 2. เข้ารหัสผ่านด้วย Bun.password.hash (ค่าเริ่มต้นคือ Argon2id ซึ่งปลอดภัยมาก)
+  const hashedPassword = await Bun.password.hash(password);
+
+  // 3. ประกอบร่างข้อมูลกลับเข้าไปแล้วค่อยบันทึก
+  return await prisma.user.create({ 
+    data: {
+      ...restData,
+      password: hashedPassword 
+    } 
+  });
 };

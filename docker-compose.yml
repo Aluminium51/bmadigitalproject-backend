@@ -12,10 +12,10 @@ services:
     volumes:
       - bma_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d bma_db"]
-      interval: 5s     # check every 5 seconds
-      timeout: 5s      # wait up to 5 seconds for a response
-      retries: 5       # try up to 5 times
+          test: ["CMD-SHELL", "pg_isready -U admin -d bma_db"]
+          interval: 5s
+          timeout: 5s
+          retries: 5
 
   backend:
     build: .
@@ -29,5 +29,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
+      interval: 3s       
+      timeout: 3s        
+      retries: 3         
+      start_period: 5s
 volumes:
   bma_pg_data:
