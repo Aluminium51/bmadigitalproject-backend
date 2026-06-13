@@ -4,20 +4,15 @@ WORKDIR /app
 
 # 1. Copy ไฟล์ที่จำเป็นสำหรับการลง Packages
 COPY package.json bun.lock ./
-COPY prisma ./prisma/
-COPY prisma.config.ts ./
 
 # 2. ลง Dependencies (ใช้ --frozen-lockfile เพื่อความเสถียร)
 RUN bun install --frozen-lockfile
 
-# 3. Copy Source Code ทั้งหมด
+# 3. Copy Source Code ทั้งหมด (ระบบจะก๊อปปี้ drizzle.config.ts และโฟลเดอร์ src มาด้วย)
 COPY . .
 
-# 4. สร้าง Prisma Client ใหม่ภายใน Docker
-RUN bunx prisma generate
-
-# 5. เปิด Port 8081
+# 4. เปิด Port 8081
 EXPOSE 8081
 
-# 6. สั่งรัน Production
-CMD ["sh", "-c", "bunx prisma migrate deploy && bun run src/index.ts"]
+# 5. สั่งรัน Production
+CMD ["sh", "-c", "bunx drizzle-kit push && bun run src/index.ts"]

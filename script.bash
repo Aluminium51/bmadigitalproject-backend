@@ -1,15 +1,11 @@
 # start phase
 docker-compose up -d postgres
-bunx prisma migrate dev --name init_database
-bunx prisma generate
+bunx drizzle-kit push
 bun run dev
 
 # all in one
 docker-compose up -d --build
-
-# view database http://localhost:5555
-bunx prisma studio
-docker-compose ps
+bunx drizzle-kit push
 
 # stop phase
 docker-compose down
@@ -17,5 +13,8 @@ docker-compose down -v
 
 # validation
 bunx tsc --noEmit
-bunx prisma validate
 bun build ./src/index.ts --outdir ./dist --target bun
+
+# reset docker
+docker-compose down -v
+docker builder prune -f
