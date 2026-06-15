@@ -34,7 +34,7 @@ app.route('/api/v1', v1);
 // start Server
 const port = process.env.PORT ? parseInt(process.env.PORT) : 8081;
 console.log(`🚀 Backend is running on http://localhost:${port}`);
-console.log(`📚 Swagger UI is at http://localhost:${port}/docs/v1`);
+console.log(`📚 Swagger UI is at http://localhost:${port}/docs/`);
 
 export default {
   port,

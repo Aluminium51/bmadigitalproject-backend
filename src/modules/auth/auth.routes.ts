@@ -1,5 +1,6 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import * as authController from './auth.controller';
+import { z } from '@hono/zod-openapi';
 import { LoginRequestSchema, LoginResponseSchema } from './auth.schema';
 import { ErrorSchema } from '../users/user.schema';
 
@@ -19,6 +20,21 @@ const loginRoute = createRoute({
   },
 });
 
+const verifyRoute = createRoute({
+  method: 'get',
+  path: '/verify',
+  tags: ['Auth'],
+  summary: 'ยืนยันอีเมลด้วย Token',
+  request: {
+    query: z.object({ token: z.string() }) // รับค่า token จาก URL
+  },
+  responses: {
+    200: { description: 'ยืนยันสำเร็จ' },
+    400: { description: 'Token ไม่ถูกต้อง' }
+  }
+});
+
 app.openapi(loginRoute, (c) => authController.login(c, c.req.valid('json')));
+app.openapi(verifyRoute, (c) => authController.verifyEmail(c));
 
 export default app;
