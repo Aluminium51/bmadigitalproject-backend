@@ -14,6 +14,7 @@ const loginRoute = createRoute({
   responses: {
     200: { content: { 'application/json': { schema: LoginResponseSchema } }, description: 'สำเร็จ' },
     401: { content: { 'application/json': { schema: ErrorSchema } }, description: 'รหัสผ่านผิด' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ยังไม่ได้ยืนยันอีเมล' },
     500: { content: { 'application/json': { schema: ErrorSchema } }, description: 'เกิดข้อผิดพลาด' },
   },
 });

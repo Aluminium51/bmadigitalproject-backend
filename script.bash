@@ -11,9 +11,16 @@ bunx drizzle-kit push
 docker-compose down
 docker-compose down -v
 
-# validation
+# validation (backend)
 bunx tsc --noEmit
 bun build ./src/index.ts --outdir ./dist --target bun
+bun audit
+
+# validation (frontend)
+pnpm build
+pnpm tsc --noEmit
+pnpm audit
+
 
 # reset docker
 docker-compose down -v
