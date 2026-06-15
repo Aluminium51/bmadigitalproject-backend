@@ -1,10 +1,12 @@
 // src/modules/users/user.schema.ts
+// ตรวจสอบความถูกต้องของข้อมูลที่รับมาจากหน้าบ้าน (Request) และคัดกรองข้อมูลก่อนส่งกลับไปให้หน้าบ้าน (Response)
+// กำหนดว่า "API จะยอมรับข้อมูลแบบไหนเข้ามา และจะยอมคายข้อมูลอะไรกลับไป"
+
 import { z } from "@hono/zod-openapi";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { users } from "@/db/schema";
 
-// 🟢 1. สร้าง Response Schema (เลือกฟิลด์เฉพาะที่จะส่งให้หน้าบ้าน)
-// ข้อมูลเดิมของคุณส่ง id, username, firstName, lastName, department, role
+// สร้าง Response Schema (เลือกฟิลด์เฉพาะที่จะส่งให้หน้าบ้าน)
 export const UserSchema = createSelectSchema(users)
   .pick({
     id: true,
@@ -16,7 +18,7 @@ export const UserSchema = createSelectSchema(users)
   })
   .openapi("User");
 
-// 🟢 2. สร้าง Request Body Schema สำหรับสมัครสมาชิก
+// สร้าง Request Body Schema สำหรับสมัครสมาชิก
 // ตัว drizzle-zod จะนำ Validation Rules เช่น .email() หรือ .min() ที่เรากำหนดเพิ่มเติมมาเช็คให้ด้วยครับ
 export const CreateUserSchema = createInsertSchema(users, {
   username: (schema) => schema.min(3),

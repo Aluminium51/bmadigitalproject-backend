@@ -1,4 +1,5 @@
 // src/db/schema.ts
+// คุยกับ PostgreSQL โดยตรง (ผ่าน Drizzle ORM)
 import { pgTable, uuid, varchar, timestamp, text } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {

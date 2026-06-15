@@ -19,10 +19,9 @@ export const getAllUsers = async () => {
 export const createUser = async (data: any) => {
   const { password, ...restData } = data;
 
-  // เข้ารหัสผ่านด้วย Bun (คงเดิม)
+  // เข้ารหัสผ่านด้วย Bun
   const hashedPassword = await Bun.password.hash(password);
 
-  // แทน prisma.user.create()
   // ใน Drizzle เราใส่คำสั่ง .returning() เพื่อให้มันส่ง Object แถวที่เพิ่มเข้ากลับมาให้เราใช้ต่อได้ทันที
   const [newUser] = await db
     .insert(users)

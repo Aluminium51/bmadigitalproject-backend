@@ -5,16 +5,14 @@ import * as authService from './auth.service';
 export const login = async (c: Context, body: any) => {
   try {
     const { username, password } = body;
-
     const user = await authService.verifyUser(username);
     
-    // 🟢 1. ตรวจสอบรวบยอด: ถ้าไม่มี user หรือ รหัสผิด ให้เตะออกด้วยข้อความเดียวกัน
+    // ถ้าไม่มี user หรือ รหัสผิด ให้เตะออกด้วยข้อความเดียวกัน
     if (!user || !(await Bun.password.verify(password, user.password))) {
-      // ไม่ระบุ field เพื่อให้หน้าบ้านโชว์แถบแดงรวมๆ 
       return c.json({ error: 'ชื่อผู้ใช้งาน หรือ รหัสผ่านไม่ถูกต้อง' }, 401);
     }
 
-    // สร้าง Token ตามปกติ
+    // สร้าง Token
     const payload = {
       sub: user.id,
       username: user.username,
