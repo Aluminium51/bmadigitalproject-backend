@@ -1,6 +1,7 @@
 // src/modules/users/user.service.ts
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import crypto from "crypto";
 
 export const getAllUsers = async () => {
   // แทน prisma.user.findMany()
@@ -22,12 +23,20 @@ export const createUser = async (data: any) => {
   // เข้ารหัสผ่านด้วย Bun
   const hashedPassword = await Bun.password.hash(password);
 
-  // ใน Drizzle เราใส่คำสั่ง .returning() เพื่อให้มันส่ง Object แถวที่เพิ่มเข้ากลับมาให้เราใช้ต่อได้ทันที
+  // token สำหรับยืนยัน gmail (ในอนาคตอาจใช้สำหรับรีเซ็ตรหัสผ่านด้วย)
+  const verificationToken = crypto.randomUUID() + crypto.randomUUID();
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+
+  // บันทึกข้อมูลลง Database พร้อม Token
   const [newUser] = await db
     .insert(users)
     .values({
       ...restData,
       password: hashedPassword,
+      verificationToken: verificationToken, // เก็บ Token
+      verificationExpires: expiresAt,       // เก็บเวลาหมดอายุ
+      isVerified: false                     // บังคับว่ายังไม่ได้ยืนยัน
     })
     .returning();
 
