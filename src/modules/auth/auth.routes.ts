@@ -24,14 +24,19 @@ const verifyRoute = createRoute({
   method: 'get',
   path: '/verify',
   tags: ['Auth'],
-  summary: 'ยืนยันอีเมลด้วย Token',
+  summary: 'ยืนยันอีเมลของผู้ใช้งาน',
   request: {
-    query: z.object({ token: z.string() }) // รับค่า token จาก URL
+    query: z.object({
+      token: z.string().openapi({
+        description: 'รหัสยืนยันตัวตนที่ส่งไปใน Gmail'
+      }),
+    }),
   },
   responses: {
-    200: { description: 'ยืนยันสำเร็จ' },
-    400: { description: 'Token ไม่ถูกต้อง' }
-  }
+    200: { content: { 'application/json': { schema: z.object({ message: z.string() }) } }, description: 'สำเร็จ' },
+    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Token ไม่ถูกต้องหรือหมดอายุ' },
+    500: { content: { 'application/json': { schema: ErrorSchema } }, description: 'เซิร์ฟเวอร์มีปัญหา' },
+  },
 });
 
 app.openapi(loginRoute, (c) => authController.login(c, c.req.valid('json')));

@@ -27,6 +27,7 @@ services:
       - DATABASE_URL=postgresql://admin:password123@postgres:5432/bma_db
       - RESEND_API_KEY=${RESEND_API_KEY}
       - FRONTEND_URL=${FRONTEND_URL}
+      - JWT_SECRET=${JWT_SECRET}
       - PORT=8081
     depends_on:
       postgres:

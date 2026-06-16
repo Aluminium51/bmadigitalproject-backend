@@ -25,3 +25,7 @@ pnpm audit
 # reset docker
 docker-compose down -v
 docker builder prune -f
+
+# debug
+docker-compose logs backend
+docker-compose logs postgres
