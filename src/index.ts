@@ -1,6 +1,7 @@
 // src/index.ts
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { swaggerUI } from '@hono/swagger-ui';
+import uploadRoutes from "./modules/uploads/upload.routes";
 import userRoutesV1 from './modules/users/user.routes';
 import authRoutesV1 from './modules/auth/auth.routes';
 import healthRoutes from './modules/health/health.routes';
@@ -28,6 +29,7 @@ app.get('/docs/', swaggerUI({ url: '/openapi-v1.json' }));
 const v1 = new OpenAPIHono();
 v1.route('/users', userRoutesV1);
 v1.route('/auth', authRoutesV1);
+v1.route('/uploads', uploadRoutes);
 app.route('/api/v1', v1);
 
 

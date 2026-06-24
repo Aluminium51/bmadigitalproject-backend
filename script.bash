@@ -29,3 +29,6 @@ docker builder prune -f
 # debug
 docker-compose logs backend
 docker-compose logs postgres
+
+# copy file from docker
+docker cp bma_backend:/app/compressed-1782291423871.pdf .
