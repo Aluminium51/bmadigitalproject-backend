@@ -11,8 +11,8 @@ import { sign } from "hono/jwt";
 
 type LoginBody = z.infer<typeof LoginRequestSchema>;
 
-// 🟢 1. ต้องเป็น export const และชื่อต้องเป็น "login" ตัวเล็กทั้งหมด
-// 🟢 2. รับพารามิเตอร์ 2 ตัว คือ (c, body) เพื่อให้สอดคล้องกับที่ Route ส่งมา
+// 1. ต้องเป็น export const และชื่อต้องเป็น "login" ตัวเล็กทั้งหมด
+// 2. รับพารามิเตอร์ 2 ตัว คือ (c, body) เพื่อให้สอดคล้องกับที่ Route ส่งมา
 export const login = async (c: Context, body: LoginBody) => {
   try {
     const { username, password } = body;
@@ -21,7 +21,7 @@ export const login = async (c: Context, body: LoginBody) => {
       where: eq(users.username, username),
     });
 
-// 🟢 1. ถ้าไม่พบ User
+// 1. ถ้าไม่พบ User
     if (!user) {
       return c.json({ 
         error: "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง", 
@@ -29,7 +29,7 @@ export const login = async (c: Context, body: LoginBody) => {
       }, 401);
     }
 
-    // 🟢 2. ถ้ารหัสผ่านไม่ตรง
+    // 2. ถ้ารหัสผ่านไม่ตรง
     const isPasswordValid = await Bun.password.verify(password, user.password);
     if (!isPasswordValid) {
       return c.json({ 
@@ -45,7 +45,7 @@ export const login = async (c: Context, body: LoginBody) => {
       }, 403);
     }
 
-    // 🟢 2. โค้ดส่วนสร้าง JWT ของจริง!
+    // 2. โค้ดส่วนสร้าง JWT ของจริง!
     // Payload คือ "ไส้ใน" ของ Token ที่เราต้องการให้หน้าบ้านรู้
     const payload = {
       id: user.id,
@@ -61,7 +61,7 @@ export const login = async (c: Context, body: LoginBody) => {
     // สร้าง Token ด้วยฟังก์ชัน sign()
     const token = await sign(payload, secret);
 
-    // 🟢 3. ส่ง Token ของจริงที่ได้ กลับไปให้ Frontend
+    // 3. ส่ง Token ของจริงที่ได้ กลับไปให้ Frontend
     return c.json({
       message: "Login Successful",
       token: token, // ตรงนี้จะกลายเป็นตัวอักษรขยุกขยิกยาวๆ ตามมาตรฐาน JWT แล้ว!
@@ -82,7 +82,7 @@ export const login = async (c: Context, body: LoginBody) => {
   }
 };
 
-// 🟢 1. API: สมัครสมาชิก (Register)
+// 1. API: สมัครสมาชิก (Register)
 export const registerUser = async (c: Context) => {
   const body = await c.req.json();
   
@@ -96,7 +96,7 @@ export const registerUser = async (c: Context) => {
   // สมมติว่า Insert ลง Database สำเร็จ
   // await db.insert(users).values({ ...body, verificationToken, verificationExpires: expiresAt, isVerified: false })
 
-  // 📧 สั่งส่งอีเมล!
+  // สั่งส่งอีเมล!
   await sendVerificationEmail(body.email, verificationToken, body.firstName);
 
   // ส่งกลับบอกหน้าบ้านให้ไปเช็คอีเมล
@@ -106,7 +106,7 @@ export const registerUser = async (c: Context) => {
   }, 201);
 };
 
-// 🟢 2. API: ยืนยันอีเมล (Verify)
+// 2. API: ยืนยันอีเมล (Verify)
 export const verifyEmail = async (c: Context) => {
   try {
     // อ่านค่า token จาก URL query (เช่น ?token=xxxx)
@@ -116,7 +116,7 @@ export const verifyEmail = async (c: Context) => {
       return c.json({ error: "ไม่พบข้อมูล Token ยืนยัน" }, 400);
     }
 
-    // 🔍 ปรับมาใช้ db.select() แบบมาตรฐาน (ลดโอกาสพังจากเรื่อง Schema configuration)
+    // ปรับมาใช้ db.select() แบบมาตรฐาน (ลดโอกาสพังจากเรื่อง Schema configuration)
     const [user] = await db
       .select()
       .from(users)
@@ -146,7 +146,7 @@ export const verifyEmail = async (c: Context) => {
     return c.json({ message: "ยืนยันอีเมลสำเร็จ ตอนนี้คุณสามารถเข้าสู่ระบบได้แล้ว" }, 200);
 
   } catch (error) {
-    // 💡 พิมพ์บอกใน Terminal เสมอว่าเซิร์ฟเวอร์พังเพราะอะไร
+    // พิมพ์บอกใน Terminal เสมอว่าเซิร์ฟเวอร์พังเพราะอะไร
     console.error("🔴 Verification API Crashed:", error);
     return c.json({ error: "เกิดข้อผิดพลาดภายในระบบเซิร์ฟเวอร์" }, 500);
   }

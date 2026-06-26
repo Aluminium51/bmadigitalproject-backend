@@ -1,15 +1,15 @@
 import { Context } from "hono";
 
 export const handleDRegisterError = (c: Context, error: any) => {
-  // 🟢 1. แกะกล่อง Drizzle: ถ้ามี error.cause ให้ใช้ตัวในสุด เพราะนั่นคือ Error จริงจาก Postgres
+  // 1. แกะกล่อง Drizzle: ถ้ามี error.cause ให้ใช้ตัวในสุด เพราะนั่นคือ Error จริงจาก Postgres
   const dbErr = error?.cause || error;
 
-  // 🟢 2. ดึงข้อมูลทุกซอกทุกมุมมาต่อกัน (message, detail, constraint) จะได้ไม่พลาดฟิลด์ที่ซ้ำ
+  // 2. ดึงข้อมูลทุกซอกทุกมุมมาต่อกัน (message, detail, constraint) จะได้ไม่พลาดฟิลด์ที่ซ้ำ
   const errorCode = dbErr?.code;
   const errorString =
     `${dbErr?.message || ""} ${dbErr?.detail || ""} ${dbErr?.constraint || ""}`.toLowerCase();
 
-  // 🟢 3. ตรวจสอบรหัส 23505 ของ Postgres : "ข้อมูลซ้ำ"
+  // 3. ตรวจสอบรหัส 23505 ของ Postgres : "ข้อมูลซ้ำ"
   if (
     errorCode === "23505" ||
     errorString.includes("unique") ||
@@ -31,7 +31,7 @@ export const handleDRegisterError = (c: Context, error: any) => {
     return c.json({ error: "ข้อมูลนี้มีอยู่ในระบบแล้ว" }, 409);
   }
 
-  // 🔴 4. ถ้าเป็น Error อื่นๆ ค่อยพ่น 500
+  // 4. ถ้าเป็น Error อื่นๆ ค่อยพ่น 500
   console.error("🔥 Error ทั่วไป:", error);
   return c.json({ error: "เกิดข้อผิดพลาดภายในระบบ" }, 500);
 };

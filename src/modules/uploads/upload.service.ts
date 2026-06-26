@@ -1,5 +1,5 @@
 import { compressPdf } from "../../utils/pdf-compressor";
-import { write } from "bun"; // 🌟 Import Bun write
+import { write } from "bun";
 
 export class UploadService {
   static async processAndUploadDocument(file: File) {

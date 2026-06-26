@@ -15,10 +15,10 @@ export const createUser = async (c: Context, body: any) => {
   try {
     const newUser = await userService.createUser(body);
     
-    // 🟢 2. สั่งส่งอีเมลหาผู้ใช้ โดยใช้ข้อมูลจาก newUser
+    // สั่งส่งอีเมลหาผู้ใช้ โดยใช้ข้อมูลจาก newUser
     await sendVerificationEmail(newUser.email, newUser.verificationToken!, newUser.firstName);
 
-    // 🟢 3. เปลี่ยนข้อความตอบกลับ เพื่อให้หน้าบ้านรู้ว่าต้องไปเช็คอีเมล
+    // เปลี่ยนข้อความตอบกลับ เพื่อให้หน้าบ้านรู้ว่าต้องไปเช็คอีเมล
     return c.json({ 
       message: "สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลของท่านเพื่อยืนยันตัวตน",
       requireVerification: true,

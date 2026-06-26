@@ -6,7 +6,6 @@
     "strict": true,
     "skipLibCheck": true,
     
-    // 🟢 เพิ่ม "DOM" เข้าไปในบรรทัดนี้ 
     "lib": ["ESNext", "DOM"], 
     
     "types": ["@types/bun"],
