@@ -39,7 +39,15 @@ const createUserRoute = createRoute({
   },
   responses: {
     201: {
-      content: { 'application/json': { schema: UserSchema } },
+      content: { 
+        'application/json': { 
+          schema: z.object({
+            message: z.string(),
+            requireVerification: z.boolean(),
+            user: z.any() // TODO: แนะนำให้ใช้ z.any() ไปก่อน หรือถ้ามี FullUserSchema ก็ใส่แทนได้
+          })
+        } 
+      },
       description: 'สร้างผู้ใช้สำเร็จ',
     },
     // ประกาศให้ Swagger รู้ว่าเส้นนี้มีโอกาสพ่น 409 และ 500 ออกมา

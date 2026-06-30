@@ -31,7 +31,7 @@ docker-compose logs backend
 docker-compose logs postgres
 
 # copy file from docker
-docker cp bma_backend:/app/compressed-1782291423871.pdf .
+docker cp bma_backend:/app/{file_name}.pdf .
 
 # exec
 docker exec -it {container_id} /bin/bash

@@ -13,10 +13,10 @@ export class UploadService {
     }
 
     // code ชั่วคราวสำหรับทดสอบ: เซฟไฟล์ลง Harddisk ของ Server
-    // จะเซฟไปไว้ที่โฟลเดอร์ public (ต้องมั่นใจว่ามีโฟลเดอร์นี้) หรือเซฟไว้ root ชั่วคราวก็ได้
+    // จะเซฟไปไว้ที่โฟลเดอร์ public หรือเซฟไว้ root ชั่วคราวก็ได้
     const tempFileName = `compressed-${Date.now()}.pdf`;
     await Bun.write(tempFileName, finalBuffer);
-    console.log(`✅ บันทึกไฟล์ทดสอบไว้ที่: ${tempFileName}`);
+    console.log(`บันทึกไฟล์ทดสอบไว้ที่: ${tempFileName}`);
 
     // --- ส่วนนี้รอเชื่อมต่อกับ Cloud (S3/R2) ของจริง ---
     const mockUploadUrl = `https://storage.bma.go.th/${tempFileName}`;

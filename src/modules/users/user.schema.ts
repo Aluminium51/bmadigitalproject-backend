@@ -1,7 +1,4 @@
 // src/modules/users/user.schema.ts
-// ตรวจสอบความถูกต้องของข้อมูลที่รับมาจากหน้าบ้าน (Request) และคัดกรองข้อมูลก่อนส่งกลับไปให้หน้าบ้าน (Response)
-// กำหนดว่า "API จะยอมรับข้อมูลแบบไหนเข้ามา และจะยอมคายข้อมูลอะไรกลับไป"
-
 import { z } from "@hono/zod-openapi";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { users } from "@/db/schema";
