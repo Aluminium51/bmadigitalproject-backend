@@ -65,7 +65,7 @@ for every module, we have the following structure:
     - เป็น "สมอง" ของระบบ จัดการเงื่อนไขทางธุรกิจ (Business Rules) และคุยกับ Database
 - สิ่งที่ทำ:
     - เขียน Business Logic ทั้งหมด (เช่น เช็คสิทธิ์ว่าทำได้ไหม, ตรวจสอบเงื่อนไขการสร้าง Project, อนุมัติ Workflow)
-    - ติดต่อ Database (เขียนคำสั่ง Drizzle ORM อย่างเช่น db.select(), db.insert())
+    - Query Database ผ่าน Drizzle ORM (เช่น insert, select, update, delete)
     - ติดต่อ External Service (เช่น อัปโหลดไฟล์ไป S3, ส่งอีเมล, เข้ารหัสผ่าน)
     - โยน Error ออกมา (throw Error) ถ้ามีเงื่อนไขผิดพลาด เพื่อให้ Controller หรือ Global Error Handler ไปจัดการต่อ
 - ข้อแตกต่าง: 

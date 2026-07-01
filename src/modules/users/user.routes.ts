@@ -2,13 +2,10 @@
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
 import { UserSchema, CreateUserSchema, ErrorSchema } from './user.schema';
-import * as userController from './user.controller'; // ดึง Controller มาใช้
+import * as userController from './user.controller';
 
 const app = new OpenAPIHono();
 
-// ==========================================
-// Route 1: ดึงรายชื่อผู้ใช้งานทั้งหมด
-// ==========================================
 const getUsersRoute = createRoute({
   method: 'get',
   path: '/',
@@ -17,16 +14,52 @@ const getUsersRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: z.array(UserSchema) } },
-      description: 'รายชื่อผู้ใช้',
+      description: 'รายชื่อผู้ใช้ทั้งหมดในระบบ',
+    },
+    404: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'ไม่พบข้อมูลผู้ใช้งานในระบบ',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'ข้อผิดพลาดทางเซิร์ฟเวอร์',
     },
   },
 });
-
 app.openapi(getUsersRoute, (c) => userController.getUsers(c));
 
-// ==========================================
-// Route 2: สร้างผู้ใช้งานใหม่
-// ==========================================
+const getUserProfileRoute = createRoute({
+  method: 'get',
+  path: '/profile/:userId', // ตั้ง path รับค่า userId
+  tags: ['Users'],
+  summary: 'ดึงโปรไฟล์ผู้ใช้งานรายบุคคล',
+  request: {
+    params: z.object({
+      // บังคับให้หน้าบ้านส่งมาในรูปแบบ UUID เท่านั้น
+      userId: z.string().uuid().openapi({ description: 'รหัสประจำตัวของผู้ใช้ (UUID)' }),
+    }),
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: UserSchema } },
+      description: 'ข้อมูลโปรไฟล์ของผู้ใช้รายบุคคล',
+    },
+    400: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'กรุณาระบุรหัสผู้ใช้งาน',
+    },
+    404: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'ไม่พบรหัสผู้ใช้งานนี้ในฐานข้อมูล',
+    },
+    500: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'ข้อผิดพลาดทางเซิร์ฟเวอร์',
+    },
+  },
+});
+app.openapi(getUserProfileRoute, (c) => userController.getUserProfile(c));
+
 const createUserRoute = createRoute({
   method: 'post',
   path: '/',
@@ -44,13 +77,12 @@ const createUserRoute = createRoute({
           schema: z.object({
             message: z.string(),
             requireVerification: z.boolean(),
-            user: z.any() // TODO: แนะนำให้ใช้ z.any() ไปก่อน หรือถ้ามี FullUserSchema ก็ใส่แทนได้
+            user: z.any() 
           })
         } 
       },
       description: 'สร้างผู้ใช้สำเร็จ',
     },
-    // ประกาศให้ Swagger รู้ว่าเส้นนี้มีโอกาสพ่น 409 และ 500 ออกมา
     409: {
       content: { 'application/json': { schema: ErrorSchema } },
       description: 'ข้อมูลซ้ำซ้อน (Conflict)',
@@ -61,10 +93,9 @@ const createUserRoute = createRoute({
     },
   },
 });
-
 app.openapi(createUserRoute, (c) => {
   const body = c.req.valid('json'); 
-  return userController.createUser(c, body); // โยน Context และ Body ให้ Controller จัดการต่อ
+  return userController.createUser(c, body);
 });
 
 export default app;

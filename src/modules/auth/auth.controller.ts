@@ -48,9 +48,8 @@ export const login = async (c: Context, body: LoginBody) => {
     // 2. โค้ดส่วนสร้าง JWT ของจริง!
     // Payload คือ "ไส้ใน" ของ Token ที่เราต้องการให้หน้าบ้านรู้
     const payload = {
-      id: user.id,
+      id: user.userId,
       username: user.username,
-      role: user.role, // เอาไว้ให้หน้าบ้านเช็คสิทธิ์ (Admin / User)
       exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // กำหนดหมดอายุใน 24 ชั่วโมง (เวลาปัจจุบัน + 86400 วินาที)
     };
     
@@ -66,7 +65,7 @@ export const login = async (c: Context, body: LoginBody) => {
       message: "Login Successful",
       token: token, // ตรงนี้จะกลายเป็นตัวอักษรขยุกขยิกยาวๆ ตามมาตรฐาน JWT แล้ว!
       user: {
-        id: user.id,
+        id: user.userId,
         username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -141,7 +140,7 @@ export const verifyEmail = async (c: Context) => {
         verificationToken: null,     // ลบออกเพื่อไม่ให้ใช้ซ้ำได้อีก
         verificationExpires: null,   // ลบวันหมดอายุออก
       })
-      .where(eq(users.id, user.id));
+      .where(eq(users.userId, user.userId));
 
     return c.json({ message: "ยืนยันอีเมลสำเร็จ ตอนนี้คุณสามารถเข้าสู่ระบบได้แล้ว" }, 200);
 

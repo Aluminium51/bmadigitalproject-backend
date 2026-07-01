@@ -4,21 +4,35 @@ import * as userService from './user.service';
 import { sendVerificationEmail } from '@/utils/email.service';
 import { handleDRegisterError } from '@/utils/error-handler';
 
-// Handler สำหรับดึงข้อมูลผู้ใช้ทั้งหมด
 export const getUsers = async (c: Context) => {
   const users = await userService.getAllUsers();
+  if (!users) {
+    return c.json({ error: "ไม่พบข้อมูลผู้ใช้งานในระบบ" }, 404);
+  }
   return c.json(users, 200);
 };
 
-// Handler สำหรับสร้างผู้ใช้ใหม่ (พร้อมดัก Error)
+// Handler สำหรับดึงข้อมูลโปรไฟล์ผู้ใช้รายบุคคล (เพิ่มใหม่)
+export const getUserProfile = async (c: Context) => {
+  const userId = c.req.param('userId');
+  if (!userId) {
+    return c.json({ error: "กรุณาระบุรหัสผู้ใช้งาน" }, 400);
+  }
+
+  const user = await userService.getUserProfile(userId);
+  if (!user) {
+    return c.json({ error: "ไม่พบข้อมูลผู้ใช้งานที่ระบุในระบบ" }, 404);
+  }
+  
+  return c.json(user, 200);
+};
+
 export const createUser = async (c: Context, body: any) => {
   try {
     const newUser = await userService.createUser(body);
     
-    // สั่งส่งอีเมลหาผู้ใช้ โดยใช้ข้อมูลจาก newUser
     await sendVerificationEmail(newUser.email, newUser.verificationToken!, newUser.firstName);
 
-    // เปลี่ยนข้อความตอบกลับ เพื่อให้หน้าบ้านรู้ว่าต้องไปเช็คอีเมล
     return c.json({ 
       message: "สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลของท่านเพื่อยืนยันตัวตน",
       requireVerification: true,

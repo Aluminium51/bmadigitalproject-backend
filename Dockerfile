@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8081
 
 # 6. สั่งรัน Production
-CMD ["sh", "-c", "bunx drizzle-kit push && bun run src/index.ts"]
+CMD ["sh", "-c", "bun run db:migrate && bun run start"]
