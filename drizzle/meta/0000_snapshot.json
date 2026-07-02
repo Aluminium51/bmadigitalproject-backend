@@ -1,5 +1,5 @@
 {
-  "id": "76847821-27ca-45ab-b9e2-59c4f8ddfc68",
+  "id": "2668edc6-963c-4f3b-8a73-f6e1e8e94e08",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -589,7 +589,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -611,6 +611,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "initial_requested_budget": {
+          "name": "initial_requested_budget",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latest_approved_budget": {
+          "name": "latest_approved_budget",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "external_task_id": {
           "name": "external_task_id",
           "type": "varchar(255)",
@@ -619,25 +631,25 @@
         },
         "project_name": {
           "name": "project_name",
-          "type": "varchar(500)",
+          "type": "varchar(600)",
           "primaryKey": false,
           "notNull": false
         },
         "project_name_original": {
           "name": "project_name_original",
-          "type": "varchar(500)",
+          "type": "varchar(600)",
           "primaryKey": false,
           "notNull": false
         },
         "analyst_id": {
           "name": "analyst_id",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
         "assigned_by": {
           "name": "assigned_by",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -676,7 +688,7 @@
         },
         "updated_by": {
           "name": "updated_by",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         }
@@ -1867,30 +1879,6 @@
         "data_exchange_plan": {
           "name": "data_exchange_plan",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "system_diagram_file": {
-          "name": "system_diagram_file",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "network_diagram_file": {
-          "name": "network_diagram_file",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "use_case_diagram_file": {
-          "name": "use_case_diagram_file",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "security_diagram_file": {
-          "name": "security_diagram_file",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

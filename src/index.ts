@@ -5,6 +5,7 @@ import uploadRoutes from "./modules/uploads/upload.routes";
 import userRoutesV1 from './modules/users/user.routes';
 import authRoutesV1 from './modules/auth/auth.routes';
 import healthRoutes from './modules/health/health.routes';
+import { projectRoutes } from "./modules/projects/project.routes";
 import { cors } from 'hono/cors';
 
 const app = new OpenAPIHono();
@@ -30,6 +31,7 @@ const v1 = new OpenAPIHono();
 v1.route('/users', userRoutesV1);
 v1.route('/auth', authRoutesV1);
 v1.route('/uploads', uploadRoutes);
+v1.route('/projects', projectRoutes);
 app.route('/api/v1', v1);
 
 

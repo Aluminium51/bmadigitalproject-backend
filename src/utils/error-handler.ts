@@ -1,6 +1,6 @@
 import { Context } from "hono";
 
-export const handleDRegisterError = (c: Context, error: any) => {
+export const handleRegisterError = (c: Context, error: any) => {
   // 1. แกะกล่อง Drizzle: ถ้ามี error.cause ให้ใช้ตัวในสุด เพราะนั่นคือ Error จริงจาก Postgres
   const dbErr = error?.cause || error;
 

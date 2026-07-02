@@ -5,7 +5,9 @@ import {
   varchar, 
   integer, 
   boolean, 
-  timestamp 
+  timestamp, 
+  numeric,
+  uuid
 } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +25,7 @@ export const projectTypes = pgTable("project_types", {
 
 export const projectAttachmentTypes = pgTable("project_attachment_types", {
   id: serial("doc_type_id").primaryKey(),
-  docTypeName: varchar("doc_type_name", { length: 255 }).unique().notNull(),
+  docTypeName: varchar("doc_type_name", { length: 255 }).unique().notNull(), // ex. 'system_diagram', 'network_diagram', 'use_case_diagram', 'security_diagram', 'presentation', 'report', 'ใบเบิกเงิน', 'other'
 });
 
 // ---------------------------------------------------------------------------
@@ -33,22 +35,25 @@ export const projects = pgTable("projects", {
   id: serial("project_id").primaryKey(),
   
   // --- Relations ---
-  userId: integer("user_id").notNull(), // คนสร้างโปรเจกต์ (FK -> users.user_id)
+  userId: uuid("user_id").notNull(), // คนสร้างโปรเจกต์ (FK -> users.user_id)
   divisionId: integer("division_id").notNull(), // ส่วนราชการเจ้าของโครงการ (FK -> divisions.division_id)
   
   projectStatusId: integer("project_status_id").references(() => projectStatuses.id),
   projectTypeId: integer("project_type_id").references(() => projectTypes.id),
+
+  //  --- Budget Summaries --- 
+  initialRequestedBudget: numeric("initial_requested_budget", { precision: 15, scale: 2 }), // งบที่ขอตอนแรก
+  latestApprovedBudget: numeric("latest_approved_budget", { precision: 15, scale: 2 }),     // งบที่อนุมัติจริง/ล่าสุด
   
   externalTaskId: varchar("external_task_id", { length: 255 }).unique(),
   
   // --- Project Details ---
-  // ให้เป็น Nullable (ไม่ใส่ .notNull()) เพื่อรองรับการ Auto-save ฟอร์มร่าง
-  projectName: varchar("project_name", { length: 500 }), 
-  projectNameOriginal: varchar("project_name_original", { length: 500 }),
+  projectName: varchar("project_name", { length: 600 }), // ชื่อล่าสุด ใช้เพื่อแสดงผลและค้นหา
+  projectNameOriginal: varchar("project_name_original", { length: 600 }), // ชื่อเดิมที่กรอกตอนสร้างโปรเจกต์ (เก็บไว้เพื่ออ้างอิง)
   
   // --- Assignment ---
-  analystId: integer("analyst_id"), // ID ผู้วิเคราะห์ที่ได้รับมอบหมาย
-  assignedBy: integer("assigned_by"), // ID ผู้มอบหมาย
+  analystId: uuid("analyst_id"), // ID ผู้วิเคราะห์ที่ได้รับมอบหมาย
+  assignedBy: uuid("assigned_by"), // ID ผู้มอบหมาย
   assignedAt: timestamp("assigned_at"),
   
   // --- Public Access ---
@@ -58,7 +63,7 @@ export const projects = pgTable("projects", {
   // --- Audit Trail ---
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  updatedBy: integer("updated_by"),
+  updatedBy: uuid("updated_by"),
 });
 
 // ---------------------------------------------------------------------------

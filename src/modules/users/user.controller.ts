@@ -2,7 +2,7 @@
 import { Context } from 'hono';
 import * as userService from './user.service';
 import { sendVerificationEmail } from '@/utils/email.service';
-import { handleDRegisterError } from '@/utils/error-handler';
+import { handleRegisterError } from '@/utils/error-handler';
 
 export const getUsers = async (c: Context) => {
   const users = await userService.getAllUsers();
@@ -40,6 +40,6 @@ export const createUser = async (c: Context, body: any) => {
     }, 201);
     
   } catch (error: any) {
-    return handleDRegisterError(c, error);
+    return handleRegisterError(c, error);
   }
 };

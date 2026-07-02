@@ -75,12 +75,6 @@ export const proposals = pgTable("proposals", {
   dataOwner: varchar("data_owner", { length: 255 }),
   dataExchangePlan: text("data_exchange_plan"),
 
-  // การเก็บไฟล์รูปภาพ + คำอธิบาย จะถูกเก็บในรูปแบบ JSONB { url: string, description: string }
-  systemDiagramFile: jsonb("system_diagram_file"),
-  networkDiagramFile: jsonb("network_diagram_file"),
-  useCaseDiagramFile: jsonb("use_case_diagram_file"),
-  securityDiagramFile: jsonb("security_diagram_file"),
-
   // --- Step 5: ความพร้อมของโครงการ ---
   isReady: boolean("is_ready").default(false),
   readinessDetails: text("readiness_details"),
