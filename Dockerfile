@@ -18,4 +18,4 @@ COPY . .
 EXPOSE 8081
 
 # 6. สั่งรัน Production
-CMD ["sh", "-c", "bun run db:migrate && bun run start"]
+CMD ["sh", "-c", "bun run db:migrate && bun run db:seed && bun run start"]

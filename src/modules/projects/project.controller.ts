@@ -1,41 +1,46 @@
 import type { Context } from "hono";
-import { ProjectService } from "./project.service";
-import { createProjectSchema, updateProjectSchema, projectIdSchema } from "./project.schema";
+import { HTTPException } from "hono/http-exception";
+import * as projectService from "./project.service";
 
-export class ProjectController {
-  static async getAll(c: Context) {
-    const result = await ProjectService.getProjects();
-    return c.json({ success: true, data: result }, 200);
-  }
+export const getProjects = async (c: Context) => {
+  const result = await projectService.findAllProjects();
+  return c.json(result, 200);
+};
 
-  static async getById(c: Context) {
-    const { id } = projectIdSchema.parse(c.req.param());
-    const project = await ProjectService.getProjectById(id);
-    return c.json({ success: true, data: project }, 200);
-  }
+export const getProjectById = async (c: Context) => {
+  const { id } = (c.req.valid as any)('param'); 
+  const project = await projectService.findProjectById(id);
+  
+  return c.json(project, 200);
+};
 
-  static async create(c: Context) {
-    // สมมติว่า middleware Auth แนบข้อมูล user ไว้ที่ c.get('user')
-    // ถ้าคุณใช้ชื่อตัวแปรอื่นใน middleware ให้แก้ตรงนี้นะครับ
-    const user = c.get("user"); 
-    if (!user) throw new Error("Unauthorized");
+export const createProject = async (c: Context) => {
+  const user = c.get("user");
+  if (!user || !user.id) throw new HTTPException(401, { message: "Unauthorized" });
 
-    const body = await c.req.json();
-    const data = createProjectSchema.parse(body);
+  const body = (c.req.valid as any)('json');
+  const newProject = await projectService.createProject(user.id, body);
+  
+  return c.json({ message: "สร้างโครงการสำเร็จ", project: newProject }, 201);
+};
 
-    const newProject = await ProjectService.createProject(user.userId, data);
-    return c.json({ success: true, data: newProject, message: "สร้างโครงการสำเร็จ" }, 201);
-  }
+export const updateProject = async (c: Context) => {
+  const user = c.get("user");
+  if (!user || !user.id) throw new HTTPException(401, { message: "Unauthorized" });
 
-  static async update(c: Context) {
-    const user = c.get("user");
-    if (!user) throw new Error("Unauthorized");
+  const { id } = (c.req.valid as any)('param');
+  const body = (c.req.valid as any)('json');
 
-    const { id } = projectIdSchema.parse(c.req.param());
-    const body = await c.req.json();
-    const data = updateProjectSchema.parse(body);
+  const updatedProject = await projectService.updateProject(id, body, user.id);
+  return c.json({ message: "อัปเดตข้อมูลสำเร็จ", project: updatedProject }, 200);
+};
 
-    const updatedProject = await ProjectService.updateProject(id, data, user.userId);
-    return c.json({ success: true, data: updatedProject, message: "อัปเดตข้อมูลสำเร็จ" }, 200);
-  }
-}
+export const deleteProject = async (c: Context) => {
+  const user = c.get("user");
+  if (!user) throw new HTTPException(401, { message: "Unauthorized" });
+
+  const { id } = (c.req.valid as any)('param');
+  await projectService.removeProject(id);
+  
+  return c.json({ message: "ลบโครงการสำเร็จ" }, 200);
+};

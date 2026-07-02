@@ -4,50 +4,49 @@ import { projects } from "../../db/schema/projects";
 import { HTTPException } from "hono/http-exception";
 import type { CreateProjectDTO, UpdateProjectDTO } from "./project.schema";
 
-export class ProjectService {
-  // ดึงรายการโปรเจกต์ทั้งหมด
-  static async getProjects() {
-    return await db.select()
-      .from(projects)
-      .orderBy(desc(projects.createdAt));
+export const findAllProjects = async () => {
+  return await db.select()
+    .from(projects)
+    .orderBy(desc(projects.createdAt));
+};
+
+export const findProjectById = async (id: number) => {
+  const [project] = await db.select()
+    .from(projects)
+    .where(eq(projects.id, id));
+
+  if (!project) {
+    throw new HTTPException(404, { message: "ไม่พบข้อมูลโครงการ" });
   }
+  return project;
+};
 
-  // ดึงโปรเจกต์ตาม ID
-  static async getProjectById(id: number) {
-    const [project] = await db.select()
-      .from(projects)
-      .where(eq(projects.id, id));
+export const createProject = async (userId: string, data: CreateProjectDTO) => {
+  const [newProject] = await db.insert(projects).values({
+    ...data,
+    userId,
+  }).returning();
 
-    if (!project) {
-      throw new HTTPException(404, { message: "ไม่พบข้อมูลโครงการ" }); 
-    }
-    return project;
-  }
+  return newProject;
+};
 
-  // สร้างโปรเจกต์ใหม่
-  static async createProject(userId: string, data: CreateProjectDTO) {
-    const [newProject] = await db.insert(projects).values({
+export const updateProject = async (id: number, data: UpdateProjectDTO, updatedBy: string) => {
+  await findProjectById(id);
+
+  const [updatedProject] = await db.update(projects)
+    .set({
       ...data,
-      userId, 
-    }).returning();
+      updatedBy,
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, id))
+    .returning();
 
-    return newProject;
-  }
+  return updatedProject;
+};
 
-  // อัปเดตโปรเจกต์
-  static async updateProject(id: number, data: UpdateProjectDTO, updatedBy: string) {
-    // เช็คก่อนว่ามีโปรเจกต์นี้ไหม
-    await this.getProjectById(id);
-
-    const [updatedProject] = await db.update(projects)
-      .set({
-        ...data,
-        updatedBy,
-        updatedAt: new Date(),
-      })
-      .where(eq(projects.id, id))
-      .returning();
-
-    return updatedProject;
-  }
-}
+export const removeProject = async (id: number) => {
+  await findProjectById(id);
+  await db.delete(projects).where(eq(projects.id, id));
+  return true;
+};
