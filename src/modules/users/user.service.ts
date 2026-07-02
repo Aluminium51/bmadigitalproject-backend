@@ -32,7 +32,7 @@ export const getAllUsers = async () => {
   return result.map(mapUserToResponse);
 };
 
-// ดึงโปรไฟล์ผู้ใช้งานรายบุคคล (เพิ่มใหม่)
+// ดึงโปรไฟล์ผู้ใช้งานรายบุคคล
 export const getUserProfile = async (userId: string) => {
   const result = await db.query.users.findFirst({
     where: eq(users.userId, userId),

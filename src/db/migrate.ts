@@ -14,14 +14,14 @@ async function runMigration() {
   const db = drizzle(migrationClient);
 
   try {
-    // ระบุ Path ของโฟลเดอร์ที่เก็บไฟล์ .sql (ต้องตรงกับใน drizzle.config.ts)
+    // Path has to be the same as the one used in your migration config (drizzle.config.ts)
     await migrate(db, { migrationsFolder: "./drizzle" });
     console.log("✅ Database Migration completed successfully!");
   } catch (error) {
     console.error("❌ An error occurred while running the migration:", error);
     process.exit(1);
   } finally {
-    // ปิด Connection เสมอหลังจากทำงานเสร็จ เพื่อคืนสิทธิ์ให้กับฐานข้อมูล
+    // Close the migration client to free up resources
     await migrationClient.end();
   }
 }
