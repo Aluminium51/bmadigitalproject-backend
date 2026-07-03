@@ -7,7 +7,8 @@ export const ErrorSchema = z.object({
 
 // Schema ของโปรเจกต์เต็มรูปแบบ (ใช้สำหรับ Response)
 export const ProjectSchema = z.object({
-  id: z.number().openapi({ example: 1 }),
+  id: z.string().uuid().openapi({ example: '550e8400-e29b-41d4-a716-446655440000' }),
+  projectCode: z.string().nullable().openapi({ example: 'BMA-69-0001' }),
   userId: z.string().uuid().openapi({ example: '550e8400-e29b-41d4-a716-446655440000' }),
   divisionId: z.number().openapi({ example: 12 }),
   projectStatusId: z.number().nullable().openapi({ example: 1 }),
@@ -19,11 +20,11 @@ export const ProjectSchema = z.object({
   latestApprovedBudget: z.string().nullable().openapi({ example: '4500000.00' }),
   analystId: z.string().uuid().nullable().openapi({ example: null }),
   assignedBy: z.string().uuid().nullable().openapi({ example: null }),
-  assignedAt: z.string().datetime().nullable().openapi({ example: null }),
+  assignedAt: z.union([z.string(), z.date()]).nullable().openapi({ type: 'string', format: 'date-time', example: null }),
   isPublic: z.boolean().openapi({ example: false }),
   publicToken: z.string().nullable().openapi({ example: null }),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  createdAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
+  updatedAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
   updatedBy: z.string().uuid().nullable().openapi({ example: null }),
 }).openapi('Project');
 
@@ -40,7 +41,7 @@ export const UpdateProjectSchema = CreateProjectSchema.partial();
 
 // Schema สำหรับรับ Parameter จาก URL
 export const ProjectIdParamsSchema = z.object({
-  id: z.coerce.number().int().positive("ID โครงการต้องเป็นตัวเลขบวก").openapi({ example: 1, description: 'รหัสโครงการ' }),
+  id: z.string().uuid("ID โครงการต้องเป็น UUID").openapi({ example: '018f3a3b-1b2c-7d3e-8f4g-5h6i7j8k9l0m', description: 'รหัสโครงการ (UUID)' }),
 });
 
 export type CreateProjectDTO = z.infer<typeof CreateProjectSchema>;

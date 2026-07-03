@@ -36,7 +36,7 @@ export const proposals = pgTable("proposals", {
   id: uuid("id").defaultRandom().primaryKey(),
   status: proposalStatusEnum("status").default("draft").notNull(),
   
-  projectId: integer("project_id").unique(), // 1-to-1 กับตาราง projects
+  projectId: uuid("project_id").unique(), // 1-to-1 กับตาราง projects
   userId: uuid("user_id").notNull(),
   version: integer("version").default(1),
   updatedBy: uuid("updated_by"), // เก็บ userId ของผู้แก้ไขล่าสุด (อาจจะไม่ใช่เจ้าของโครงการ)

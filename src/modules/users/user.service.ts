@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, roleUsers } from "@/db/schema/users";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { v7 as uuidv7 } from "uuid";
 
 // ฟังก์ชันช่วยจัดรูปแบบข้อมูล (Mapping Helper) แปลงข้อมูลที่ Join มาให้แบนราบตาม Zod
 const mapUserToResponse = (user: any) => ({
@@ -63,9 +64,11 @@ export const createUser = async (data: any) => {
   // ใช้ Transaction ควบคุม: ถ้าบันทึก User ผ่าน แต่บันทึกสิทธิ์ Role พัง ระบบจะยกเลิกทั้งหมด (Rollback) เพื่อความปลอดภัย
   return await db.transaction(async (tx) => {
     // 1. บันทึกข้อมูลหลักของผู้ใช้ลงตาราง users
+    const newUserId = uuidv7();
     const [newUser] = await tx
       .insert(users)
       .values({
+        userId: newUserId,
         username: restData.username,
         firstName: restData.firstName,
         lastName: restData.lastName,

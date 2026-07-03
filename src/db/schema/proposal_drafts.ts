@@ -12,7 +12,7 @@ export const proposalDrafts = pgTable("proposal_drafts", {
   id: uuid("draft_id").defaultRandom().primaryKey(),
   
   // Relations
-  projectId: integer("project_id").unique(), // 1-to-1 กับตาราง projects
+  projectId: uuid("project_id").unique(), // 1-to-1 กับตาราง projects
   userId: uuid("user_id").notNull(),
   
   // Summary Fields (สำหรับดึงไปโชว์ในหน้าตาราง List อย่างรวดเร็ว โดยไม่ต้อง Parse JSON)

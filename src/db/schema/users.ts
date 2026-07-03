@@ -11,7 +11,7 @@ export const roles = pgTable("roles", {
 });
 
 export const users = pgTable("users", {
-  userId: uuid("user_id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").primaryKey(),
   username: varchar("username", { length: 100 }).unique().notNull(),
   password: varchar("password", { length: 255 }).notNull(),
   firstName: varchar("first_name", { length: 100 }).notNull(),

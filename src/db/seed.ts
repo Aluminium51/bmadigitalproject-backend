@@ -3,6 +3,8 @@ import { db } from "./index";
 import { roles, users, roleUsers } from "./schema/users";
 import { departments, divisions } from "./schema/lookups";
 import { eq } from "drizzle-orm";
+import { projectTypes } from "./schema/projects";
+import { v7 as uuidv7 } from "uuid";
 
 async function main() {
   console.log("Starting database seeding...");
@@ -22,7 +24,7 @@ async function main() {
     }
 
     // Divisions
-    console.log(">> 2. ตรวจสอบและสร้างข้อมูลฝ่าย (Divisions)...");
+    console.log(">> ตรวจสอบและสร้างข้อมูลฝ่าย (Divisions)...");
     const existingDiv = await db.query.divisions.findFirst({
       where: eq(divisions.divisionId, 1)
     });
@@ -34,7 +36,7 @@ async function main() {
     }
 
     // Roles
-    console.log(">> 3. ตรวจสอบและสร้างข้อมูลสิทธิ์ (Roles)...");
+    console.log(">> ตรวจสอบและสร้างข้อมูลสิทธิ์ (Roles)...");
     const existingRole = await db.query.roles.findFirst({
       where: eq(roles.roleId, 1) 
     });
@@ -46,7 +48,20 @@ async function main() {
       console.log("   ✅ เพิ่มสิทธิ์ USER และ ADMIN สำเร็จ");
     }
 
-    // Fisrt Admin User
+    // Project Types
+    console.log(">> ตรวจสอบและสร้างข้อมูลประเภทโครงการ (Project Types)...");
+    const existingProjectType = await db.query.projectTypes.findFirst({
+      where: eq(projectTypes.id, 1)
+    });
+    if (!existingProjectType) {
+      await db.insert(projectTypes).values([
+        { id: 1, typeName: "Hardware" },
+        { id: 2, typeName: "Software" }
+      ]);
+      console.log("   ✅ เพิ่มประเภทโครงการ สำเร็จ");
+    }
+
+    // First Admin User
     const existingAdmin = await db.query.users.findFirst({
       where: eq(users.username, "admin")
     });
@@ -54,8 +69,9 @@ async function main() {
     if (!existingAdmin) {
       console.log(">> กำลังสร้างบัญชี Admin เริ่มต้น...");
       const hashedPassword = await Bun.password.hash("password123"); // รหัสผ่านตั้งต้น
-      
+      const adminId = uuidv7();
       const [admin] = await db.insert(users).values({
+        userId: adminId,
         username: "admin",
         firstName: "System",
         lastName: "Administrator",

@@ -32,7 +32,7 @@ CREATE TABLE "roles" (
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
-	"user_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid PRIMARY KEY NOT NULL,
 	"username" varchar(100) NOT NULL,
 	"password" varchar(255) NOT NULL,
 	"first_name" varchar(100) NOT NULL,
@@ -66,8 +66,8 @@ CREATE TABLE "project_attachment_types" (
 --> statement-breakpoint
 CREATE TABLE "project_attachments" (
 	"project_atm_id" serial PRIMARY KEY NOT NULL,
-	"project_id" integer NOT NULL,
-	"uploaded_by" integer NOT NULL,
+	"project_id" uuid NOT NULL,
+	"uploaded_by" uuid NOT NULL,
 	"file_name" varchar(500) NOT NULL,
 	"file_url" varchar(1000) NOT NULL,
 	"file_type" varchar(100),
@@ -88,7 +88,8 @@ CREATE TABLE "project_types" (
 );
 --> statement-breakpoint
 CREATE TABLE "projects" (
-	"project_id" serial PRIMARY KEY NOT NULL,
+	"project_id" uuid PRIMARY KEY NOT NULL,
+	"project_code" varchar(50),
 	"user_id" uuid NOT NULL,
 	"division_id" integer NOT NULL,
 	"project_status_id" integer,
@@ -106,13 +107,14 @@ CREATE TABLE "projects" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"updated_by" uuid,
+	CONSTRAINT "projects_project_code_unique" UNIQUE("project_code"),
 	CONSTRAINT "projects_external_task_id_unique" UNIQUE("external_task_id"),
 	CONSTRAINT "projects_public_token_unique" UNIQUE("public_token")
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_drafts" (
 	"draft_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"project_id" integer,
+	"project_id" uuid,
 	"user_id" uuid NOT NULL,
 	"objective" text,
 	"total_budget" numeric(15, 2),
@@ -250,7 +252,7 @@ CREATE TABLE "proposal_trainings" (
 CREATE TABLE "proposals" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"status" "proposal_status" DEFAULT 'draft' NOT NULL,
-	"project_id" integer,
+	"project_id" uuid,
 	"user_id" uuid NOT NULL,
 	"version" integer DEFAULT 1,
 	"updated_by" uuid,

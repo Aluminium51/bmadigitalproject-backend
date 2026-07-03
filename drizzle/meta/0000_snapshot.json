@@ -1,5 +1,5 @@
 {
-  "id": "2668edc6-963c-4f3b-8a73-f6e1e8e94e08",
+  "id": "4054231d-2d4f-48a5-8085-f2f90ce1800e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -216,8 +216,7 @@
           "name": "user_id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "username": {
           "name": "username",
@@ -434,13 +433,13 @@
         },
         "project_id": {
           "name": "project_id",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "uploaded_by": {
           "name": "uploaded_by",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -583,9 +582,15 @@
       "columns": {
         "project_id": {
           "name": "project_id",
-          "type": "serial",
+          "type": "uuid",
           "primaryKey": true,
           "notNull": true
+        },
+        "project_code": {
+          "name": "project_code",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
         },
         "user_id": {
           "name": "user_id",
@@ -724,6 +729,13 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "projects_project_code_unique": {
+          "name": "projects_project_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "project_code"
+          ]
+        },
         "projects_external_task_id_unique": {
           "name": "projects_external_task_id_unique",
           "nullsNotDistinct": false,
@@ -756,7 +768,7 @@
         },
         "project_id": {
           "name": "project_id",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1705,7 +1717,7 @@
         },
         "project_id": {
           "name": "project_id",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },

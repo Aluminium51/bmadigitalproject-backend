@@ -32,8 +32,8 @@ export const projectAttachmentTypes = pgTable("project_attachment_types", {
 // 2. MAIN TABLE: Project
 // ---------------------------------------------------------------------------
 export const projects = pgTable("projects", {
-  id: serial("project_id").primaryKey(),
-  
+  id: uuid("project_id").primaryKey(),
+  projectCode: varchar("project_code", { length: 50 }).unique(), // เพื่อให้ค้นหาง่ายขึ้น ex. "BMA-67-0001"
   // --- Relations ---
   userId: uuid("user_id").notNull(), // คนสร้างโปรเจกต์ (FK -> users.user_id)
   divisionId: integer("division_id").notNull(), // ส่วนราชการเจ้าของโครงการ (FK -> divisions.division_id)
@@ -71,9 +71,9 @@ export const projects = pgTable("projects", {
 // ---------------------------------------------------------------------------
 export const projectAttachments = pgTable("project_attachments", {
   id: serial("project_atm_id").primaryKey(),
-  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
   
-  uploadedBy: integer("uploaded_by").notNull(), // คนอัปโหลด (FK -> users.user_id)
+  uploadedBy: uuid("uploaded_by").notNull(), // คนอัปโหลด (FK -> users.user_id)
   
   fileName: varchar("file_name", { length: 500 }).notNull(),
   fileUrl: varchar("file_url", { length: 1000 }).notNull(),
