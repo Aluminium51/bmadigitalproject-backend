@@ -1,6 +1,5 @@
 // src/modules/lookups/lookup.service.ts
 import { db } from "../../db";
-// สมมติว่ามีตารางเหล่านี้ใน schema.ts
 import { divisions, fourQuadrants, projectStatuses } from "../../db/schema"; 
 import { appCache } from "../../utils/memory-cache";
 

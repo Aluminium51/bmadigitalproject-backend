@@ -279,6 +279,34 @@ export const proposalIctPersonnel = pgTable("proposal_ict_personnel", {
 });
 
 // ---------------------------------------------------------------------------
+// sub TABLE (Step 5): คำขอใช้บริการ Cloud / ระบบงาน
+// ---------------------------------------------------------------------------
+export const proposalCloudRequests = pgTable("proposal_cloud_requests", {
+  id: uuid("id").primaryKey(),
+  proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
+  
+  systemName: text("system_name").notNull(),
+  requestedServiceDate: timestamp("requested_service_date"),
+  recordedRequestDate: timestamp("recorded_request_date"),
+});
+
+// ---------------------------------------------------------------------------
+// sub TABLE (Step 5): รายละเอียด VM ของแต่ละระบบงาน
+// ---------------------------------------------------------------------------
+export const proposalCloudVms = pgTable("proposal_cloud_vms", {
+  id: uuid("id").primaryKey(),
+  cloudRequestId: uuid("cloud_request_id").references(() => proposalCloudRequests.id, { onDelete: "cascade" }).notNull(),
+  
+  vmDescription: text("vm_description").notNull(),
+  osDatabase: varchar("os_database", { length: 255 }),
+  vcpu: integer("vcpu").default(0),
+  ramGb: integer("ram_gb").default(0),
+  gpuGb: integer("gpu_gb").default(0),
+  storageGb: integer("storage_gb").default(0),
+  price: numeric("price", { precision: 15, scale: 2 }).default("0"),
+});
+
+// ---------------------------------------------------------------------------
 // ผูก Relations (สำคัญมาก: ช่วยให้เวลา Query)
 // ---------------------------------------------------------------------------
 
@@ -302,6 +330,21 @@ export const foodCostsRelations = relations(proposalTrainingFoodCosts, ({ one })
     fields: [proposalTrainingFoodCosts.trainingId],
     references: [proposalTrainings.id],
   }),
+}))
+
+export const proposalCloudRequestsRelations = relations(proposalCloudRequests, ({ one, many }) => ({
+  proposal: one(proposals, {
+    fields: [proposalCloudRequests.proposalId],
+    references: [proposals.id],
+  }),
+  vms: many(proposalCloudVms),
+}));
+
+export const proposalCloudVmsRelations = relations(proposalCloudVms, ({ one }) => ({
+  cloudRequest: one(proposalCloudRequests, {
+    fields: [proposalCloudVms.cloudRequestId],
+    references: [proposalCloudRequests.id],
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -319,4 +362,5 @@ export const proposalsRelations = relations(proposals, ({ many }) => ({
   trainings: many(proposalTrainings), // 1 proposal มีหลาย proposalTrainings
   otherCosts: many(proposalOtherCosts),
   ictPersonnel: many(proposalIctPersonnel),
+  cloudRequests: many(proposalCloudRequests),
 }));
