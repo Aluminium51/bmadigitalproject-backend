@@ -8,10 +8,12 @@ import {
   boolean, 
   timestamp, 
   jsonb, 
-  uuid, 
-  pgEnum 
+  uuid,
+  pgEnum,
 } from "drizzle-orm/pg-core";
-
+import { relations } from "drizzle-orm";
+import { users } from "./users";
+import { projects } from "./projects";
 // ---------------------------------------------------------------------------
 // ENUMS
 // ---------------------------------------------------------------------------
@@ -28,18 +30,19 @@ export const referenceTypeEnum = pgEnum("reference_type", ["MDES", "MARKET", "PR
 export const personnelTypeEnum = pgEnum("personnel_type", ["CORE", "ASST", "SUPP"]);
 export const locationTypeEnum = pgEnum("location_type", ["สถานที่ราชการ", "สถานที่เอกชน"]);
 export const costTypeEnum = pgEnum("cost_type", ["IT", "NON_IT"]);
+export const foodTypeEnum = pgEnum("food_type", ["ค่าอาหาร (ไม่ครบมื้อ)", "ค่าอาหารและเครื่องดื่ม", "ค่าอาหารว่าง", "อื่นๆ"]);
 
 // ---------------------------------------------------------------------------
 // MAIN TABLE: Proposal
 // ---------------------------------------------------------------------------
 export const proposals = pgTable("proposals", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   status: proposalStatusEnum("status").default("draft").notNull(),
   
-  projectId: uuid("project_id").unique(), // 1-to-1 กับตาราง projects
-  userId: uuid("user_id").notNull(),
-  version: integer("version").default(1),
-  updatedBy: uuid("updated_by"), // เก็บ userId ของผู้แก้ไขล่าสุด (อาจจะไม่ใช่เจ้าของโครงการ)
+  projectId: uuid("project_id").references(() => projects.id).unique(), 
+  userId: uuid("user_id").references(() => users.userId).notNull(),
+  updatedBy: uuid("updated_by").references(() => users.userId),
+  version: integer("version").default(1), 
 
   // --- Step 1: ข้อมูลเบื้องต้น ---
   projectName: text("project_name"), // ใช้ text เพราะชื่อโครงการมักจะยาว
@@ -92,7 +95,7 @@ export const proposals = pgTable("proposals", {
 // sub TABLE: ตารางงบประมาณรายปี (จาก Step 1)
 // ---------------------------------------------------------------------------
 export const proposalBudgets = pgTable("proposal_budgets", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   year: integer("year"),
   amount: numeric("amount", { precision: 15, scale: 2 }),
@@ -103,7 +106,7 @@ export const proposalBudgets = pgTable("proposal_budgets", {
 // sub TABLE: ตารางโครงการที่เกี่ยวข้อง (จาก Step 2)
 // ---------------------------------------------------------------------------
 export const proposalRelatedProjects = pgTable("proposal_related_projects", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   projectName: text("project_name"),
   agency: varchar("agency", { length: 255 }),
@@ -116,7 +119,7 @@ export const proposalRelatedProjects = pgTable("proposal_related_projects", {
 // sub TABLE: ตารางอัตรากำลัง (จาก Step 2)
 // ---------------------------------------------------------------------------
 export const proposalManpower = pgTable("proposal_manpower", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   agencyPart: varchar("agency_part", { length: 255 }),
   positionLimit: integer("position_limit"),
@@ -128,7 +131,7 @@ export const proposalManpower = pgTable("proposal_manpower", {
 // sub TABLE: ตารางครุภัณฑ์ที่มีอยู่ (จาก Step 2)
 // ---------------------------------------------------------------------------
 export const proposalExistingEquipments = pgTable("proposal_existing_equipments", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   itemName: varchar("item_name", { length: 255 }),
   ageYears: numeric("age_years", { precision: 5, scale: 2 }),
@@ -142,7 +145,7 @@ export const proposalExistingEquipments = pgTable("proposal_existing_equipments"
 //sub TABLE: ค่าฮาร์ดแวร์ (Step 4)
 // ---------------------------------------------------------------------------
 export const proposalHardwareCosts = pgTable("proposal_hardware_costs", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   
   itemName: text("item_name"),
@@ -164,7 +167,7 @@ export const proposalHardwareCosts = pgTable("proposal_hardware_costs", {
 // sub TABLE: ค่าซอฟต์แวร์ (Step 4)
 // ---------------------------------------------------------------------------
 export const proposalSoftwareCosts = pgTable("proposal_software_costs", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   
   itemName: text("item_name"),
@@ -187,7 +190,7 @@ export const proposalSoftwareCosts = pgTable("proposal_software_costs", {
 // ยุบรวม CORE, ASST, SUPP ไว้ในตารางเดียว แล้วแยกด้วยคอลัมน์ personnel_type
 // ---------------------------------------------------------------------------
 export const proposalPersonnelCosts = pgTable("proposal_personnel_costs", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   
   personnelType: personnelTypeEnum("personnel_type").notNull(), // แยกประเภท CORE, ASST, SUPP
@@ -205,7 +208,7 @@ export const proposalPersonnelCosts = pgTable("proposal_personnel_costs", {
 // sub TABLE: หน้าที่ความรับผิดชอบบุคลากร (Step 4)
 // ---------------------------------------------------------------------------
 export const proposalPersonnelResponsibilities = pgTable("proposal_personnel_responsibilities", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   
   position: varchar("position", { length: 255 }),
@@ -214,10 +217,9 @@ export const proposalPersonnelResponsibilities = pgTable("proposal_personnel_res
 
 // ---------------------------------------------------------------------------
 // sub TABLE: โครงการฝึกอบรม (Step 4)
-// ใช้ JSONB เก็บวิทยากรและค่าอาหาร เพื่อลดความซับซ้อนของ Database Relation
 // ---------------------------------------------------------------------------
 export const proposalTrainings = pgTable("proposal_trainings", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   
   courseName: text("course_name"),
@@ -226,17 +228,35 @@ export const proposalTrainings = pgTable("proposal_trainings", {
   
   hasSpeakerCost: boolean("has_speaker_cost").default(false),
   speakerReason: text("speaker_reason"),
+});
+
+export const proposalTrainingSpeakerCosts = pgTable("proposal_training_speaker_costs", {
+  id: uuid("id").primaryKey(),
+  trainingId: uuid("training_id").references(() => proposalTrainings.id, { onDelete: "cascade" }).notNull(),
   
-  // เก็บ Array ของ Speaker และ Food ในรูปแบบ JSON 
-  speakerCosts: jsonb("speaker_costs").default('[]'),
-  foodCosts: jsonb("food_costs").default('[]'),
+  itemName: text("item_name").notNull(),
+  hours: integer("hours").notNull(),
+  ratePerHour: numeric("rate_per_hour", { precision: 10, scale: 2 }).notNull(),
+  days: integer("days").notNull(),
+});
+
+export const proposalTrainingFoodCosts = pgTable("proposal_training_food_costs", {
+  id: uuid("id").primaryKey(),
+  trainingId: uuid("training_id").references(() => proposalTrainings.id, { onDelete: "cascade" }).notNull(),
+  
+  // lookup: อาหารกลางวัน, อาหารว่าง, อาหารเย็น, อื่นๆ
+  itemName: foodTypeEnum("item_name").notNull(),
+  mealsCount: integer("meals_count").notNull(),
+  ratePerMeal: numeric("rate_per_meal", { precision: 10, scale: 2 }).notNull(),
+  traineesCount: integer("trainees_count").notNull(),
+  days: integer("days").notNull(),
 });
 
 // ---------------------------------------------------------------------------
 // sub TABLE: ค่าใช้จ่ายอื่นๆ (Step 4)
 // ---------------------------------------------------------------------------
 export const proposalOtherCosts = pgTable("proposal_other_costs", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   
   itemName: text("item_name"),
@@ -250,10 +270,53 @@ export const proposalOtherCosts = pgTable("proposal_other_costs", {
 // sub TABLE: บุคลากรด้าน ICT ที่มีอยู่ (Step 5)
 // ---------------------------------------------------------------------------
 export const proposalIctPersonnel = pgTable("proposal_ict_personnel", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  id: uuid("id").primaryKey(),
   proposalId: uuid("proposal_id").references(() => proposals.id, { onDelete: "cascade" }).notNull(),
   
   position: varchar("position", { length: 255 }),
   level: varchar("level", { length: 255 }),
   count: integer("count"),
 });
+
+// ---------------------------------------------------------------------------
+// ผูก Relations (สำคัญมาก: ช่วยให้เวลา Query)
+// ---------------------------------------------------------------------------
+
+// 1 proposalTrainings มีหลาย proposalTrainingSpeakerCosts และ proposalTrainingFoodCosts
+export const proposalTrainingsRelations = relations(proposalTrainings, ({ many }) => ({
+  speakerCosts: many(proposalTrainingSpeakerCosts),
+  foodCosts: many(proposalTrainingFoodCosts),
+}));
+
+// 1 proposalTrainingSpeakerCosts belongs to 1 proposalTrainings
+export const speakerCostsRelations = relations(proposalTrainingSpeakerCosts, ({ one }) => ({
+  training: one(proposalTrainings, {
+    fields: [proposalTrainingSpeakerCosts.trainingId],
+    references: [proposalTrainings.id],
+  }),
+}));
+
+// 1 proposalTrainingFoodCosts belongs to 1 proposalTrainings
+export const foodCostsRelations = relations(proposalTrainingFoodCosts, ({ one }) => ({
+  training: one(proposalTrainings, {
+    fields: [proposalTrainingFoodCosts.trainingId],
+    references: [proposalTrainings.id],
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// ผูก Relations สำหรับตารางหลัก Proposals
+// ---------------------------------------------------------------------------
+export const proposalsRelations = relations(proposals, ({ many }) => ({
+  budgets: many(proposalBudgets), // 1 proposal มีหลาย proposalBudgets
+  relatedProjects: many(proposalRelatedProjects), // 1 proposal มีหลาย proposalRelatedProjects
+  manpower: many(proposalManpower),
+  existingEquipments: many(proposalExistingEquipments),
+  hardwareCosts: many(proposalHardwareCosts),
+  softwareCosts: many(proposalSoftwareCosts),
+  personnelCosts: many(proposalPersonnelCosts),
+  personnelResponsibilities: many(proposalPersonnelResponsibilities),
+  trainings: many(proposalTrainings), // 1 proposal มีหลาย proposalTrainings
+  otherCosts: many(proposalOtherCosts),
+  ictPersonnel: many(proposalIctPersonnel),
+}));

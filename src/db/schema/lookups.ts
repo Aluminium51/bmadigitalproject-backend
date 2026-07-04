@@ -2,6 +2,27 @@
 import { pgTable, serial, varchar, integer } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+// ---------------------------------------------------------------------------
+// Project Lookup Tables
+// ---------------------------------------------------------------------------
+export const projectStatuses = pgTable("project_statuses", {
+  id: serial("project_status_id").primaryKey(),
+  statusName: varchar("project_status_name", { length: 255 }).unique().notNull(),
+});
+
+export const projectTypes = pgTable("project_types", {
+  id: serial("project_type_id").primaryKey(),
+  typeName: varchar("project_type_name", { length: 255 }).unique().notNull(),
+});
+
+export const projectAttachmentTypes = pgTable("project_attachment_types", {
+  id: serial("doc_type_id").primaryKey(),
+  docTypeName: varchar("doc_type_name", { length: 255 }).unique().notNull(), // ex. 'system_diagram', 'network_diagram', 'use_case_diagram', 'security_diagram', 'presentation', 'report', 'ใบเบิกเงิน', 'other'
+});
+
+// ---------------------------------------------------------------------------
+// Proposal Lookup Tables
+// ---------------------------------------------------------------------------
 export const departments = pgTable("departments", {
   departmentId: serial("department_id").primaryKey(),
   departmentName: varchar("department_name", { length: 255 }).unique().notNull(),

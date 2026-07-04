@@ -7,13 +7,15 @@ import {
   jsonb, 
   timestamp 
 } from "drizzle-orm/pg-core";
+import { projects } from "./projects";
+import { users } from "./users";
 
 export const proposalDrafts = pgTable("proposal_drafts", {
-  id: uuid("draft_id").defaultRandom().primaryKey(),
+  id: uuid("draft_id").primaryKey(),
   
   // Relations
-  projectId: uuid("project_id").unique(), // 1-to-1 กับตาราง projects
-  userId: uuid("user_id").notNull(),
+  projectId: uuid("project_id").references(() => projects.id).unique(), // 1-to-1 กับตาราง projects
+  userId: uuid("user_id").references(() => users.userId).notNull(),
   
   // Summary Fields (สำหรับดึงไปโชว์ในหน้าตาราง List อย่างรวดเร็ว โดยไม่ต้อง Parse JSON)
   objective: text("objective"),
