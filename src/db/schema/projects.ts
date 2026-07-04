@@ -9,6 +9,8 @@ import {
   numeric,
   uuid
 } from "drizzle-orm/pg-core";
+import { divisions, fourQuadrants, deputyGovernors } from "./lookups";
+import { users } from "./users";
 
 // ---------------------------------------------------------------------------
 // 1. Master Data สำหรับโปรเจกต์
@@ -40,6 +42,8 @@ export const projects = pgTable("projects", {
   
   projectStatusId: integer("project_status_id").references(() => projectStatuses.id),
   projectTypeId: integer("project_type_id").references(() => projectTypes.id),
+  fourQuadrantsId: integer("four_quadrants_id").references(() => fourQuadrants.id),
+  deputyGovernorId: integer("deputy_governor_id").references(() => deputyGovernors.id),
 
   //  --- Budget Summaries --- 
   initialRequestedBudget: numeric("initial_requested_budget", { precision: 15, scale: 2 }), // งบที่ขอตอนแรก
@@ -69,6 +73,7 @@ export const projects = pgTable("projects", {
 // ---------------------------------------------------------------------------
 // 3. SUB TABLE: Project_Attachment
 // ---------------------------------------------------------------------------
+// user can upload files both create proposal page and project detail page. So we need a separate table to store the attachments.
 export const projectAttachments = pgTable("project_attachments", {
   id: serial("project_atm_id").primaryKey(),
   projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),

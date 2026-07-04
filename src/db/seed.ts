@@ -1,7 +1,7 @@
 // src/db/seed.ts
 import { db } from "./index";
 import { roles, users, roleUsers } from "./schema/users";
-import { departments, divisions } from "./schema/lookups";
+import { departments, deputyGovernors, divisions, fourQuadrants } from "./schema/lookups";
 import { eq } from "drizzle-orm";
 import { projectTypes } from "./schema/projects";
 import { v7 as uuidv7 } from "uuid";
@@ -59,6 +59,36 @@ async function main() {
         { id: 2, typeName: "Software" }
       ]);
       console.log("   ✅ เพิ่มประเภทโครงการ สำเร็จ");
+    }
+
+    // 4 Quadrants
+    console.log(">> ตรวจสอบและสร้างข้อมูล 4 Quadrants...");
+    const existingQuadrant = await db.query.fourQuadrants.findFirst({
+      where: eq(fourQuadrants.id, 1)
+    });
+    if (!existingQuadrant) {
+      await db.insert(fourQuadrants).values([
+        { id: 1, name: "Q1: เพิ่มประสิทธิภาพ" },
+        { id: 2, name: "Q2: งานประจำที่บริการประชาชน" },
+        { id: 3, name: "Q3: งานหลังบ้านที่เป็นงานใหม่" },
+        { id: 4, name: "Q4: ยุทธศาสตร์ / งานอนาคต" }
+      ]);
+      console.log("   ✅ เพิ่มข้อมูล 4 Quadrants สำเร็จ");
+    }
+
+    // Deputy Governors
+    console.log(">> ตรวจสอบและสร้างข้อมูล รองผู้ว่าฯ...");
+    const existingDeputyGovernor = await db.query.deputyGovernors.findFirst({
+      where: eq(fourQuadrants.id, 1)
+    });
+    if (!existingDeputyGovernor) {
+      await db.insert(deputyGovernors).values([
+        { id: 1, name: "รองผู้ว่าฯ ด้านบริหาร" },
+        { id: 2, name: "รองผู้ว่าฯ ด้านเศรษฐกิจ" },
+        { id: 3, name: "รองผู้ว่าฯ ด้านสังคม" },
+        { id: 4, name: "รองผู้ว่าฯ ด้านสิ่งแวดล้อม" }
+      ]);
+      console.log("   ✅ เพิ่มข้อมูล รองผู้ว่าฯ สำเร็จ");
     }
 
     // First Admin User

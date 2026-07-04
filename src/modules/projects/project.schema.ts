@@ -13,6 +13,8 @@ export const ProjectSchema = z.object({
   divisionId: z.number().openapi({ example: 12 }),
   projectStatusId: z.number().nullable().openapi({ example: 1 }),
   projectTypeId: z.number().nullable().openapi({ example: 2 }),
+  fourQuadrantsId: z.number().nullable().openapi({ example: 1 }),
+  deputyGovernorId: z.number().nullable().openapi({ example: 3 }),
   externalTaskId: z.string().nullable().openapi({ example: null }),
   projectName: z.string().nullable().openapi({ example: 'โครงการพัฒนาระบบให้บริการประชาชน' }),
   projectNameOriginal: z.string().nullable().openapi({ example: 'โครงการพัฒนาระบบให้บริการประชาชน' }),
@@ -34,6 +36,8 @@ export const CreateProjectSchema = z.object({
   divisionId: z.number().int("รหัสส่วนราชการต้องเป็นตัวเลข").openapi({ example: 12 }),
   projectTypeId: z.number().int().optional().openapi({ example: 2 }),
   isPublic: z.boolean().default(false).openapi({ example: false }),
+  fourQuadrantsId: z.number().int().optional().openapi({ example: 1 }),
+  deputyGovernorId: z.number().int().optional().openapi({ example: 3 }),
 });
 
 // Schema สำหรับอัปเดต

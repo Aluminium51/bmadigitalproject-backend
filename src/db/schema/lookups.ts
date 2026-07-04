@@ -27,3 +27,15 @@ export const divisionRelations = relations(divisions, ({ one }) => ({
     references: [departments.departmentId],
   }),
 }));
+
+// ตาราง Lookup สำหรับ 4 Quadrants Model
+export const fourQuadrants = pgTable("four_quadrants", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(), // เช่น "Q1: ลดรายจ่าย", "Q2: เพิ่มรายได้"
+});
+
+// ตาราง Lookup สำหรับ รองผู้ว่าฯ ที่ดูแล
+export const deputyGovernors = pgTable("deputy_governors", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(), // ชื่อรองผู้ว่าฯ
+});

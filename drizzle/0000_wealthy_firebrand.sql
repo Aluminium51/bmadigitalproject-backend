@@ -10,11 +10,21 @@ CREATE TABLE "departments" (
 	CONSTRAINT "departments_department_name_unique" UNIQUE("department_name")
 );
 --> statement-breakpoint
+CREATE TABLE "deputy_governors" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" varchar(255) NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "divisions" (
 	"division_id" serial PRIMARY KEY NOT NULL,
 	"department_id" integer NOT NULL,
 	"division_name" varchar(255) NOT NULL,
 	CONSTRAINT "divisions_division_name_unique" UNIQUE("division_name")
+);
+--> statement-breakpoint
+CREATE TABLE "four_quadrants" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" varchar(255) NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "role_user" (
@@ -94,6 +104,8 @@ CREATE TABLE "projects" (
 	"division_id" integer NOT NULL,
 	"project_status_id" integer,
 	"project_type_id" integer,
+	"four_quadrants_id" integer,
+	"deputy_governor_id" integer,
 	"initial_requested_budget" numeric(15, 2),
 	"latest_approved_budget" numeric(15, 2),
 	"external_task_id" varchar(255),
@@ -301,6 +313,8 @@ ALTER TABLE "project_attachments" ADD CONSTRAINT "project_attachments_project_id
 ALTER TABLE "project_attachments" ADD CONSTRAINT "project_attachments_doc_type_id_project_attachment_types_doc_type_id_fk" FOREIGN KEY ("doc_type_id") REFERENCES "public"."project_attachment_types"("doc_type_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_project_status_id_project_statuses_project_status_id_fk" FOREIGN KEY ("project_status_id") REFERENCES "public"."project_statuses"("project_status_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_project_type_id_project_types_project_type_id_fk" FOREIGN KEY ("project_type_id") REFERENCES "public"."project_types"("project_type_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_four_quadrants_id_four_quadrants_id_fk" FOREIGN KEY ("four_quadrants_id") REFERENCES "public"."four_quadrants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "projects" ADD CONSTRAINT "projects_deputy_governor_id_deputy_governors_id_fk" FOREIGN KEY ("deputy_governor_id") REFERENCES "public"."deputy_governors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_budgets" ADD CONSTRAINT "proposal_budgets_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_existing_equipments" ADD CONSTRAINT "proposal_existing_equipments_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_hardware_costs" ADD CONSTRAINT "proposal_hardware_costs_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

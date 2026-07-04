@@ -1,5 +1,5 @@
 {
-  "id": "4054231d-2d4f-48a5-8085-f2f90ce1800e",
+  "id": "425e9203-a31d-4235-8650-b948cc839433",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -33,6 +33,31 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.deputy_governors": {
+      "name": "deputy_governors",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -86,6 +111,31 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.four_quadrants": {
+      "name": "four_quadrants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -616,6 +666,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "four_quadrants_id": {
+          "name": "four_quadrants_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deputy_governor_id": {
+          "name": "deputy_governor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "initial_requested_budget": {
           "name": "initial_requested_budget",
           "type": "numeric(15, 2)",
@@ -722,6 +784,32 @@
           ],
           "columnsTo": [
             "project_type_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "projects_four_quadrants_id_four_quadrants_id_fk": {
+          "name": "projects_four_quadrants_id_four_quadrants_id_fk",
+          "tableFrom": "projects",
+          "tableTo": "four_quadrants",
+          "columnsFrom": [
+            "four_quadrants_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "projects_deputy_governor_id_deputy_governors_id_fk": {
+          "name": "projects_deputy_governor_id_deputy_governors_id_fk",
+          "tableFrom": "projects",
+          "tableTo": "deputy_governors",
+          "columnsFrom": [
+            "deputy_governor_id"
+          ],
+          "columnsTo": [
+            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
