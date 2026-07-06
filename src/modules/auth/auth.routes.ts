@@ -1,3 +1,4 @@
+// src/modules/auth/auth.routes.ts
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import * as authController from './auth.controller';
 import { z } from '@hono/zod-openapi';
@@ -39,6 +40,7 @@ const verifyRoute = createRoute({
   },
 });
 
+// ดึงข้อมูล request ที่ผ่านการ validate มาใช้งานได้ถูกต้องปลอดภัย
 app.openapi(loginRoute, (c) => authController.login(c, c.req.valid('json')));
 app.openapi(verifyRoute, (c) => authController.verifyEmail(c));
 

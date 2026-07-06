@@ -1,5 +1,5 @@
 {
-  "id": "425e9203-a31d-4235-8650-b948cc839433",
+  "id": "29e8dbd5-7038-4bc0-89d7-1b5dd72e5e5c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -136,6 +136,105 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.project_attachment_types": {
+      "name": "project_attachment_types",
+      "schema": "",
+      "columns": {
+        "doc_type_id": {
+          "name": "doc_type_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "doc_type_name": {
+          "name": "doc_type_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "project_attachment_types_doc_type_name_unique": {
+          "name": "project_attachment_types_doc_type_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "doc_type_name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.project_statuses": {
+      "name": "project_statuses",
+      "schema": "",
+      "columns": {
+        "project_status_id": {
+          "name": "project_status_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "project_status_name": {
+          "name": "project_status_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "project_statuses_project_status_name_unique": {
+          "name": "project_statuses_project_status_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "project_status_name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.project_types": {
+      "name": "project_types",
+      "schema": "",
+      "columns": {
+        "project_type_id": {
+          "name": "project_type_id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "project_type_name": {
+          "name": "project_type_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "project_types_project_type_name_unique": {
+          "name": "project_types_project_type_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "project_type_name"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -438,39 +537,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.project_attachment_types": {
-      "name": "project_attachment_types",
-      "schema": "",
-      "columns": {
-        "doc_type_id": {
-          "name": "doc_type_id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "doc_type_name": {
-          "name": "doc_type_name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "project_attachment_types_doc_type_name_unique": {
-          "name": "project_attachment_types_doc_type_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "doc_type_name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.project_attachments": {
       "name": "project_attachments",
       "schema": "",
@@ -560,68 +626,28 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.project_statuses": {
-      "name": "project_statuses",
+    "public.project_sequences": {
+      "name": "project_sequences",
       "schema": "",
       "columns": {
-        "project_status_id": {
-          "name": "project_status_id",
-          "type": "serial",
+        "year": {
+          "name": "year",
+          "type": "integer",
           "primaryKey": true,
           "notNull": true
         },
-        "project_status_name": {
-          "name": "project_status_name",
-          "type": "varchar(255)",
+        "last_value": {
+          "name": "last_value",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": 0
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "project_statuses_project_status_name_unique": {
-          "name": "project_statuses_project_status_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "project_status_name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.project_types": {
-      "name": "project_types",
-      "schema": "",
-      "columns": {
-        "project_type_id": {
-          "name": "project_type_id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "project_type_name": {
-          "name": "project_type_name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "project_types_project_type_name_unique": {
-          "name": "project_types_project_type_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "project_type_name"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -851,8 +877,7 @@
           "name": "draft_id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "project_id": {
           "name": "project_id",
@@ -865,6 +890,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "project_name": {
+          "name": "project_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "objective": {
           "name": "objective",
@@ -913,7 +944,34 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "proposal_drafts_project_id_projects_project_id_fk": {
+          "name": "proposal_drafts_project_id_projects_project_id_fk",
+          "tableFrom": "proposal_drafts",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "project_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "proposal_drafts_user_id_users_user_id_fk": {
+          "name": "proposal_drafts_user_id_users_user_id_fk",
+          "tableFrom": "proposal_drafts",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "proposal_drafts_project_id_unique": {
@@ -936,8 +994,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -986,6 +1043,149 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.proposal_cloud_requests": {
+      "name": "proposal_cloud_requests",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "proposal_id": {
+          "name": "proposal_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "system_name": {
+          "name": "system_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_service_date": {
+          "name": "requested_service_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorded_request_date": {
+          "name": "recorded_request_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "proposal_cloud_requests_proposal_id_proposals_id_fk": {
+          "name": "proposal_cloud_requests_proposal_id_proposals_id_fk",
+          "tableFrom": "proposal_cloud_requests",
+          "tableTo": "proposals",
+          "columnsFrom": [
+            "proposal_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.proposal_cloud_vms": {
+      "name": "proposal_cloud_vms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "cloud_request_id": {
+          "name": "cloud_request_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vm_description": {
+          "name": "vm_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "os_database": {
+          "name": "os_database",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vcpu": {
+          "name": "vcpu",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "ram_gb": {
+          "name": "ram_gb",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "gpu_gb": {
+          "name": "gpu_gb",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "storage_gb": {
+          "name": "storage_gb",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "proposal_cloud_vms_cloud_request_id_proposal_cloud_requests_id_fk": {
+          "name": "proposal_cloud_vms_cloud_request_id_proposal_cloud_requests_id_fk",
+          "tableFrom": "proposal_cloud_vms",
+          "tableTo": "proposal_cloud_requests",
+          "columnsFrom": [
+            "cloud_request_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.proposal_existing_equipments": {
       "name": "proposal_existing_equipments",
       "schema": "",
@@ -994,8 +1194,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1070,8 +1269,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1183,8 +1381,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1241,8 +1438,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1305,8 +1501,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1376,8 +1571,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1471,8 +1665,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1523,8 +1716,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1593,8 +1785,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1698,6 +1889,139 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.proposal_training_food_costs": {
+      "name": "proposal_training_food_costs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "training_id": {
+          "name": "training_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_name": {
+          "name": "item_name",
+          "type": "food_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "meals_count": {
+          "name": "meals_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate_per_meal": {
+          "name": "rate_per_meal",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trainees_count": {
+          "name": "trainees_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days": {
+          "name": "days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "proposal_training_food_costs_training_id_proposal_trainings_id_fk": {
+          "name": "proposal_training_food_costs_training_id_proposal_trainings_id_fk",
+          "tableFrom": "proposal_training_food_costs",
+          "tableTo": "proposal_trainings",
+          "columnsFrom": [
+            "training_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.proposal_training_speaker_costs": {
+      "name": "proposal_training_speaker_costs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "training_id": {
+          "name": "training_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_name": {
+          "name": "item_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "hours": {
+          "name": "hours",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate_per_hour": {
+          "name": "rate_per_hour",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days": {
+          "name": "days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "proposal_training_speaker_costs_training_id_proposal_trainings_id_fk": {
+          "name": "proposal_training_speaker_costs_training_id_proposal_trainings_id_fk",
+          "tableFrom": "proposal_training_speaker_costs",
+          "tableTo": "proposal_trainings",
+          "columnsFrom": [
+            "training_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.proposal_trainings": {
       "name": "proposal_trainings",
       "schema": "",
@@ -1706,8 +2030,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "proposal_id": {
           "name": "proposal_id",
@@ -1746,20 +2069,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "speaker_costs": {
-          "name": "speaker_costs",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'[]'"
-        },
-        "food_costs": {
-          "name": "food_costs",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "'[]'"
         }
       },
       "indexes": {},
@@ -1792,8 +2101,7 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "notNull": true
         },
         "status": {
           "name": "status",
@@ -1815,18 +2123,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "default": 1
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "project_name": {
           "name": "project_name",
@@ -2036,7 +2344,47 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "proposals_project_id_projects_project_id_fk": {
+          "name": "proposals_project_id_projects_project_id_fk",
+          "tableFrom": "proposals",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "project_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "proposals_user_id_users_user_id_fk": {
+          "name": "proposals_user_id_users_user_id_fk",
+          "tableFrom": "proposals",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "proposals_updated_by_users_user_id_fk": {
+          "name": "proposals_updated_by_users_user_id_fk",
+          "tableFrom": "proposals",
+          "tableTo": "users",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "proposals_project_id_unique": {
@@ -2061,12 +2409,22 @@
         "NON_IT"
       ]
     },
+    "public.food_type": {
+      "name": "food_type",
+      "schema": "public",
+      "values": [
+        "PARTIAL_MEAL",
+        "FULL_MEAL",
+        "SNACK",
+        "OTHER"
+      ]
+    },
     "public.location_type": {
       "name": "location_type",
       "schema": "public",
       "values": [
-        "สถานที่ราชการ",
-        "สถานที่เอกชน"
+        "GOVERNMENT",
+        "PRIVATE"
       ]
     },
     "public.personnel_type": {
@@ -2082,9 +2440,9 @@
       "name": "project_type",
       "schema": "public",
       "values": [
-        "จัดหาใหม่",
-        "ทดแทนระบบเดิม",
-        "โครงการต่อเนื่อง"
+        "NEW",
+        "REPLACEMENT",
+        "CONTINUOUS"
       ]
     },
     "public.proposal_status": {

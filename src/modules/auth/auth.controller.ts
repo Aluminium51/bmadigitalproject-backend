@@ -21,7 +21,7 @@ export const login = async (c: Context, body: LoginBody) => {
       where: eq(users.username, username),
     });
 
-// 1. ถ้าไม่พบ User
+    // 1. ถ้าไม่พบ User
     if (!user) {
       return c.json({ 
         error: "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง", 
@@ -46,11 +46,11 @@ export const login = async (c: Context, body: LoginBody) => {
     }
 
     // 2. โค้ดส่วนสร้าง JWT ของจริง!
-    // Payload คือ "ไส้ใน" ของ Token ที่เราต้องการให้หน้าบ้านรู้
+    // เปลี่ยนจาก id เป็น userId เพื่อให้เป็นมาตรฐานเดียวกันทั้งระบบ และรองรับ Middleware
     const payload = {
-      id: user.userId,
+      userId: user.userId, 
       username: user.username,
-      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // กำหนดหมดอายุใน 24 ชั่วโมง (เวลาปัจจุบัน + 86400 วินาที)
+      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // กำหนดหมดอายุใน 24 ชั่วโมง
     };
     
     // ดึง Secret Key จาก .env (ถ้าไม่มีให้ระเบิดตัวเอง)
@@ -63,9 +63,9 @@ export const login = async (c: Context, body: LoginBody) => {
     // 3. ส่ง Token ของจริงที่ได้ กลับไปให้ Frontend
     return c.json({
       message: "Login Successful",
-      token: token, // ตรงนี้จะกลายเป็นตัวอักษรขยุกขยิกยาวๆ ตามมาตรฐาน JWT แล้ว!
+      token: token, 
       user: {
-        id: user.userId,
+        userId: user.userId,
         username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -112,10 +112,10 @@ export const verifyEmail = async (c: Context) => {
     const token = c.req.query("token");
     
     if (!token) {
-      return c.json({ error: "ไม่พบข้อมูล Token ยืนยัน" }, 400);
+      return c.json({ error: "ไม่พบข้อมูล Token ยืนยัน", field: "token" }, 400);
     }
 
-    // ปรับมาใช้ db.select() แบบมาตรฐาน (ลดโอกาสพังจากเรื่อง Schema configuration)
+    // ปรับมาใช้ db.select() แบบมาตรฐาน
     const [user] = await db
       .select()
       .from(users)
@@ -124,12 +124,12 @@ export const verifyEmail = async (c: Context) => {
 
     // ❌ กรณีที่ 1: หาตัว Token นี้ไม่เจอในระบบ
     if (!user) {
-      return c.json({ error: "ลิงก์ยืนยันไม่ถูกต้อง หรือบัญชีนี้ได้รับการยืนยันไปแล้ว" }, 400);
+      return c.json({ error: "ลิงก์ยืนยันไม่ถูกต้อง หรือบัญชีนี้ได้รับการยืนยันไปแล้ว", field: "token" }, 400);
     }
 
     // ❌ กรณีที่ 2: ลิงก์หมดอายุ (เกิน 24 ชั่วโมง)
     if (user.verificationExpires && new Date() > user.verificationExpires) {
-      return c.json({ error: "ลิงก์ยืนยันหมดอายุแล้ว กรุณาติดต่อผู้ดูแลระบบหรือสมัครใหม่" }, 400);
+      return c.json({ error: "ลิงก์ยืนยันหมดอายุแล้ว กรุณาติดต่อผู้ดูแลระบบหรือสมัครใหม่", field: "token" }, 400);
     }
 
     // ✅ ผ่านทุกเงื่อนไข -> ทำการอัปเดตสถานะในฐานข้อมูล
@@ -145,8 +145,7 @@ export const verifyEmail = async (c: Context) => {
     return c.json({ message: "ยืนยันอีเมลสำเร็จ ตอนนี้คุณสามารถเข้าสู่ระบบได้แล้ว" }, 200);
 
   } catch (error) {
-    // พิมพ์บอกใน Terminal เสมอว่าเซิร์ฟเวอร์พังเพราะอะไร
     console.error("🔴 Verification API Crashed:", error);
-    return c.json({ error: "เกิดข้อผิดพลาดภายในระบบเซิร์ฟเวอร์" }, 500);
+    return c.json({ error: "เกิดข้อผิดพลาดภายในระบบเซิร์ฟเวอร์", field: "server" }, 500);
   }
 };

@@ -9,7 +9,7 @@ export const LoginResponseSchema = z.object({
   message: z.string(),
   token: z.string(), // เราจะส่ง JWT Token กลับไปให้หน้าบ้าน
   user: z.object({
-    id: z.string(),
+    userId: z.string(),
     username: z.string(),
     firstName: z.string(),
     lastName: z.string(),

@@ -1,36 +1,27 @@
-import { eq, desc, like } from "drizzle-orm";
+import { eq, desc, like, sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db";
-import { projects } from "../../db/schema/projects";
+import { projects, projectSequences } from "../../db/schema/projects";
 import { HTTPException } from "hono/http-exception";
 import type { CreateProjectDTO, UpdateProjectDTO } from "./project.schema";
 
 // Gen รหัสโครงการ (เช่น BMA-69-0001)
 const generateProjectCode = async (): Promise<string> => {
   const currentYear = new Date().getFullYear();
-  // แปลง ค.ศ. เป็น พ.ศ. และเอาเฉพาะ 2 หลักท้าย (เช่น 2026 + 543 = 2569 -> "69")
-  const thaiYear = (currentYear + 543).toString().slice(-2);
-  const prefix = `BMA-${thaiYear}-`;
+  const thaiYear = currentYear + 543;
+  const shortYear = thaiYear.toString().slice(-2);
+  const prefix = `BMA-${shortYear}-`;
 
-  // หาโปรเจกต์ล่าสุดของปีนี้
-  const [lastProject] = await db.select({ projectCode: projects.projectCode })
-    .from(projects)
-    .where(like(projects.projectCode, `${prefix}%`))
-    .orderBy(desc(projects.projectCode))
-    .limit(1);
+  // Database จะทำหน้าที่บวก 1 ให้อัตโนมัติ (รับประกันไม่เกิด Race Condition)
+  const [sequence] = await db.insert(projectSequences)
+    .values({ year: thaiYear, lastValue: 1 })
+    .onConflictDoUpdate({
+      target: projectSequences.year,
+      set: { lastValue: sql`${projectSequences.lastValue} + 1` }
+    })
+    .returning();
 
-  // ถ้ายังไม่มีโปรเจกต์ในปีนี้เลย เริ่มที่ 0001
-  if (!lastProject || !lastProject.projectCode) {
-    return `${prefix}0001`;
-  }
-
-  // หั่นข้อความเพื่อเอาตัวเลข 4 หลักท้ายมา +1 (เช่น "BMA-69-0015" -> "0015" -> 16)
-  const lastNumberStr = lastProject.projectCode.split('-')[2];
-  const nextNumber = parseInt(lastNumberStr, 10) + 1;
-  
-  // เติม 0 ด้านหน้าให้ครบ 4 หลัก
-  const nextNumberPadded = nextNumber.toString().padStart(4, '0');
-
+  const nextNumberPadded = sequence.lastValue.toString().padStart(4, '0');
   return `${prefix}${nextNumberPadded}`;
 };
 

@@ -54,7 +54,10 @@ const getProjectByIdRoute = createRoute({
     },
   },
 });
-app.openapi(getProjectByIdRoute, (c) => projectController.getProjectById(c));
+app.openapi(getProjectByIdRoute, (c) => {
+  const { id } = c.req.valid('param');
+  return projectController.getProjectById(c, id);
+});
 
 // --- 3. Create Project ---
 const createProjectRoute = createRoute({
@@ -80,7 +83,10 @@ const createProjectRoute = createRoute({
     },
   },
 });
-app.openapi(createProjectRoute, (c) => projectController.createProject(c));
+app.openapi(createProjectRoute, (c) => {
+  const body = c.req.valid('json');
+  return projectController.createProject(c, body);
+});
 
 // --- 4. Update Project ---
 const updateProjectRoute = createRoute({
@@ -107,7 +113,11 @@ const updateProjectRoute = createRoute({
     },
   },
 });
-app.openapi(updateProjectRoute, (c) => projectController.updateProject(c));
+app.openapi(updateProjectRoute, (c) => {
+  const { id } = c.req.valid('param');
+  const body = c.req.valid('json');
+  return projectController.updateProject(c, id, body);
+});
 
 // --- 5. Delete Project ---
 const deleteProjectRoute = createRoute({
@@ -129,6 +139,9 @@ const deleteProjectRoute = createRoute({
     },
   },
 });
-app.openapi(deleteProjectRoute, (c) => projectController.deleteProject(c));
+app.openapi(deleteProjectRoute, (c) => {
+  const { id } = c.req.valid('param');
+  return projectController.deleteProject(c, id);
+});
 
 export default app;

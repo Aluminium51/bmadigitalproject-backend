@@ -3,7 +3,7 @@ import { db } from "./index";
 import { roles, users, roleUsers } from "./schema/users";
 import { departments, deputyGovernors, divisions, fourQuadrants } from "./schema/lookups";
 import { eq } from "drizzle-orm";
-import { projectTypes } from "./schema/projects";
+import { projectTypes } from "./schema/lookups";
 import { v7 as uuidv7 } from "uuid";
 
 async function main() {

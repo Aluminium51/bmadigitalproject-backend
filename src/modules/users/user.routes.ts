@@ -58,7 +58,10 @@ const getUserProfileRoute = createRoute({
     },
   },
 });
-app.openapi(getUserProfileRoute, (c) => userController.getUserProfile(c));
+app.openapi(getUserProfileRoute, (c) => {
+  const { userId } = c.req.valid('param');
+  return userController.getUserProfile(c, userId);
+});
 
 const createUserRoute = createRoute({
   method: 'post',

@@ -6,14 +6,27 @@ import userRoutesV1 from './modules/users/user.routes';
 import authRoutesV1 from './modules/auth/auth.routes';
 import healthRoutes from './modules/health/health.routes';
 import projectRoutes from "./modules/projects/project.routes";
+import proposalRoutes from "./modules/proposals/proposal.routes";
 import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
+import { startCronJobs } from './utils/cron';
 
 const app = new OpenAPIHono();
+
+app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    return c.json({ message: err.message }, err.status);
+  }
+
+  console.error(err);
+  return c.json({ message: 'Internal Server Error' }, 500);
+});
 
 // cors middleware เพื่อให้ frontend ที่รันบน localhost:3000 สามารถเรียก API ได้
 app.use('/*', cors({
   origin: 'http://localhost:3000',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  credentials: true,
 }));
 app.route('/health', healthRoutes);
 // ตั้งค่าเอกสารคู่มือ API แยกตามเวอร์ชัน
@@ -32,6 +45,7 @@ v1.route('/users', userRoutesV1);
 v1.route('/auth', authRoutesV1);
 v1.route('/uploads', uploadRoutes);
 v1.route('/projects', projectRoutes);
+v1.route('/proposals', proposalRoutes);
 app.route('/api/v1', v1);
 
 
@@ -39,6 +53,9 @@ app.route('/api/v1', v1);
 const port = process.env.PORT ? parseInt(process.env.PORT) : 8081;
 console.log(`🚀 Backend is running on http://localhost:${port}`);
 console.log(`📚 Swagger UI is at http://localhost:${port}/docs/`);
+
+// Start scheduled background jobs
+startCronJobs();
 
 export default {
   port,

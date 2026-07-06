@@ -17,7 +17,7 @@ import { projects } from "./projects";
 // ---------------------------------------------------------------------------
 // ENUMS
 // ---------------------------------------------------------------------------
-export const projectTypeEnum = pgEnum("project_type", ["จัดหาใหม่", "ทดแทนระบบเดิม", "โครงการต่อเนื่อง"]);
+export const projectTypeEnum = pgEnum("project_type", ["NEW", "REPLACEMENT", "CONTINUOUS"]);
 
 // Workflow Status
 export const proposalStatusEnum = pgEnum("proposal_status", [
@@ -28,9 +28,9 @@ export const proposalStatusEnum = pgEnum("proposal_status", [
 
 export const referenceTypeEnum = pgEnum("reference_type", ["MDES", "MARKET", "PREVIOUS", "OTHER"]);
 export const personnelTypeEnum = pgEnum("personnel_type", ["CORE", "ASST", "SUPP"]);
-export const locationTypeEnum = pgEnum("location_type", ["สถานที่ราชการ", "สถานที่เอกชน"]);
+export const locationTypeEnum = pgEnum("location_type", ["GOVERNMENT", "PRIVATE"]);
 export const costTypeEnum = pgEnum("cost_type", ["IT", "NON_IT"]);
-export const foodTypeEnum = pgEnum("food_type", ["ค่าอาหาร (ไม่ครบมื้อ)", "ค่าอาหารและเครื่องดื่ม", "ค่าอาหารว่าง", "อื่นๆ"]);
+export const foodTypeEnum = pgEnum("food_type", ["PARTIAL_MEAL", "FULL_MEAL", "SNACK", "OTHER"]);
 
 // ---------------------------------------------------------------------------
 // MAIN TABLE: Proposal
@@ -310,12 +310,6 @@ export const proposalCloudVms = pgTable("proposal_cloud_vms", {
 // ผูก Relations (สำคัญมาก: ช่วยให้เวลา Query)
 // ---------------------------------------------------------------------------
 
-// 1 proposalTrainings มีหลาย proposalTrainingSpeakerCosts และ proposalTrainingFoodCosts
-export const proposalTrainingsRelations = relations(proposalTrainings, ({ many }) => ({
-  speakerCosts: many(proposalTrainingSpeakerCosts),
-  foodCosts: many(proposalTrainingFoodCosts),
-}));
-
 // 1 proposalTrainingSpeakerCosts belongs to 1 proposalTrainings
 export const speakerCostsRelations = relations(proposalTrainingSpeakerCosts, ({ one }) => ({
   training: one(proposalTrainings, {
@@ -331,21 +325,6 @@ export const foodCostsRelations = relations(proposalTrainingFoodCosts, ({ one })
     references: [proposalTrainings.id],
   }),
 }))
-
-export const proposalCloudRequestsRelations = relations(proposalCloudRequests, ({ one, many }) => ({
-  proposal: one(proposals, {
-    fields: [proposalCloudRequests.proposalId],
-    references: [proposals.id],
-  }),
-  vms: many(proposalCloudVms),
-}));
-
-export const proposalCloudVmsRelations = relations(proposalCloudVms, ({ one }) => ({
-  cloudRequest: one(proposalCloudRequests, {
-    fields: [proposalCloudVms.cloudRequestId],
-    references: [proposalCloudRequests.id],
-  }),
-}));
 
 // ---------------------------------------------------------------------------
 // ผูก Relations สำหรับตารางหลัก Proposals
@@ -363,4 +342,116 @@ export const proposalsRelations = relations(proposals, ({ many }) => ({
   otherCosts: many(proposalOtherCosts),
   ictPersonnel: many(proposalIctPersonnel),
   cloudRequests: many(proposalCloudRequests),
+}));
+
+// ความสัมพันธ์ฝั่งตารางลูกย่อย ชี้กลับมาที่ตารางแม่ (proposals)
+export const proposalBudgetsRelations = relations(proposalBudgets, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalBudgets.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalRelatedProjectsRelations = relations(proposalRelatedProjects, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalRelatedProjects.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalManpowerRelations = relations(proposalManpower, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalManpower.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalExistingEquipmentsRelations = relations(proposalExistingEquipments, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalExistingEquipments.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalHardwareCostsRelations = relations(proposalHardwareCosts, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalHardwareCosts.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalSoftwareCostsRelations = relations(proposalSoftwareCosts, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalSoftwareCosts.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalPersonnelCostsRelations = relations(proposalPersonnelCosts, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalPersonnelCosts.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalPersonnelResponsibilitiesRelations = relations(proposalPersonnelResponsibilities, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalPersonnelResponsibilities.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalOtherCostsRelations = relations(proposalOtherCosts, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalOtherCosts.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+export const proposalIctPersonnelRelations = relations(proposalIctPersonnel, ({ one }) => ({
+  proposal: one(proposals, {
+    fields: [proposalIctPersonnel.proposalId],
+    references: [proposals.id],
+  }),
+}));
+
+// 3. ความสัมพันธ์ของกลุ่มตาราง อบรม (Trainings) และตารางหลาน (วิทยากร/อาหาร)
+// 1 proposalTrainings มีหลาย proposalTrainingSpeakerCosts และ proposalTrainingFoodCosts
+export const proposalTrainingsRelations = relations(proposalTrainings, ({ one, many }) => ({
+  proposal: one(proposals, {
+    fields: [proposalTrainings.proposalId],
+    references: [proposals.id],
+  }),
+  speakerCosts: many(proposalTrainingSpeakerCosts),
+  foodCosts: many(proposalTrainingFoodCosts),
+}));
+
+export const proposalTrainingSpeakerCostsRelations = relations(proposalTrainingSpeakerCosts, ({ one }) => ({
+  training: one(proposalTrainings, {
+    fields: [proposalTrainingSpeakerCosts.trainingId],
+    references: [proposalTrainings.id],
+  }),
+}));
+
+export const proposalTrainingFoodCostsRelations = relations(proposalTrainingFoodCosts, ({ one }) => ({
+  training: one(proposalTrainings, {
+    fields: [proposalTrainingFoodCosts.trainingId],
+    references: [proposalTrainings.id],
+  }),
+}));
+
+// 4. ความสัมพันธ์ของกลุ่มตาราง Cloud Requests และตารางหลาน VMs
+export const proposalCloudRequestsRelations = relations(proposalCloudRequests, ({ one, many }) => ({
+  proposal: one(proposals, {
+    fields: [proposalCloudRequests.proposalId],
+    references: [proposals.id],
+  }),
+  vms: many(proposalCloudVms),
+}));
+
+export const proposalCloudVmsRelations = relations(proposalCloudVms, ({ one }) => ({
+  cloudRequest: one(proposalCloudRequests, {
+    fields: [proposalCloudVms.cloudRequestId],
+    references: [proposalCloudRequests.id],
+  }),
 }));

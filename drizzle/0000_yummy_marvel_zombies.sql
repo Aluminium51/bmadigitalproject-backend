@@ -1,7 +1,8 @@
 CREATE TYPE "public"."cost_type" AS ENUM('IT', 'NON_IT');--> statement-breakpoint
-CREATE TYPE "public"."location_type" AS ENUM('สถานที่ราชการ', 'สถานที่เอกชน');--> statement-breakpoint
+CREATE TYPE "public"."food_type" AS ENUM('PARTIAL_MEAL', 'FULL_MEAL', 'SNACK', 'OTHER');--> statement-breakpoint
+CREATE TYPE "public"."location_type" AS ENUM('GOVERNMENT', 'PRIVATE');--> statement-breakpoint
 CREATE TYPE "public"."personnel_type" AS ENUM('CORE', 'ASST', 'SUPP');--> statement-breakpoint
-CREATE TYPE "public"."project_type" AS ENUM('จัดหาใหม่', 'ทดแทนระบบเดิม', 'โครงการต่อเนื่อง');--> statement-breakpoint
+CREATE TYPE "public"."project_type" AS ENUM('NEW', 'REPLACEMENT', 'CONTINUOUS');--> statement-breakpoint
 CREATE TYPE "public"."proposal_status" AS ENUM('draft', 'submitted', 'passed_1', 'rejected_1', 'fix_1', 'admin_assigned', 'passed_2', 'rejected_2', 'fix_2', 'meeting_scheduled', 'meeting_passed', 'fix_3', 'fix_4', 'meeting_rejected');--> statement-breakpoint
 CREATE TYPE "public"."reference_type" AS ENUM('MDES', 'MARKET', 'PREVIOUS', 'OTHER');--> statement-breakpoint
 CREATE TABLE "departments" (
@@ -25,6 +26,24 @@ CREATE TABLE "divisions" (
 CREATE TABLE "four_quadrants" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" varchar(255) NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "project_attachment_types" (
+	"doc_type_id" serial PRIMARY KEY NOT NULL,
+	"doc_type_name" varchar(255) NOT NULL,
+	CONSTRAINT "project_attachment_types_doc_type_name_unique" UNIQUE("doc_type_name")
+);
+--> statement-breakpoint
+CREATE TABLE "project_statuses" (
+	"project_status_id" serial PRIMARY KEY NOT NULL,
+	"project_status_name" varchar(255) NOT NULL,
+	CONSTRAINT "project_statuses_project_status_name_unique" UNIQUE("project_status_name")
+);
+--> statement-breakpoint
+CREATE TABLE "project_types" (
+	"project_type_id" serial PRIMARY KEY NOT NULL,
+	"project_type_name" varchar(255) NOT NULL,
+	CONSTRAINT "project_types_project_type_name_unique" UNIQUE("project_type_name")
 );
 --> statement-breakpoint
 CREATE TABLE "role_user" (
@@ -68,12 +87,6 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_verification_token_unique" UNIQUE("verification_token")
 );
 --> statement-breakpoint
-CREATE TABLE "project_attachment_types" (
-	"doc_type_id" serial PRIMARY KEY NOT NULL,
-	"doc_type_name" varchar(255) NOT NULL,
-	CONSTRAINT "project_attachment_types_doc_type_name_unique" UNIQUE("doc_type_name")
-);
---> statement-breakpoint
 CREATE TABLE "project_attachments" (
 	"project_atm_id" serial PRIMARY KEY NOT NULL,
 	"project_id" uuid NOT NULL,
@@ -85,16 +98,9 @@ CREATE TABLE "project_attachments" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "project_statuses" (
-	"project_status_id" serial PRIMARY KEY NOT NULL,
-	"project_status_name" varchar(255) NOT NULL,
-	CONSTRAINT "project_statuses_project_status_name_unique" UNIQUE("project_status_name")
-);
---> statement-breakpoint
-CREATE TABLE "project_types" (
-	"project_type_id" serial PRIMARY KEY NOT NULL,
-	"project_type_name" varchar(255) NOT NULL,
-	CONSTRAINT "project_types_project_type_name_unique" UNIQUE("project_type_name")
+CREATE TABLE "project_sequences" (
+	"year" integer PRIMARY KEY NOT NULL,
+	"last_value" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "projects" (
@@ -125,9 +131,10 @@ CREATE TABLE "projects" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_drafts" (
-	"draft_id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"draft_id" uuid PRIMARY KEY NOT NULL,
 	"project_id" uuid,
 	"user_id" uuid NOT NULL,
+	"project_name" text,
 	"objective" text,
 	"total_budget" numeric(15, 2),
 	"current_step" integer DEFAULT 1 NOT NULL,
@@ -139,15 +146,35 @@ CREATE TABLE "proposal_drafts" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_budgets" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"year" integer,
 	"amount" numeric(15, 2),
 	"budget_type" varchar(255)
 );
 --> statement-breakpoint
+CREATE TABLE "proposal_cloud_requests" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"proposal_id" uuid NOT NULL,
+	"system_name" text NOT NULL,
+	"requested_service_date" timestamp,
+	"recorded_request_date" timestamp
+);
+--> statement-breakpoint
+CREATE TABLE "proposal_cloud_vms" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"cloud_request_id" uuid NOT NULL,
+	"vm_description" text NOT NULL,
+	"os_database" varchar(255),
+	"vcpu" integer DEFAULT 0,
+	"ram_gb" integer DEFAULT 0,
+	"gpu_gb" integer DEFAULT 0,
+	"storage_gb" integer DEFAULT 0,
+	"price" numeric(15, 2) DEFAULT '0'
+);
+--> statement-breakpoint
 CREATE TABLE "proposal_existing_equipments" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"item_name" varchar(255),
 	"age_years" numeric(5, 2),
@@ -158,7 +185,7 @@ CREATE TABLE "proposal_existing_equipments" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_hardware_costs" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"item_name" text,
 	"quantity" integer,
@@ -175,7 +202,7 @@ CREATE TABLE "proposal_hardware_costs" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_ict_personnel" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"position" varchar(255),
 	"level" varchar(255),
@@ -183,7 +210,7 @@ CREATE TABLE "proposal_ict_personnel" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_manpower" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"agency_part" varchar(255),
 	"position_limit" integer,
@@ -192,7 +219,7 @@ CREATE TABLE "proposal_manpower" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_other_costs" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"item_name" text,
 	"quantity" integer,
@@ -202,7 +229,7 @@ CREATE TABLE "proposal_other_costs" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_personnel_costs" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"personnel_type" "personnel_type" NOT NULL,
 	"position" varchar(255),
@@ -216,14 +243,14 @@ CREATE TABLE "proposal_personnel_costs" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_personnel_responsibilities" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"position" varchar(255),
 	"responsibility" text
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_related_projects" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"project_name" text,
 	"agency" varchar(255),
@@ -233,7 +260,7 @@ CREATE TABLE "proposal_related_projects" (
 );
 --> statement-breakpoint
 CREATE TABLE "proposal_software_costs" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"item_name" text,
 	"quantity" integer,
@@ -249,25 +276,42 @@ CREATE TABLE "proposal_software_costs" (
 	"other_detail" text
 );
 --> statement-breakpoint
+CREATE TABLE "proposal_training_food_costs" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"training_id" uuid NOT NULL,
+	"item_name" "food_type" NOT NULL,
+	"meals_count" integer NOT NULL,
+	"rate_per_meal" numeric(10, 2) NOT NULL,
+	"trainees_count" integer NOT NULL,
+	"days" integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "proposal_training_speaker_costs" (
+	"id" uuid PRIMARY KEY NOT NULL,
+	"training_id" uuid NOT NULL,
+	"item_name" text NOT NULL,
+	"hours" integer NOT NULL,
+	"rate_per_hour" numeric(10, 2) NOT NULL,
+	"days" integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "proposal_trainings" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"proposal_id" uuid NOT NULL,
 	"course_name" text,
 	"training_method" varchar(255),
 	"location_type" "location_type",
 	"has_speaker_cost" boolean DEFAULT false,
-	"speaker_reason" text,
-	"speaker_costs" jsonb DEFAULT '[]',
-	"food_costs" jsonb DEFAULT '[]'
+	"speaker_reason" text
 );
 --> statement-breakpoint
 CREATE TABLE "proposals" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"status" "proposal_status" DEFAULT 'draft' NOT NULL,
 	"project_id" uuid,
 	"user_id" uuid NOT NULL,
-	"version" integer DEFAULT 1,
 	"updated_by" uuid,
+	"version" integer DEFAULT 1,
 	"project_name" text,
 	"agency_name" varchar(255),
 	"head_of_agency" varchar(255),
@@ -315,7 +359,11 @@ ALTER TABLE "projects" ADD CONSTRAINT "projects_project_status_id_project_status
 ALTER TABLE "projects" ADD CONSTRAINT "projects_project_type_id_project_types_project_type_id_fk" FOREIGN KEY ("project_type_id") REFERENCES "public"."project_types"("project_type_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_four_quadrants_id_four_quadrants_id_fk" FOREIGN KEY ("four_quadrants_id") REFERENCES "public"."four_quadrants"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_deputy_governor_id_deputy_governors_id_fk" FOREIGN KEY ("deputy_governor_id") REFERENCES "public"."deputy_governors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposal_drafts" ADD CONSTRAINT "proposal_drafts_project_id_projects_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("project_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposal_drafts" ADD CONSTRAINT "proposal_drafts_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_budgets" ADD CONSTRAINT "proposal_budgets_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposal_cloud_requests" ADD CONSTRAINT "proposal_cloud_requests_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposal_cloud_vms" ADD CONSTRAINT "proposal_cloud_vms_cloud_request_id_proposal_cloud_requests_id_fk" FOREIGN KEY ("cloud_request_id") REFERENCES "public"."proposal_cloud_requests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_existing_equipments" ADD CONSTRAINT "proposal_existing_equipments_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_hardware_costs" ADD CONSTRAINT "proposal_hardware_costs_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_ict_personnel" ADD CONSTRAINT "proposal_ict_personnel_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -325,4 +373,9 @@ ALTER TABLE "proposal_personnel_costs" ADD CONSTRAINT "proposal_personnel_costs_
 ALTER TABLE "proposal_personnel_responsibilities" ADD CONSTRAINT "proposal_personnel_responsibilities_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_related_projects" ADD CONSTRAINT "proposal_related_projects_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "proposal_software_costs" ADD CONSTRAINT "proposal_software_costs_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "proposal_trainings" ADD CONSTRAINT "proposal_trainings_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "proposal_training_food_costs" ADD CONSTRAINT "proposal_training_food_costs_training_id_proposal_trainings_id_fk" FOREIGN KEY ("training_id") REFERENCES "public"."proposal_trainings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposal_training_speaker_costs" ADD CONSTRAINT "proposal_training_speaker_costs_training_id_proposal_trainings_id_fk" FOREIGN KEY ("training_id") REFERENCES "public"."proposal_trainings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposal_trainings" ADD CONSTRAINT "proposal_trainings_proposal_id_proposals_id_fk" FOREIGN KEY ("proposal_id") REFERENCES "public"."proposals"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposals" ADD CONSTRAINT "proposals_project_id_projects_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("project_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposals" ADD CONSTRAINT "proposals_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "proposals" ADD CONSTRAINT "proposals_updated_by_users_user_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;

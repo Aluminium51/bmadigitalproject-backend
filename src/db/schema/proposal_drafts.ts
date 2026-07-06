@@ -18,6 +18,7 @@ export const proposalDrafts = pgTable("proposal_drafts", {
   userId: uuid("user_id").references(() => users.userId).notNull(),
   
   // Summary Fields (สำหรับดึงไปโชว์ในหน้าตาราง List อย่างรวดเร็ว โดยไม่ต้อง Parse JSON)
+  projectName: text("project_name"),
   objective: text("objective"),
   totalBudget: numeric("total_budget", { precision: 15, scale: 2 }),
   

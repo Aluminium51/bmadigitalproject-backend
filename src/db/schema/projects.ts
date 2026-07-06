@@ -70,3 +70,8 @@ export const projectAttachments = pgTable("project_attachments", {
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const projectSequences = pgTable("project_sequences", {
+  year: integer("year").primaryKey(), // เก็บปี พ.ศ. เช่น 2569 เป็น Primary Key
+  lastValue: integer("last_value").default(0).notNull(),
+});
