@@ -1,4 +1,5 @@
 // src/modules/proposals/proposal.routes.ts
+
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import {
   getProposal,
@@ -29,129 +30,226 @@ const DataResponseSchema = z.object({
   success: z.boolean().optional(),
 });
 
-const getMyDraftsRoute = createRoute({
-  method: "get",
-  path: "/drafts/my",
-  tags: ["Proposals"],
-  responses: {
-    200: {
-      content: { "application/json": { schema: DataResponseSchema } },
-      description: "Current user's proposal drafts",
+//
+// GET /drafts/my
+//
+proposalRoutes.openapi(
+  createRoute({
+    method: "get",
+    path: "/drafts/my",
+    tags: ["Proposals"],
+    responses: {
+      200: {
+        description: "Current user's proposal drafts",
+        content: {
+          "application/json": {
+            schema: DataResponseSchema,
+          },
+        },
+      },
     },
+  }),
+  (c) => {
+    return getMyDrafts(c);
   },
-});
-proposalRoutes.openapi(getMyDraftsRoute, async (c) => {
-  const response = await getMyDrafts(c);
-  return c.json(response, 200);
-});
+);
 
-const getDraftRoute = createRoute({
-  method: "get",
-  path: "/projects/{projectId}/draft",
-  tags: ["Proposals"],
-  request: { params: ProposalProjectParamsSchema },
-  responses: {
-    200: {
-      content: { "application/json": { schema: DataResponseSchema } },
-      description: "Proposal draft for a project",
+//
+// GET /projects/{projectId}/draft
+//
+proposalRoutes.openapi(
+  createRoute({
+    method: "get",
+    path: "/projects/{projectId}/draft",
+    tags: ["Proposals"],
+    request: {
+      params: ProposalProjectParamsSchema,
     },
-    400: {
-      content: { "application/json": { schema: ErrorSchema } },
-      description: "Invalid project id",
+    responses: {
+      200: {
+        description: "Proposal draft",
+        content: {
+          "application/json": {
+            schema: DataResponseSchema,
+          },
+        },
+      },
+      400: {
+        description: "Invalid project id",
+        content: {
+          "application/json": {
+            schema: ErrorSchema,
+          },
+        },
+      },
     },
+  }),
+  (c) => {
+    const { projectId } = c.req.valid("param");
+    return getDraft(c, projectId);
   },
-});
-proposalRoutes.openapi(getDraftRoute, (c) => {
-  const { projectId } = c.req.valid("param");
-  return getDraft(c, projectId).then((response) => c.json(response, 200));
-});
+);
 
-const initializeDraftRoute = createRoute({
-  method: "post",
-  path: "/projects/{projectId}/draft",
-  tags: ["Proposals"],
-  request: { params: ProposalProjectParamsSchema },
-  responses: {
-    201: {
-      content: { "application/json": { schema: DataResponseSchema } },
-      description: "Initialized proposal draft",
+//
+// POST /projects/{projectId}/draft
+//
+proposalRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/projects/{projectId}/draft",
+    tags: ["Proposals"],
+    request: {
+      params: ProposalProjectParamsSchema,
     },
-    400: {
-      content: { "application/json": { schema: ErrorSchema } },
-      description: "Invalid project id",
+    responses: {
+      201: {
+        description: "Initialized proposal draft",
+        content: {
+          "application/json": {
+            schema: DataResponseSchema,
+          },
+        },
+      },
+      400: {
+        description: "Invalid project id",
+        content: {
+          "application/json": {
+            schema: ErrorSchema,
+          },
+        },
+      },
     },
+  }),
+  (c) => {
+    const { projectId } = c.req.valid("param");
+    return initializeDraft(c, projectId);
   },
-});
-proposalRoutes.openapi(initializeDraftRoute, (c) => {
-  const { projectId } = c.req.valid("param");
-  return initializeDraft(c, projectId).then((response) => c.json(response, 201));
-});
+);
 
-const autoSaveDraftRoute = createRoute({
-  method: "patch",
-  path: "/projects/{projectId}/draft",
-  tags: ["Proposals"],
-  request: {
-    params: ProposalProjectParamsSchema,
-    body: { content: { "application/json": { schema: draftProposalSchema } } },
-  },
-  responses: {
-    200: {
-      content: { "application/json": { schema: DataResponseSchema } },
-      description: "Auto-saved proposal draft",
+//
+// PATCH /projects/{projectId}/draft
+//
+proposalRoutes.openapi(
+  createRoute({
+    method: "patch",
+    path: "/projects/{projectId}/draft",
+    tags: ["Proposals"],
+    request: {
+      params: ProposalProjectParamsSchema,
+      body: {
+        content: {
+          "application/json": {
+            schema: draftProposalSchema,
+          },
+        },
+      },
     },
-    400: {
-      content: { "application/json": { schema: ErrorSchema } },
-      description: "Invalid request",
+    responses: {
+      200: {
+        description: "Auto-saved proposal draft",
+        content: {
+          "application/json": {
+            schema: DataResponseSchema,
+          },
+        },
+      },
+      400: {
+        description: "Invalid request",
+        content: {
+          "application/json": {
+            schema: ErrorSchema,
+          },
+        },
+      },
     },
-  },
-});
-proposalRoutes.openapi(autoSaveDraftRoute, (c) => {
-  const { projectId } = c.req.valid("param");
-  const body = c.req.valid("json");
-  return autoSaveDraft(c, projectId, body).then((response) =>
-    c.json(response, 200),
-  );
-});
+  }),
+  (c) => {
+    const { projectId } = c.req.valid("param");
+    const body = c.req.valid("json");
 
-const getProposalRoute = createRoute({
-  method: "get",
-  path: "/by-project/{projectId}",
-  tags: ["Proposals"],
-  request: { params: ProposalProjectParamsSchema },
-  responses: {
-    200: {
-      content: { "application/json": { schema: DataResponseSchema } },
-      description: "Submitted proposal for a project",
-    },
+    return autoSaveDraft(c, projectId, body);
   },
-});
-proposalRoutes.openapi(getProposalRoute, (c) => {
-  const { projectId } = c.req.valid("param");
-  return getProposal(c, projectId).then((response) => c.json(response, 200));
-});
+);
 
-const submitProposalRoute = createRoute({
-  method: "post",
-  path: "/submit",
-  tags: ["Proposals"],
-  request: {
-    body: { content: { "application/json": { schema: submitProposalSchema } } },
-  },
-  responses: {
-    200: {
-      content: { "application/json": { schema: DataResponseSchema } },
-      description: "Submitted proposal",
+//
+// GET /projects/{projectId}
+//
+proposalRoutes.openapi(
+  createRoute({
+    method: "get",
+    path: "/projects/{projectId}",
+    tags: ["Proposals"],
+    request: {
+      params: ProposalProjectParamsSchema,
     },
-    400: {
-      content: { "application/json": { schema: ErrorSchema } },
-      description: "Invalid request",
+    responses: {
+      200: {
+        description: "Submitted proposal",
+        content: {
+          "application/json": {
+            schema: DataResponseSchema,
+          },
+        },
+      },
+      400: {
+        description: "Invalid project id",
+        content: {
+          "application/json": {
+            schema: ErrorSchema,
+          },
+        },
+      },
     },
+  }),
+  (c) => {
+    const { projectId } = c.req.valid("param");
+    return getProposal(c, projectId);
   },
-});
-proposalRoutes.openapi(submitProposalRoute, (c) => {
-  const body = c.req.valid("json");
-  return submitProposal(c, body).then((response) => c.json(response, 200));
-});
+);
+
+//
+// POST /projects/{projectId}/submit
+//
+proposalRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/projects/{projectId}/submit",
+    tags: ["Proposals"],
+    request: {
+      params: ProposalProjectParamsSchema,
+      body: {
+        content: {
+          "application/json": {
+            schema: submitProposalSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "Submitted proposal",
+        content: {
+          "application/json": {
+            schema: DataResponseSchema,
+          },
+        },
+      },
+      400: {
+        description: "Invalid request",
+        content: {
+          "application/json": {
+            schema: ErrorSchema,
+          },
+        },
+      },
+    },
+  }),
+  (c) => {
+    const { projectId } = c.req.valid("param");
+    const body = c.req.valid("json");
+
+    return submitProposal(c, projectId, body);
+  },
+);
 
 export default proposalRoutes;
