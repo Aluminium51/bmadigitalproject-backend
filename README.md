@@ -1,5 +1,13 @@
 This is backend project for BMA digital project. It is a full-stack web application that uses Bun as the runtime and package manager, Hono.js as the web framework, Drizzle ORM for database interactions, PostgreSQL as the database, Zod for validation, and Docker for deployment.
 
+## Core Features (Backend)
+
+*   **RESTful API & OpenAPI Standard:** ให้บริการ API ที่มีโครงสร้างชัดเจน พร้อมสร้าง Document อัตโนมัติผ่าน Swagger UI (`/docs`) ด้วย OpenAPIHono
+*   **Transaction-Safe Mutations:** จัดการฟอร์มข้อเสนอโครงการ (Proposal) ขนาดใหญ่ที่มีความสัมพันธ์กว่า 12 ตารางลูก ด้วย Atomic Operations และ `Promise.all` เพื่อประสิทธิภาพขั้นสุดและป้องกัน Data Inconsistency
+*   **Centralized Authentication & RBAC:** ตรวจสอบสิทธิ์ผู้ใช้ผ่าน JWT Middleware และแยกแยะ Role (เช่น User, Admin, Board) ก่อนอนุญาตให้เข้าถึง Resource 
+*   **Automated Background Jobs (Cron):** มีระบบตั้งเวลาเพื่อลบข้อมูลขยะ (Garbage Collection) เช่น แบบร่างที่ไม่มีการอัปเดตเกิน 30 วัน
+*   **PDF Compression & Storage:** รองรับการอัปโหลดไฟล์ บีบอัด PDF อัตโนมัติ และจัดการ Storage อย่างปลอดภัย
+
 ### Tech Stack
 - **Runtime & Package Manager:** Bun
 - **Framework:** Hono.js (Fast Web Framework)
@@ -104,4 +112,24 @@ for every module, we have the following structure:
 - ข้อแตกต่าง: 
     - No Business Logic, No Database Query, No HTTP Context (c)
 
-    
+
+## AI Developer Notes (System Prompt Instructions)
+
+If you are an AI Assistant, Copilot, or Cursor agent working on this backend repository, you MUST strictly adhere to the following **Separation of Concerns (Route -> Controller -> Service -> Schema)** architecture:
+
+1.  **`*.routes.ts` (API Contract ONLY):**
+    *   Use `@hono/zod-openapi` to define paths, methods, request validations (params, query, body), and response schemas.
+    *   **STRICT RULE:** NO business logic, NO database queries, and NO `if-else` processing here. Just validate and delegate to the Controller.
+2.  **`*.controller.ts` (Orchestrator ONLY):**
+    *   Extract validated data from the context (`c.req.valid(...)`) and user info (`c.get('user')`).
+    *   Pass the clean parameters to the `*.service.ts` function.
+    *   Return the standard HTTP JSON response (`return c.json({...}, 200)`).
+    *   **STRICT RULE:** Controllers must NOT execute raw database queries.
+3.  **`*.service.ts` (Business Logic & Database):**
+    *   This is the brain. Handle business rules, data formatting, and Drizzle ORM queries (`db.insert`, `db.select`, etc.).
+    *   **STRICT RULE:** Services must NOT know about Hono Context (`c`). Accept standard TypeScript primitives/objects as arguments.
+4.  **`*.schema.ts` (Single Source of Truth):**
+    *   Define all Drizzle table schemas and Zod validation schemas here. Export inferred types for DTOs.
+5.  **Global Error Handling:**
+    *   Do NOT return manual error JSONs (e.g., `return c.json({ error: "..." }, 400)`) inside controllers or services.
+    *   **STRICT RULE:** Always `throw new HTTPException(STATUS_CODE, { message: "..." })` and let the global error handler (`src/utils/error-handler.ts`) format the response uniformly.

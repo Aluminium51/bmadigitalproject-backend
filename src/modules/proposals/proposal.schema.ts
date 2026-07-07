@@ -169,9 +169,6 @@ const ictPersonnelSchema = z.object({
 });
 
 export const submitProposalSchema = z.object({
-  // Meta
-  projectId: z.string().uuid(),
-  
   // Step 1: ข้อมูลเบื้องต้น
   projectName: z.string().min(5),
   agencyName: z.string().min(2),
