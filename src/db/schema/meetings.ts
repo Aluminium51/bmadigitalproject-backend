@@ -19,7 +19,9 @@ export const meetings = pgTable("meetings", {
 
 export const agendas = pgTable("agendas", {
   id: uuid("id").primaryKey(),
-  meetingId: uuid("meeting_id").references(() => meetings.id).notNull(),
+  meetingId: uuid("meeting_id")
+    .references(() => meetings.id, { onDelete: "cascade" }) // ถ้า Meeting ถูกลบ วาระทั้งหมดจะถูกลบด้วย
+    .notNull(),
   projectId: uuid("project_id").references(() => projects.id), // Null ได้ถ้าเป็นวาระทั่วไป
   agendaNumber: varchar("agenda_number", { length: 50 }).notNull(),
   agendaTypeId: integer("agenda_type_id").references(() => agendaTypes.id).notNull(),
@@ -43,7 +45,10 @@ export const meetingAttachments = pgTable("meeting_attachments", {
 
 export const resolutions = pgTable("resolutions", {
   id: uuid("id").primaryKey(),
-  agendaId: uuid("agenda_id").references(() => agendas.id).notNull().unique(), // 1-to-1 กับ Agenda
+  agendaId: uuid("agenda_id")
+    .references(() => agendas.id , { onDelete: "cascade" })
+    .notNull()
+    .unique(), // 1-to-1 กับ Agenda
   resolutionStatusId: integer("resolution_status_id").references(() => resolutionStatuses.id).notNull(),
   comment: text("comment"),
   recordedBy: uuid("recorded_by").references(() => users.userId).notNull(),

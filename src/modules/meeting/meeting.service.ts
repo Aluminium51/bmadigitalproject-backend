@@ -46,6 +46,7 @@ export const meetingService = {
   async deleteMeeting(id: string) {
     await this.getMeetingById(id);
     await db.delete(meetings).where(eq(meetings.id, id));
+    // Next feature: if meeting has been deleted, all related agendas , resolutions, and attachments should also be deleted automatically due to cascade delete in the database schema.
     return { success: true };
   },
 
