@@ -60,3 +60,32 @@ export const deputyGovernors = pgTable("deputy_governors", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(), // ชื่อรองผู้ว่าฯ
 });
+
+// ---------------------------------------------------------------------------
+// Meeting Lookup Tables
+// ---------------------------------------------------------------------------
+export const meetingStatuses = pgTable("meeting_statuses", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(), 
+});
+
+export const meetingTypes = pgTable("meeting_types", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(), 
+});
+
+export const meetingAttachmentTypes = pgTable("meeting_attachment_types", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(), 
+});
+
+export const agendaTypes = pgTable("agenda_types", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(), 
+});
+
+export const resolutionStatuses = pgTable("resolution_statuses", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull().unique(), 
+  // สถานะแนะนำ: 1=Approved, 2=Need Revision, 3=Rejected, 4=Acknowledged
+});

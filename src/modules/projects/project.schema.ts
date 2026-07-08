@@ -5,6 +5,19 @@ export const ErrorSchema = z.object({
   message: z.string().openapi({ example: 'เกิดข้อผิดพลาดบางอย่าง' }),
 });
 
+// Schema สำหรับ Lookup แบบย่อ (ใช้สำหรับ Join ข้อมูลจากตารางอื่น เช่น Division, Status, ProjectType)
+const CompactLookupSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+});
+
+// Schema สำหรับ User แบบย่อ (ใช้สำหรับ Join ข้อมูลผู้สร้างโครงการ)
+const CompactUserSchema = z.object({
+  userId: z.string().uuid(),
+  firstName: z.string(),
+  lastName: z.string(),
+});
+
 // Schema ของโปรเจกต์เต็มรูปแบบ (ใช้สำหรับ Response)
 export const ProjectSchema = z.object({
   id: z.string().uuid().openapi({ example: '550e8400-e29b-41d4-a716-446655440000' }),
@@ -28,6 +41,12 @@ export const ProjectSchema = z.object({
   createdAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
   updatedAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
   updatedBy: z.string().uuid().nullable().openapi({ example: null }),
+
+  // เพิ่มฟิลด์ที่ถูก Join สำหรับการใช้งานฝั่งหน้าบ้าน
+  division: CompactLookupSchema.nullable().openapi({ description: 'ข้อมูลส่วนราชการเจ้าของโครงการ' }),
+  status: CompactLookupSchema.nullable().openapi({ description: 'สถานะโครงการ' }),
+  projectType: CompactLookupSchema.nullable().openapi({ description: 'ประเภทโครงการ' }),
+  owner: CompactUserSchema.nullable().openapi({ description: 'ผู้สร้างโครงการ' }),
 }).openapi('Project');
 
 // Schema สำหรับสร้าง Project ใหม่

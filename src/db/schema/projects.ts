@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { fourQuadrants, deputyGovernors } from "./lookups";
 import { projectStatuses, projectTypes, projectAttachmentTypes } from "./lookups";
+import { users } from "./users";
 
 // ---------------------------------------------------------------------------
 // MAIN TABLE: Project
@@ -57,16 +58,14 @@ export const projects = pgTable("projects", {
 // ---------------------------------------------------------------------------
 // user can upload files both create proposal page and project detail page. So we need a separate table to store the attachments.
 export const projectAttachments = pgTable("project_attachments", {
-  id: serial("project_atm_id").primaryKey(),
-  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
-  
-  uploadedBy: uuid("uploaded_by").notNull(), // คนอัปโหลด (FK -> users.user_id)
+  id: uuid("id").primaryKey(), 
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(), // if project is deleted, all attachments will be deleted too
+  docTypeId: integer("doc_type_id").references(() => projectAttachmentTypes.id).notNull(),
+  uploadedBy: uuid("uploaded_by").references(() => users.userId).notNull(), 
   
   fileName: varchar("file_name", { length: 500 }).notNull(),
   fileUrl: varchar("file_url", { length: 1000 }).notNull(),
-  fileType: varchar("file_type", { length: 100 }), // เช่น 'pdf', 'image/png'
-  
-  docTypeId: integer("doc_type_id").references(() => projectAttachmentTypes.id).notNull(),
+  fileType: varchar("file_type", { length: 100 }).notNull(), 
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

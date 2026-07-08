@@ -4,6 +4,8 @@ import { db } from "../../db";
 import { projects, projectSequences } from "../../db/schema/projects";
 import { HTTPException } from "hono/http-exception";
 import type { CreateProjectDTO, UpdateProjectDTO } from "./project.schema";
+import { divisions, projectStatuses, projectTypes } from "../../db/schema/lookups";
+import { users } from "@/db/schema/users";
 
 // Gen รหัสโครงการ (เช่น BMA-69-0001)
 const generateProjectCode = async (): Promise<string> => {
@@ -25,50 +27,93 @@ const generateProjectCode = async (): Promise<string> => {
   return `${prefix}${nextNumberPadded}`;
 };
 
+// Helper 1: สร้าง Query กลางสำหรับการ Join เพื่อไม่ให้โค้ดซ้ำซ้อน
+const getBaseProjectQuery = () => {
+  return db.select({
+    project: projects,
+    division: {
+      id: divisions.divisionId, 
+      name: divisions.divisionName  
+    },
+    status: {
+      id: projectStatuses.id,        
+      name: projectStatuses.statusName      
+    },
+    projectType: {
+      id: projectTypes.id,            
+      name: projectTypes.typeName
+    },
+    owner: {
+      userId: users.userId,
+      firstName: users.firstName,
+      lastName: users.lastName
+    }
+  })
+  .from(projects)
+  .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId))
+  .leftJoin(projectStatuses, eq(projects.projectStatusId, projectStatuses.id))
+  .leftJoin(projectTypes, eq(projects.projectTypeId, projectTypes.id))
+  .leftJoin(users, eq(projects.userId, users.userId));
+};
+
+// Helper 2: Map ข้อมูลที่ Join มาแล้วให้อยู่ใน Format ที่ตรงกับ Zod Schema
+const mapJoinedProject = (row: any) => {
+  return {
+    ...row.project,
+    // ใช้ Optional Chaining (?.) เพื่อป้องกัน Error กรณี Left Join แล้วไม่เจอข้อมูล
+    division: row.division?.id ? row.division : null,
+    status: row.status?.id ? row.status : null,
+    projectType: row.projectType?.id ? row.projectType : null,
+    owner: row.owner?.userId ? row.owner : null
+  };
+};
+
 export const findAllProjects = async () => {
-  return await db.select()
-    .from(projects)
-    .orderBy(desc(projects.createdAt));
+  const rows = await getBaseProjectQuery().orderBy(desc(projects.createdAt));
+  return rows.map(mapJoinedProject);
 };
 
 export const findProjectById = async (id: string) => {
-  const [project] = await db.select()
-    .from(projects)
-    .where(eq(projects.id, id));
+  const rows = await getBaseProjectQuery().where(eq(projects.id, id));
 
-  if (!project) {
+  if (!rows || rows.length === 0) {
     throw new HTTPException(404, { message: "ไม่พบข้อมูลโครงการ" });
   }
-  return project;
+  
+  return mapJoinedProject(rows[0]);
 };
 
 export const createProject = async (userId: string, data: CreateProjectDTO) => {
   const newId = uuidv7(); 
   const newProjectCode = await generateProjectCode();
 
-  const [newProject] = await db.insert(projects).values({
+  // 1. Insert
+  await db.insert(projects).values({
     id: newId,
     projectCode: newProjectCode,
     ...data,
     userId,
-  }).returning();
+  });
 
-  return newProject;
+  // 2. ดึงข้อมูลที่เพิ่งสร้างใหม่ขึ้นมา (พร้อม Join ตารางที่เกี่ยวข้อง) ส่งกลับไปให้ตรง Schema
+  return await findProjectById(newId);
 };
 
 export const updateProject = async (id: string, data: UpdateProjectDTO, updatedBy: string) => {
+  // ตรวจสอบว่ามีอยู่จริงไหม
   await findProjectById(id);
 
-  const [updatedProject] = await db.update(projects)
+  // 1. Update ข้อมูล
+  await db.update(projects)
     .set({
       ...data,
       updatedBy,
       updatedAt: new Date(),
     })
-    .where(eq(projects.id, id))
-    .returning();
+    .where(eq(projects.id, id));
 
-  return updatedProject;
+  // 2. ดึงข้อมูลอัปเดตล่าสุด (พร้อม Join ตารางที่เกี่ยวข้อง) ส่งกลับไปให้ตรง Schema
+  return await findProjectById(id);
 };
 
 export const removeProject = async (id: string) => {
