@@ -7,6 +7,7 @@ import authRoutesV1 from './modules/auth/auth.routes';
 import healthRoutes from './modules/health/health.routes';
 import projectRoutes from "./modules/projects/project.routes";
 import proposalRoutes from "./modules/proposals/proposal.routes";
+import meetingRoutes from "./modules/meeting/meeting.routes";
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { startCronJobs } from './utils/cron';
@@ -46,6 +47,7 @@ v1.route('/auth', authRoutesV1);
 v1.route('/uploads', uploadRoutes);
 v1.route('/projects', projectRoutes);
 v1.route('/proposals', proposalRoutes);
+v1.route('/meetings', meetingRoutes);
 app.route('/api/v1', v1);
 
 
