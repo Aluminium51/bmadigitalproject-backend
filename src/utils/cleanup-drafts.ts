@@ -2,8 +2,12 @@
 // สคริปต์สำหรับลบ Draft ที่ไม่มีการอัปเดตเกิน 30 วัน
 // ใช้งาน: bun run src/utils/cleanup-drafts.ts
 // สามารถตั้ง Cron Job ให้รันเป็นประจำทุกสัปดาห์ได้
-
 import { proposalService } from "../modules/proposals/proposal.service";
+
+interface DeletedDraft {
+  id: string | number;
+  projectId: string | number;
+}
 
 const DAYS_OLD = 30;
 
@@ -11,7 +15,7 @@ async function main() {
   console.log(`🧹 เริ่มลบ Draft ที่ไม่มีการอัปเดตเกิน ${DAYS_OLD} วัน...`);
   
   try {
-    const deleted = await proposalService.deleteStaleDrafts(DAYS_OLD);
+    const deleted = await proposalService.deleteStaleDrafts(DAYS_OLD) as DeletedDraft[];
     
     if (deleted.length === 0) {
       console.log("✅ ไม่มี Draft ที่หมดอายุ");

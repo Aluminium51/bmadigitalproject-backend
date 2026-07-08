@@ -2,37 +2,25 @@ import { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { proposalService } from "./proposal.service";
 import type { DraftProposalDTO, SubmitProposalDTO } from "./proposal.schema";
-
-const getUserId = (c: Context) => {
-  const user = c.get("user");
-  const userId = user?.userId ?? user?.id;
-
-  if (!userId) {
-    throw new HTTPException(401, { message: "Unauthorized" });
-  }
-
-  return userId;
-};
+import { getUserId } from "../../utils/controller-helper";
 
 export const getProposal = async (c: Context, projectId: string) => {
+  getUserId(c);
   const proposal = await proposalService.getProposalByProjectId(projectId);
   if (!proposal)
     return c.json({ data: null, message: "No proposal found" }, 200);
   return c.json({ data: proposal }, 200);
 };
 
-export const getDraft = async (c: Context, projectId: string) => {
+export const getDraftByProjectId = async (c: Context, projectId: string) => {
+  getUserId(c);
   const draft = await proposalService.getDraftByProjectId(projectId);
   if (!draft) return c.json({ data: null, message: "ไม่พบข้อมูลแบบร่าง" }, 200);
   return c.json({ data: draft }, 200);
 };
 
 export const initializeDraft = async (c: Context, projectId: string) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id)
-    throw new HTTPException(401, { message: "Unauthorized" });
-
-  const userId = user.userId ?? user.id;
+  const userId = getUserId(c);
   const draft = await proposalService.initializeDraft(projectId, userId);
   return c.json({ success: true, data: draft }, 201);
 };
@@ -42,11 +30,7 @@ export const autoSaveDraft = async (
   projectId: string,
   body: DraftProposalDTO,
 ) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id)
-    throw new HTTPException(401, { message: "Unauthorized" });
-
-  const userId = user.userId ?? user.id;
+  const userId = getUserId(c);
   const savedDraft = await proposalService.upsertDraft(projectId, userId, body);
 
   return c.json(
@@ -60,11 +44,7 @@ export const autoSaveDraft = async (
 };
 
 export const getMyDrafts = async (c: Context) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id)
-    throw new HTTPException(401, { message: "Unauthorized" });
-
-  const userId = user.userId ?? user.id;
+  const userId = getUserId(c);
   const drafts = await proposalService.getMyDrafts(userId);
   return c.json({ data: drafts }, 200);
 };
@@ -75,11 +55,7 @@ export const submitProposal = async (
   projectId: string,
   body: SubmitProposalDTO,
 ) => {
-  const user = c.get("user");
-  if (!user?.userId && !user?.id)
-    throw new HTTPException(401, { message: "Unauthorized" });
-
-  const userId = user.userId ?? user.id;
+  const userId = getUserId(c);
   const proposalData = { ...body, projectId };
   const proposal = await proposalService.submitProposal(userId, proposalData);
 

@@ -1,32 +1,100 @@
 // src/utils/email.service.ts
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-// ดึง API Key จาก Environment
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: false, // สำหรับ port 587 ให้ใช้ false
+  requireTLS: true, // บังคับใช้ TLS ตาม config เดิม
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+  // เพิ่มส่วนนี้ถ้า server ของ BMA มีปัญหาเรื่องใบรับรอง SSL ภายใน
+  tls: {
+    rejectUnauthorized: false 
+  }
+});
 
 export const sendVerificationEmail = async (email: string, token: string, name: string) => {
   const verifyLink = `${process.env.FRONTEND_URL}/verify?token=${token}`;
 
   try {
-    const data = await resend.emails.send({
-      from: 'BMA Digital Project <onboarding@resend.dev>', // ตอนเทสต์ใช้ onboarding ของ resend ไปก่อนได้ครับ
+    await transporter.sendMail({
+      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
       to: email,
       subject: 'ยืนยันการสมัครสมาชิก BMA Digital Project',
       html: `
-        <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto;">
-          <h2>สวัสดีคุณ ${name}</h2>
-          <p>ขอบคุณที่สมัครสมาชิกกับระบบ BMA Digital Project</p>
-          <p>กรุณาคลิกที่ปุ่มด้านล่างเพื่อยืนยันอีเมลของคุณและเปิดใช้งานบัญชี:</p>
-          <a href="${verifyLink}" style="display: inline-block; padding: 12px 24px; background-color: #0056b3; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0;">
-            ยืนยันอีเมล
-          </a>
-          <p>หรือคัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:</p>
-          <p><a href="${verifyLink}">${verifyLink}</a></p>
-          <p>ลิงก์นี้จะหมดอายุใน 24 ชั่วโมง</p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Verify Email</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #f9f9ff; font-family: 'Inter', 'Sarabun', sans-serif; -webkit-font-smoothing: antialiased;">
+          
+          <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9f9ff; padding: 48px 16px;">
+            <tr>
+              <td align="center">
+                
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border: 1px solid #D1CDC7; border-radius: 8px; box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.04); overflow: hidden;">
+                  
+                  <tr>
+                    <td style="padding: 48px 40px; text-align: left;">
+                      
+                      <p style="margin: 0 0 16px 0; font-size: 14px; font-weight: 700; line-height: 16px; letter-spacing: 0.04em; text-transform: uppercase; color: #00734B;">
+                        Account Verification
+                      </p>
+                      
+                      <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 500; line-height: 32px; color: #191c20; letter-spacing: -0.01em;">
+                        สวัสดีคุณ ${name}
+                      </h1>
+                      
+                      <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 24px; color: #191c20;">
+                        ขอบคุณที่ลงทะเบียนเข้าใช้งานระบบ <strong>BMA Digital Project</strong> แพลตฟอร์มบริหารจัดการโครงการเทคโนโลยีสารสนเทศ กรุงเทพมหานคร
+                      </p>
+                      
+                      <p style="margin: 0 0 40px 0; font-size: 16px; font-weight: 400; line-height: 24px; color: #3f4942;">
+                        กรุณาคลิกปุ่มด้านล่างนี้เพื่อยืนยันความถูกต้องของอีเมล และเปิดใช้งานบัญชีของคุณภายใน 24 ชั่วโมง
+                      </p>
+                      
+                      <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 16px auto;">
+                        <tr>
+                          <td align="center" style="border-radius: 4px; background-color: #00734B;">
+                            <a href="${verifyLink}" target="_blank" style="display: inline-block; padding: 16px 36px; font-size: 16px; font-weight: 500; line-height: 16px; color: #ffffff; text-decoration: none; border-radius: 4px; background-color: #00734B; border: 1px solid #00734B;">
+                              ยืนยันที่อยู่อีเมล
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                    </td>
+                  </tr>
+                  
+                  <tr>
+                    <td style="padding: 24px 40px; background-color: #f3f3fa; border-top: 1px solid #D1CDC7; text-align: center;">
+                      <p style="margin: 0; font-size: 13px; font-weight: 400; line-height: 20px; color: #696969;">
+                        หากคุณไม่ได้ทำการสมัครสมาชิก กรุณาปล่อยผ่านอีเมลฉบับนี้<br>
+                        © 2026 Civic Horizon • BMA Digital Project
+                      </p>
+                    </td>
+                  </tr>
+                  
+                </table>
+                
+              </td>
+            </tr>
+          </table>
+  
+        </body>
+        </html>
       `,
     });
-    return { success: true, data };
+    return { success: true };
   } catch (error) {
     console.error("Email sending failed:", error);
     return { success: false, error };

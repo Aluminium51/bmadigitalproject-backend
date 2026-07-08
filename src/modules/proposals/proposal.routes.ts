@@ -4,7 +4,7 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import {
   getProposal,
   autoSaveDraft,
-  getDraft,
+  getDraftByProjectId,
   getMyDrafts,
   submitProposal,
   initializeDraft,
@@ -86,7 +86,7 @@ proposalRoutes.openapi(
   }),
   (c) => {
     const { projectId } = c.req.valid("param");
-    return getDraft(c, projectId);
+    return getDraftByProjectId(c, projectId);
   },
 );
 
