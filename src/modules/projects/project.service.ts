@@ -7,6 +7,11 @@ import type { CreateProjectDTO, UpdateProjectDTO } from "./project.schema";
 import { divisions, projectStatuses, projectTypes } from "../../db/schema/lookups";
 import { users } from "@/db/schema/users";
 
+async function assertUserExists(userId: string) {
+  const [user] = await db.select({ userId: users.userId }).from(users).where(eq(users.userId, userId)).limit(1);
+  if (!user) throw new HTTPException(401, { message: "Unauthorized: User not found" });
+}
+
 // Gen รหัสโครงการ (เช่น BMA-69-0001)
 const generateProjectCode = async (): Promise<string> => {
   const currentYear = new Date().getFullYear();
@@ -84,6 +89,7 @@ export const findProjectById = async (id: string) => {
 };
 
 export const createProject = async (userId: string, data: CreateProjectDTO) => {
+  await assertUserExists(userId); // ตรวจสอบว่าผู้ใช้งานมีอยู่จริงหรือไม่
   const newId = uuidv7(); 
   const newProjectCode = await generateProjectCode();
 
@@ -100,8 +106,8 @@ export const createProject = async (userId: string, data: CreateProjectDTO) => {
 };
 
 export const updateProject = async (id: string, data: UpdateProjectDTO, updatedBy: string) => {
-  // ตรวจสอบว่ามีอยู่จริงไหม
-  await findProjectById(id);
+  await assertUserExists(updatedBy);  // ตรวจสอบว่าผู้ใช้งานมีอยู่จริงหรือไม่
+  await findProjectById(id);          // ตรวจสอบว่ามีอยู่จริงไหม
 
   // 1. Update ข้อมูล
   await db.update(projects)
@@ -116,7 +122,8 @@ export const updateProject = async (id: string, data: UpdateProjectDTO, updatedB
   return await findProjectById(id);
 };
 
-export const removeProject = async (id: string) => {
+export const removeProject = async (id: string, userId: string) => {
+  await assertUserExists(userId);
   await findProjectById(id);
   await db.delete(projects).where(eq(projects.id, id));
   return true;

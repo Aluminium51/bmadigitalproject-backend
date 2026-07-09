@@ -33,7 +33,7 @@ export const updateProject = async (
 };
 
 export const deleteProject = async (c: Context, id: string) => {
-  getUserId(c);
-  await projectService.removeProject(id);
+  const userId = getUserId(c);
+  await projectService.removeProject(id, userId);
   return c.json({ message: "ลบโครงการสำเร็จ" }, 200);
 };

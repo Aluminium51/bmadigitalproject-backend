@@ -13,14 +13,15 @@ export const seedData = {
 
   roles: [
     { roleId: 1, roleName: "USER" },
-    { roleId: 2, roleName: "ADMIN" },
-    { roleId: 3, roleName: "BOARD" }
+    { roleId: 2, roleName: "ANALYST" },
+    { roleId: 3, roleName: "SECRETARY" },
+    { roleId: 4, roleName: "ADMIN" },
+    { roleId: 5, roleName: "SUPER_ADMIN" }
   ],
 
   projectTypes: [
     { id: 1, typeName: "Hardware" },
     { id: 2, typeName: "Software" },
-    { id: 3, typeName: "Network" }
   ],
 
   fourQuadrants: [
@@ -38,12 +39,12 @@ export const seedData = {
   ],
 
   adminUser: {
-    username: "admin",
+    username: "super_admin",
     firstName: "System",
     lastName: "Administrator",
     email: "admin@system.com",
     rawPassword: "password123",
-    roleId: 2 // ผูกกับ roleId: 2 (ADMIN)
+    roleId: 5 // ผูกกับ roleId: 5 (SUPER_ADMIN)
   },
 
   projectStatuses: [

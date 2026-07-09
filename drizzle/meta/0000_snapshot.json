@@ -1,5 +1,5 @@
 {
-  "id": "f26deb04-8783-4942-9ba5-acc7edc91496",
+  "id": "17946fd1-3efd-4af2-9808-271f29093642",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -966,6 +966,32 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "projects_user_id_users_user_id_fk": {
+          "name": "projects_user_id_users_user_id_fk",
+          "tableFrom": "projects",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "projects_division_id_divisions_division_id_fk": {
+          "name": "projects_division_id_divisions_division_id_fk",
+          "tableFrom": "projects",
+          "tableTo": "divisions",
+          "columnsFrom": [
+            "division_id"
+          ],
+          "columnsTo": [
+            "division_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "projects_project_status_id_project_statuses_project_status_id_fk": {
           "name": "projects_project_status_id_project_statuses_project_status_id_fk",
           "tableFrom": "projects",

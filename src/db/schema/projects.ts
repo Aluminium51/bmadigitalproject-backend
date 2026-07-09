@@ -9,7 +9,7 @@ import {
   numeric,
   uuid
 } from "drizzle-orm/pg-core";
-import { fourQuadrants, deputyGovernors } from "./lookups";
+import { fourQuadrants, deputyGovernors, divisions } from "./lookups";
 import { projectStatuses, projectTypes, projectAttachmentTypes } from "./lookups";
 import { users } from "./users";
 
@@ -20,8 +20,8 @@ export const projects = pgTable("projects", {
   id: uuid("project_id").primaryKey(),
   projectCode: varchar("project_code", { length: 50 }).unique(), // เพื่อให้ค้นหาง่ายขึ้น ex. "BMA-67-0001"
   // --- Relations ---
-  userId: uuid("user_id").notNull(), // คนสร้างโปรเจกต์ (FK -> users.user_id)
-  divisionId: integer("division_id").notNull(), // ส่วนราชการเจ้าของโครงการ (FK -> divisions.division_id)
+  userId: uuid("user_id").references(() => users.userId).notNull(), // เจ้าของโครงการ
+  divisionId: integer("division_id").references(() => divisions.divisionId).notNull(), // ส่วนราชการเจ้าของโครงการ
   
   projectStatusId: integer("project_status_id").references(() => projectStatuses.id),
   projectTypeId: integer("project_type_id").references(() => projectTypes.id),
