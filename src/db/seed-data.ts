@@ -95,6 +95,7 @@ export const seedData = {
     { id: 1, name: "Approved (อนุมัติ)" },
     { id: 2, name: "Need Revision (ให้แก้ไข)" },
     { id: 3, name: "Rejected (ไม่อนุมัติ)" },
-    { id: 4, name: "Acknowledged (รับทราบ)" }
+    { id: 4, name: "Acknowledged (รับทราบ)" },
+    { id: 5, name: "Pending (รอการพิจารณา)" }
   ]
 };

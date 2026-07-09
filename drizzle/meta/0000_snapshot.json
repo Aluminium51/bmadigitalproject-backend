@@ -1,5 +1,5 @@
 {
-  "id": "16923414-b2e2-4bac-b515-efda107eed7e",
+  "id": "f26deb04-8783-4942-9ba5-acc7edc91496",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2650,7 +2650,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "agendas_project_id_projects_project_id_fk": {
@@ -3002,7 +3002,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "resolutions_resolution_status_id_resolution_statuses_id_fk": {
