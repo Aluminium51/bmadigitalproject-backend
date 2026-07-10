@@ -38,14 +38,58 @@ export const seedData = {
     { id: 4, name: "รองผู้ว่าฯ ด้านสิ่งแวดล้อม" }
   ],
 
-  adminUser: {
-    username: "super_admin",
-    firstName: "System",
-    lastName: "Administrator",
-    email: "admin@system.com",
-    rawPassword: "password123",
-    roleId: 5 // ผูกกับ roleId: 5 (SUPER_ADMIN)
-  },
+mockUsers: [
+    {
+      username: "test_user",
+      firstName: "Test",
+      lastName: "User",
+      email: "user@system.com",
+      rawPassword: "password123",
+      roleId: 1, // USER
+      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
+      departmentId: 1 // สำนักดิจิทัล
+    },
+    {
+      username: "test_analyst",
+      firstName: "Test",
+      lastName: "Analyst",
+      email: "analyst@system.com",
+      rawPassword: "password123",
+      roleId: 2, // ANALYST
+      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
+      departmentId: 1 // สำนักดิจิทัล
+    },
+    {
+      username: "test_secretary",
+      firstName: "Test",
+      lastName: "Secretary",
+      email: "secretary@system.com",
+      rawPassword: "password123",
+      roleId: 3, // SECRETARY
+      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
+      departmentId: 1 // สำนักดิจิทัล
+    },
+    {
+      username: "test_admin",
+      firstName: "Test",
+      lastName: "Admin",
+      email: "admin@system.com",
+      rawPassword: "password123",
+      roleId: 4, // ADMIN
+      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
+      departmentId: 1 // สำนักดิจิทัล
+    },
+    {
+      username: "test_super_admin",
+      firstName: "Test",
+      lastName: "SuperAdmin",
+      email: "superadmin@system.com",
+      rawPassword: "password123",
+      roleId: 5, // SUPER_ADMIN
+      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
+      departmentId: 1 // สำนักดิจิทัล
+    }
+  ],
 
   projectStatuses: [
     { id: 1, statusName: "Draft" },               // ร่าง

@@ -1,24 +1,24 @@
 // src/modules/projects/project.controller.ts
 import type { Context } from "hono";
-import { getUserId } from "../../utils/controller-helper";
+import { getUserContext } from "../../utils/controller-helper";
 import * as projectService from "./project.service";
-import type { CreateProjectDTO, UpdateProjectDTO } from "./project.schema";
+import type { AssignProjectDTO, CreateProjectDTO, UpdateProjectDTO, UpdateProjectStatusDTO, UpdateProjectTypeDTO } from "./project.schema";
 
 export const getProjects = async (c: Context) => {
-  getUserId(c);
-  const result = await projectService.findAllProjects();
+  const user = getUserContext(c);
+  const result = await projectService.findAllProjects(user);
   return c.json(result, 200);
 };
 
 export const getProjectById = async (c: Context, id: string) => {
-  getUserId(c);
-  const project = await projectService.findProjectById(id);
+  const user = getUserContext(c);
+  const project = await projectService.findProjectById(id, user);
   return c.json(project, 200);
 };
 
 export const createProject = async (c: Context, body: CreateProjectDTO) => {
-  const userId = getUserId(c);
-  const newProject = await projectService.createProject(userId, body);
+  const user = getUserContext(c);
+  const newProject = await projectService.createProject(user, body);
   return c.json({ message: "สร้างโครงการสำเร็จ", project: newProject }, 201);
 };
 
@@ -27,13 +27,31 @@ export const updateProject = async (
   id: string,
   body: UpdateProjectDTO,
 ) => {
-  const userId = getUserId(c);
-  const updatedProject = await projectService.updateProject(id, body, userId);
+  const user = getUserContext(c);
+  const updatedProject = await projectService.updateProject(id, body, user);
   return c.json({ message: "อัปเดตข้อมูลโครงการสำเร็จ", project: updatedProject }, 200);
 };
 
+export const updateProjectStatus = async (c: Context, id: string, body: UpdateProjectStatusDTO) => {
+  const user = getUserContext(c);
+  const updatedProject = await projectService.updateProjectStatus(id, body, user);
+  return c.json({ message: "อัปเดตสถานะโครงการสำเร็จ", project: updatedProject }, 200);
+};
+
+export const updateProjectType = async (c: Context, id: string, body: UpdateProjectTypeDTO) => {
+  const user = getUserContext(c);
+  const updatedProject = await projectService.updateProjectType(id, body, user);
+  return c.json({ message: "อัปเดตประเภทโครงการสำเร็จ", project: updatedProject }, 200);
+};
+
+export const assignProject = async (c: Context, id: string, body: AssignProjectDTO) => {
+  const user = getUserContext(c);
+  const updatedProject = await projectService.assignProject(id, body, user);
+  return c.json({ message: "มอบหมายโครงการสำเร็จ", project: updatedProject }, 200); 
+};
+
 export const deleteProject = async (c: Context, id: string) => {
-  const userId = getUserId(c);
-  await projectService.removeProject(id, userId);
+  const user = getUserContext(c); 
+  await projectService.removeProject(id, user);
   return c.json({ message: "ลบโครงการสำเร็จ" }, 200);
 };

@@ -89,7 +89,6 @@ async function main() {
 
     // Deputy Governors
     console.log(">> ตรวจสอบและสร้างข้อมูล รองผู้ว่าฯ...");
-    // 💡 ข้อควรระวัง: โค้ดเดิมคุณใช้ eq(fourQuadrants.id, 1) ตรงนี้ผมแก้ให้ถูกเป็น deputyGovernors.id นะครับ
     for (const gov of seedData.deputyGovernors) {
       const existing = await db.query.deputyGovernors.findFirst({
         where: eq(deputyGovernors.id, gov.id),
@@ -100,37 +99,41 @@ async function main() {
       }
     }
 
-    // Admin User
-    const adminData = seedData.adminUser;
-    const existingAdmin = await db.query.users.findFirst({
-      where: eq(users.username, adminData.username),
-    });
-
-    if (!existingAdmin) {
-      console.log(">> กำลังสร้างบัญชี Admin เริ่มต้น...");
-      const hashedPassword = await Bun.password.hash(adminData.rawPassword);
-      const adminId = uuidv7();
-
-      const [admin] = await db
-        .insert(users)
-        .values({
-          userId: adminId,
-          username: adminData.username,
-          firstName: adminData.firstName,
-          lastName: adminData.lastName,
-          email: adminData.email,
-          password: hashedPassword,
-          isVerified: true,
-        })
-        .returning();
-
-      await db.insert(roleUsers).values({
-        userId: admin.userId,
-        roleId: adminData.roleId,
+// สร้าง Mock Users ครบทุกสิทธิ์
+    console.log(">> ตรวจสอบและสร้างบัญชีผู้ใช้งานทดสอบ (Mock Users)...");
+    for (const userData of seedData.mockUsers) {
+      const existingUser = await db.query.users.findFirst({
+        where: eq(users.username, userData.username),
       });
-      console.log(
-        `>> สร้างบัญชี Admin สำเร็จ! (username: ${adminData.username})`,
-      );
+
+      if (!existingUser) {
+        console.log(`   กำลังสร้างบัญชี ${userData.username}...`);
+        const hashedPassword = await Bun.password.hash(userData.rawPassword);
+        const newUserId = uuidv7();
+
+        // 1. สร้างข้อมูล User
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            userId: newUserId,
+            username: userData.username,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email,
+            password: hashedPassword,
+            divisionId: userData.divisionId,
+            isVerified: true, // กำหนดให้ยืนยันตัวตนแล้วเพื่อให้ล็อกอินได้เลย
+          })
+          .returning();
+
+        // 2. ผูก Role ให้กับ User ลงตาราง roleUsers
+        await db.insert(roleUsers).values({
+          userId: newUser.userId,
+          roleId: userData.roleId,
+        });
+        
+        console.log(`   ✅ สร้างบัญชี ${userData.username} สำเร็จ!`);
+      }
     }
 
     console.log(">> ตรวจสอบและสร้างข้อมูล Project Statuses...");

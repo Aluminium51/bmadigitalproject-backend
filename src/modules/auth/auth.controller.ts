@@ -11,56 +11,52 @@ import { sign } from "hono/jwt";
 
 type LoginBody = z.infer<typeof LoginRequestSchema>;
 
-// 1. ต้องเป็น export const และชื่อต้องเป็น "login" ตัวเล็กทั้งหมด
-// 2. รับพารามิเตอร์ 2 ตัว คือ (c, body) เพื่อให้สอดคล้องกับที่ Route ส่งมา
 export const login = async (c: Context, body: LoginBody) => {
   try {
     const { username, password } = body;
 
     const user = await db.query.users.findFirst({
       where: eq(users.username, username),
+      with: {
+        roles: {
+          with: { role: true }
+        },
+        division: true
+      }
     });
 
-    // 1. ถ้าไม่พบ User
     if (!user) {
-      return c.json({ 
-        error: "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง", 
-        field: "credentials"
-      }, 401);
+      return c.json({ error: "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง", field: "credentials"}, 401);
     }
 
-    // 2. ถ้ารหัสผ่านไม่ตรง
     const isPasswordValid = await Bun.password.verify(password, user.password);
     if (!isPasswordValid) {
-      return c.json({ 
-        error: "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง", 
-        field: "credentials" 
-      }, 401);
+      return c.json({ error: "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง", field: "credentials" }, 401);
     }
 
     if (!user.isVerified) {
-      return c.json({ 
-        error: "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ", 
-        field: "general" 
-      }, 403);
+      return c.json({ error: "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ", field: "general" }, 403);
     }
 
-    // 2. โค้ดส่วนสร้าง JWT ของจริง!
-    // เปลี่ยนจาก id เป็น userId เพื่อให้เป็นมาตรฐานเดียวกันทั้งระบบ และรองรับ Middleware
+    // แกะชื่อ Role ออกมาเป็น Array สตริง เช่น ['user', 'admin']
+    const userRoles = user.roles && user.roles.length > 0 
+      ? user.roles.map((ur: any) => ur.role.roleName.toLowerCase()) 
+      : ['user'];
+
     const payload = {
       userId: user.userId, 
       username: user.username,
-      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24), // กำหนดหมดอายุใน 24 ชั่วโมง
+      roles: userRoles,            
+      divisionId: user.divisionId,
+      departmentId: user.division?.departmentId || 0,
+      exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24),
     };
     
-    // ดึง Secret Key จาก .env (ถ้าไม่มีให้ระเบิดตัวเอง)
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error("JWT_SECRET is not defined in environment variables");
 
-    // สร้าง Token ด้วยฟังก์ชัน sign()
     const token = await sign(payload, secret);
 
-    // 3. ส่ง Token ของจริงที่ได้ กลับไปให้ Frontend
     return c.json({
       message: "Login Successful",
       token: token, 
@@ -74,10 +70,7 @@ export const login = async (c: Context, body: LoginBody) => {
 
   } catch (error) {
     console.error("Login Error:", error);
-    return c.json({ 
-      error: "เกิดข้อผิดพลาดในระบบเซิร์ฟเวอร์", 
-      field: "server" 
-    }, 500);
+    return c.json({ error: "เกิดข้อผิดพลาดในระบบเซิร์ฟเวอร์", field: "server" }, 500);
   }
 };
 
@@ -85,7 +78,6 @@ export const login = async (c: Context, body: LoginBody) => {
 export const registerUser = async (c: Context) => {
   const body = await c.req.json();
   
-  // สร้าง Token ยาวๆ 64 ตัวอักษร
   const verificationToken = crypto.randomUUID() + crypto.randomUUID(); 
   
   // ตั้งเวลาหมดอายุ (เช่น 24 ชั่วโมง)

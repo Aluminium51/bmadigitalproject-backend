@@ -3,26 +3,37 @@ import { z } from "@hono/zod-openapi";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { users } from "@/db/schema/users";
 
-// 1. สร้าง Response Schema (ส่งกลับไปให้หน้าบ้าน)
-// เนื่องจากแผนกและสิทธิ์ย้ายไปอยู่ตารางอื่น เราจะใช้ .extend() เพื่อดึงค่าจากการ Join ออกมาแทน
+// Schema สำหรับข้อมูลสิทธิ์ (Role)
+const RoleSchema = z.object({
+  roleId: z.number().openapi({ example: 1 }),
+  roleName: z.string().openapi({ example: "USER" })
+});
+
+// Schema สำหรับข้อมูลหน่วยงาน
+const DivisionSchema = z.object({
+  divisionId: z.number().openapi({ example: 1 }),
+  divisionName: z.string().openapi({ example: "กองยุทธศาสตร์ดิจิทัล" }),
+  departmentId: z.number().openapi({ example: 1 }),
+  departmentName: z.string().openapi({ example: "สำนักดิจิทัล" })
+});
+
+// Response Schema (ดึงข้อมูลออกมาทั้งหมด)
 export const UserSchema = createSelectSchema(users)
-  .pick({
-    userId: true, // เปลี่ยนจาก id เป็น userId ตามตารางใหม่
-    username: true,
-    firstName: true,
-    lastName: true,
-    position: true,
-    email: true,
+  .omit({ // ปิดบังฟิลด์ที่เป็นความลับหรือข้อมูลระบบที่ไม่จำเป็น
+    password: true, 
+    resetPasswordToken: true,
+    resetPasswordExpires: true,
+    verificationToken: true,
+    verificationExpires: true
   })
   .extend({
-    // ดึงข้อมูลหน่วยงานและสิทธิ์ที่ได้จากการ Join ใน Service layer มาแสดงผลแบบ Flat ให้หน้าบ้านใช้ง่ายเหมือนเดิม
-    departmentName: z.string().openapi({ example: "สำนักยุทธศาสตร์" }),
-    divisionName: z.string().openapi({ example: "ฝ่ายระบบสารสนเทศ" }),
-    roles: z.array(z.string()).openapi({ example: ["USER", "ADMIN"] }),
+    // เพิ่มฟิลด์ที่ได้จากการ Join
+    division: DivisionSchema.nullable().openapi({ description: 'ข้อมูลหน่วยงานและต้นสังกัด' }),
+    roles: z.array(RoleSchema).openapi({ description: 'สิทธิ์การใช้งานทั้งหมดของผู้ใช้' }),
   })
-  .openapi("UserResponse");
+  .openapi("UserProfileResponse");
 
-// 2. สร้าง Request Body Schema สำหรับสมัครสมาชิก
+// Request Body Schema สำหรับสมัครสมาชิก
 export const CreateUserSchema = createInsertSchema(users, {
   username: (schema) => schema.min(3),
   password: (schema) => schema.min(8),

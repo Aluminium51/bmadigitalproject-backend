@@ -5,7 +5,10 @@ import {
   CreateProjectSchema, 
   UpdateProjectSchema, 
   ProjectIdParamsSchema, 
-  ErrorSchema 
+  ErrorSchema, 
+  UpdateProjectStatusSchema,
+  UpdateProjectTypeSchema,
+  AssignProjectSchema
 } from './project.schema';
 import * as projectController from './project.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -142,6 +145,33 @@ const deleteProjectRoute = createRoute({
 app.openapi(deleteProjectRoute, (c) => {
   const { id } = c.req.valid('param');
   return projectController.deleteProject(c, id);
+});
+
+// --- 6. Update Project Status ---
+app.openapi(createRoute({
+  method: 'patch', path: '/{id}/status', tags: ['Projects'], summary: 'อัปเดตสถานะโครงการ (Admin/Head)',
+  request: { params: ProjectIdParamsSchema, body: { content: { 'application/json': { schema: UpdateProjectStatusSchema } } } },
+  responses: { 200: { description: 'สำเร็จ' } }
+}), (c) => {
+  return projectController.updateProjectStatus(c, c.req.valid('param').id, c.req.valid('json'));
+});
+
+// --- 7. Update Project Type ---
+app.openapi(createRoute({
+  method: 'patch', path: '/{id}/type', tags: ['Projects'], summary: 'อัปเดตประเภทโครงการ',
+  request: { params: ProjectIdParamsSchema, body: { content: { 'application/json': { schema: UpdateProjectTypeSchema } } } },
+  responses: { 200: { description: 'สำเร็จ' } }
+}), (c) => {
+  return projectController.updateProjectType(c, c.req.valid('param').id, c.req.valid('json'));
+});
+
+// --- 8. Assign Project ---
+app.openapi(createRoute({
+  method: 'patch', path: '/{id}/assign', tags: ['Projects'], summary: 'มอบหมายงานโครงการให้นักวิเคราะห์',
+  request: { params: ProjectIdParamsSchema, body: { content: { 'application/json': { schema: AssignProjectSchema } } } },
+  responses: { 200: { description: 'สำเร็จ' } }
+}), (c) => {
+  return projectController.assignProject(c, c.req.valid('param').id, c.req.valid('json'));
 });
 
 export default app;

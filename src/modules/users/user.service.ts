@@ -5,28 +5,43 @@ import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { v7 as uuidv7 } from "uuid";
 
-// ฟังก์ชันช่วยจัดรูปแบบข้อมูล (Mapping Helper) แปลงข้อมูลที่ Join มาให้แบนราบตาม Zod
-const mapUserToResponse = (user: any) => ({
-  userId: user.userId,
-  username: user.username,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  position: user.position,
-  email: user.email,
-  divisionName: user.division?.divisionName ?? "",
-  departmentName: user.division?.department?.departmentName ?? "",
-  roles: user.roles?.map((ur: any) => ur.role?.roleName).filter(Boolean) ?? []
-});
+// ฟังก์ชันช่วยจัดรูปแบบข้อมูล (Mapping Helper) แปลงข้อมูลที่ Join มาให้ตรงกับ Schema
+const mapUserToResponse = (user: any) => {
+  // ดึงฟิลด์ที่เป็นความลับออก
+  const { 
+    password, 
+    resetPasswordToken, 
+    resetPasswordExpires, 
+    verificationToken, 
+    verificationExpires, 
+    ...safeUserData 
+  } = user;
+
+  return {
+    ...safeUserData,
+    
+    // จัดรูปแบบข้อมูลแผนก (Division & Department)
+    division: user.division ? {
+      divisionId: user.division.divisionId,
+      divisionName: user.division.divisionName,
+      departmentId: user.division.department?.departmentId,
+      departmentName: user.division.department?.departmentName
+    } : null,
+
+    // จัดรูปแบบข้อมูลสิทธิ์ (Roles) - ดึงเฉพาะตาราง role ออกมาจากตาราง many-to-many
+    roles: user.roles?.map((ur: any) => ur.role) || []
+  };
+};
 
 // ดึงรายชื่อผู้ใช้งานทั้งหมด พร้อมข้อมูลหน่วยงานและสิทธิ์
 export const getAllUsers = async () => {
   const result = await db.query.users.findMany({
     with: {
       division: {
-        with: { department: true }
+        with: { department: true } // ดึงข้อมูล Department ทะลุ Division
       },
       roles: {
-        with: { role: true }
+        with: { role: true } // ดึงข้อมูล Role ทะลุ RoleUsers
       }
     }
   });
