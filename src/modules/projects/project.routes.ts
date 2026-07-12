@@ -8,7 +8,9 @@ import {
   ErrorSchema, 
   UpdateProjectStatusSchema,
   UpdateProjectTypeSchema,
-  AssignProjectSchema
+  AssignProjectSchema,
+  ProjectQuerySchema,             
+  PaginatedProjectResponseSchema  
 } from './project.schema';
 import * as projectController from './project.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -22,9 +24,12 @@ const getProjectsRoute = createRoute({
   path: '/',
   tags: ['Projects'],
   summary: 'ดึงรายชื่อโครงการทั้งหมด',
+  request: {
+    query: ProjectQuerySchema 
+  },
   responses: {
     200: {
-      content: { 'application/json': { schema: z.array(ProjectSchema) } },
+      content: { 'application/json': { schema: PaginatedProjectResponseSchema } },
       description: 'รายการโครงการทั้งหมด',
     },
     500: {
@@ -33,7 +38,11 @@ const getProjectsRoute = createRoute({
     },
   },
 });
-app.openapi(getProjectsRoute, (c) => projectController.getProjects(c));
+// get query parameters and pass to controller
+app.openapi(getProjectsRoute, (c) => {
+  const query = c.req.valid('query'); 
+  return projectController.getProjects(c, query);
+});
 
 // --- 2. Get Project By ID ---
 const getProjectByIdRoute = createRoute({

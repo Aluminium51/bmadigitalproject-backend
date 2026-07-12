@@ -1,4 +1,4 @@
-import { eq, desc, like, sql } from "drizzle-orm";
+import { eq, desc, sql, and, or, ilike, ne, not } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db";
 import { projects, projectSequences } from "../../db/schema/projects";
@@ -38,17 +38,17 @@ const getBaseProjectQuery = () => {
   return db.select({
     project: projects,
     division: {
-      id: divisions.divisionId, 
+      id: divisions.divisionId,
       name: divisions.divisionName,
       departmentId: divisions.departmentId,
       departmentName: departments.departmentName
     },
     status: {
-      id: projectStatuses.id,        
-      name: projectStatuses.statusName      
+      id: projectStatuses.id,
+      name: projectStatuses.statusName
     },
     projectType: {
-      id: projectTypes.id,            
+      id: projectTypes.id,
       name: projectTypes.typeName
     },
     owner: {
@@ -59,7 +59,7 @@ const getBaseProjectQuery = () => {
   })
 .from(projects)
   .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId))
-  .leftJoin(departments, eq(divisions.departmentId, departments.departmentId)) 
+  .leftJoin(departments, eq(divisions.departmentId, departments.departmentId))
   .leftJoin(projectStatuses, eq(projects.projectStatusId, projectStatuses.id))
   .leftJoin(projectTypes, eq(projects.projectTypeId, projectTypes.id))
   .leftJoin(users, eq(projects.userId, users.userId));
@@ -92,36 +92,106 @@ const mapJoinedProject = (row: any) => {
 //   if (!rows || rows.length === 0) {
 //     throw new HTTPException(404, { message: "ไม่พบข้อมูลโครงการ" });
 //   }
-  
+
 //   return mapJoinedProject(rows[0]);
 // };
 
-export const findAllProjects = async (user: UserContext) => {
-  let query = getBaseProjectQuery();
+export const findAllProjects = async (user: UserContext, queryParams: any) => {
+  const { page, limit, search, status, ownership } = queryParams;
+  const offset = (page - 1) * limit;
 
-  // ถ้าไม่ใช่ Admin ให้ดึงเฉพาะข้อมูลในหน่วยงาน (Division) ของตัวเอง
-  if (!user.roles.includes('super_admin') && !user.roles.includes('admin')) {
-    query = query.where(eq(divisions.departmentId, user.departmentId)) as any;
+  let query = getBaseProjectQuery();
+  let countQuery = db.select({ count: sql<number>`count(*)` })
+    .from(projects)
+    .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId)) as any;
+
+  const conditions = [];
+  const isAdmin = user.roles.includes('super_admin') || user.roles.includes('admin');
+
+  // ==========================================
+  // 1. กฎเหล็กความปลอดภัย (Security Baseline)
+  // ==========================================
+  if (!isAdmin) {
+    // คนทั่วไปจะเห็นข้อมูลได้ใน 2 กรณีเท่านั้น:
+    // 1. เป็นข้อมูลของแผนกตัวเอง (departmentId ตรงกัน)
+    // 2. หรือเป็นข้อมูลที่ไม่ใช่ Draft (สถานะ > 1) ซึ่งสอดคล้องกับหน้า "All Projects"
+    conditions.push(
+      or(
+        eq(divisions.departmentId, user.departmentId),
+        ne(projects.projectStatusId, 1)
+      )
+    );
   }
 
-  const rows = await query.orderBy(desc(projects.createdAt));
-  return rows.map(mapJoinedProject);
+  // ==========================================
+  // 2. ตัวกรองความเป็นเจ้าของ (Ownership Filter)
+  // ==========================================
+  if (ownership === 'mine') {
+    conditions.push(eq(projects.userId, user.userId));
+  } else if (ownership === 'team_only') {
+    conditions.push(eq(divisions.departmentId, user.departmentId));
+    conditions.push(ne(projects.userId, user.userId)); // ของทีม แต่ต้องไม่ใช่ของฉัน
+  } else if (ownership === 'team_and_mine') {
+    conditions.push(eq(divisions.departmentId, user.departmentId));
+  }
+
+  // ==========================================
+  // 3. ตัวกรองสถานะ (Status Filter)
+  // ==========================================
+  if (status === 'draft') {
+    conditions.push(eq(projects.projectStatusId, 1));
+  } else if (status === 'submitted' || status === 'all_except_draft') {
+    conditions.push(ne(projects.projectStatusId, 1));
+  }
+
+  // ==========================================
+  // 4. ตัวกรองคำค้นหา (Search Filter)
+  // ==========================================
+  if (search) {
+    conditions.push(
+      or(
+        ilike(projects.projectName, `%${search}%`),
+        ilike(projects.projectCode, `%${search}%`)
+      )
+    );
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions)) as any;
+    countQuery = countQuery.where(and(...conditions)) as any;
+  }
+
+  const [rows, [{ count }]] = await Promise.all([
+    query.orderBy(desc(projects.createdAt)).limit(limit).offset(offset),
+    countQuery
+  ]);
+
+  return {
+    data: rows.map(mapJoinedProject),
+    pagination: {
+      total: Number(count),
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(Number(count) / Number(limit)),
+    }
+  };
 };
 
 export const findProjectById = async (id: string, user: UserContext) => {
   const rows = await getBaseProjectQuery().where(eq(projects.id, id));
   if (!rows || rows.length === 0) throw new HTTPException(404, { message: "ไม่พบข้อมูลโครงการ" });
-  
+
   const project = mapJoinedProject(rows[0]);
-  
+
   // เช็คสิทธิ์การอ่าน
   checkPermission(user, 'read', 'project', { departmentId: project.division?.departmentId });
   return project;
 };
 
 export const createProject = async (user: UserContext, data: CreateProjectDTO) => {
-  await assertUserExists(user.userId); 
-  const newId = uuidv7(); 
+  await assertUserExists(user.userId);
+  checkPermission(user, 'create', 'project', { departmentId: user.departmentId });
+  const newId = uuidv7();
   const newProjectCode = await generateProjectCode();
 
   await db.insert(projects).values({
@@ -136,10 +206,12 @@ export const createProject = async (user: UserContext, data: CreateProjectDTO) =
 };
 
 export const updateProject = async (id: string, data: UpdateProjectDTO, user: UserContext) => {
-  await assertUserExists(user.userId);      // ตรวจสอบว่าผู้ใช้งานมีอยู่จริงหรือไม่
-  await findProjectById(id, user);          // ตรวจสอบว่ามีอยู่จริงไหม
+  await assertUserExists(user.userId);
+  const project = await findProjectById(id, user);
 
-  // 1. Update ข้อมูล
+  // เช็คสิทธิ์การแก้ไข (ป้องกันการยิง API มาแก้โปรเจกต์แผนกอื่น)
+  checkPermission(user, 'update', 'project', { departmentId: project.division?.departmentId });
+
   await db.update(projects)
     .set({
       ...data,
@@ -148,7 +220,6 @@ export const updateProject = async (id: string, data: UpdateProjectDTO, user: Us
     })
     .where(eq(projects.id, id));
 
-  // 2. ดึงข้อมูลอัปเดตล่าสุด (พร้อม Join ตารางที่เกี่ยวข้อง) ส่งกลับไปให้ตรง Schema
   return await findProjectById(id, user);
 };
 
@@ -165,7 +236,7 @@ export const updateProjectType = async (id: string, data: UpdateProjectTypeDTO, 
 
 export const updateProjectStatus = async (id: string, data: UpdateProjectStatusDTO, user: UserContext) => {
   const project = await findProjectById(id, user);
-  
+
   // ถ้าไม่ใช่ Admin หรือ Super Admin จะไม่สามารถเปลี่ยนสถานะได้
   if (!user.roles.includes('admin') && !user.roles.includes('super_admin')) {
     throw new HTTPException(403, { message: "เฉพาะผู้ดูแลระบบหรือหัวหน้าหน่วยงานที่สามารถเปลี่ยนสถานะได้" });
@@ -174,13 +245,13 @@ export const updateProjectStatus = async (id: string, data: UpdateProjectStatusD
   await db.update(projects)
     .set({ projectStatusId: data.projectStatusId, updatedBy: user.userId, updatedAt: new Date() })
     .where(eq(projects.id, id));
-  
+
   return await findProjectById(id, user);
 };
 
 export const assignProject = async (id: string, data: AssignProjectDTO, user: UserContext) => {
   await findProjectById(id, user);
-  
+
   if (!user.roles.includes('admin') && !user.roles.includes('super_admin')) {
     throw new HTTPException(403, { message: "ไม่มีสิทธิ์มอบหมายงาน" });
   }

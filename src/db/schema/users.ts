@@ -14,11 +14,16 @@ export const users = pgTable("users", {
   userId: uuid("user_id").primaryKey(),
   username: varchar("username", { length: 100 }).unique().notNull(),
   password: varchar("password", { length: 255 }).notNull(),
+
   firstName: varchar("first_name", { length: 100 }).notNull(),
   lastName: varchar("last_name", { length: 100 }).notNull(),
   email: varchar("email", { length: 255 }).unique().notNull(),
+
   position: varchar("position", { length: 150 }),
+  level: varchar("level", { length: 100 }), // ระดับปฏิบัติงาน เช่น ปฏิบัติการ, ชำนาญการ
+  managementPosition: varchar("management_position", { length: 150 }), // ตำแหน่งบริหาร เช่น ผู้อำนวยการกอง
   divisionId: integer("division_id").references(() => divisions.divisionId),
+
   mobilePhone: varchar("mobile_phone", { length: 20 }),
   officePhone: varchar("office_phone", { length: 20 }),
   internalExtension: varchar("internal_extension", { length: 10 }),
@@ -52,9 +57,9 @@ export const roleUsers = pgTable("role_user", {
     .references(() => roles.roleId)
     .notNull(),
   assignedBy: uuid("assigned_by").references(() => users.userId),
+  assignedAt: timestamp("assigned_at", { mode: "date" }).defaultNow().notNull(),
 }, (table) => {
   return {
-    // กำหนด Composite Primary Key ตามที่คุณออกแบบไว้
     pk: primaryKey({ columns: [table.userId, table.roleId] }),
   };
 });

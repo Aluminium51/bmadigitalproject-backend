@@ -86,6 +86,26 @@ export const ProjectIdParamsSchema = z.object({
   id: z.string().uuid("ID โครงการต้องเป็น UUID").openapi({ example: '018f3a3b-1b2c-7d3e-8f4g-5h6i7j8k9l0m', description: 'รหัสโครงการ (UUID)' }),
 });
 
+// Schema สำหรับ Query Parameters ของการดึงรายการ Project
+// ใช้สำหรับ Pagination, Search, Filter
+export const ProjectQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().optional(),
+  status: z.enum(['draft', 'submitted', 'all_except_draft', 'all']).default('all'),
+  ownership: z.enum(['mine', 'team_only', 'team_and_mine', 'all']).default('all'),
+});
+
+export const PaginatedProjectResponseSchema = z.object({
+  data: z.array(ProjectSchema),
+  pagination: z.object({
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+    totalPages: z.number(),
+  })
+}).openapi('PaginatedProjectResponse');
+
 export type CreateProjectDTO = z.infer<typeof CreateProjectSchema>;
 export type UpdateProjectDTO = z.infer<typeof UpdateProjectSchema>;
 export type UpdateProjectStatusDTO = z.infer<typeof UpdateProjectStatusSchema>;

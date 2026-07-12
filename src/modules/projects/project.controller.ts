@@ -4,9 +4,9 @@ import { getUserContext } from "../../utils/controller-helper";
 import * as projectService from "./project.service";
 import type { AssignProjectDTO, CreateProjectDTO, UpdateProjectDTO, UpdateProjectStatusDTO, UpdateProjectTypeDTO } from "./project.schema";
 
-export const getProjects = async (c: Context) => {
+export const getProjects = async (c: Context, query: any) => {
   const user = getUserContext(c);
-  const result = await projectService.findAllProjects(user);
+  const result = await projectService.findAllProjects(user, query);
   return c.json(result, 200);
 };
 
