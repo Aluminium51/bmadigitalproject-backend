@@ -1,5 +1,5 @@
 {
-  "id": "64e77574-88b8-41fb-9cde-8770ddafad6c",
+  "id": "0113a090-273a-4ee3-8498-6485738658ad",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -425,6 +425,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "assigned_at": {
+          "name": "assigned_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -564,6 +571,18 @@
         },
         "position": {
           "name": "position",
+          "type": "varchar(150)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "level": {
+          "name": "level",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "management_position": {
+          "name": "management_position",
           "type": "varchar(150)",
           "primaryKey": false,
           "notNull": false

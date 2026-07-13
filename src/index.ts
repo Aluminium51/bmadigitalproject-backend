@@ -9,6 +9,7 @@ import projectRoutes from "./modules/projects/project.routes";
 import proposalRoutes from "./modules/proposals/proposal.routes";
 import meetingRoutes from "./modules/meeting/meeting.routes";
 import internalRoutes from "./modules/internal/internal.routes";
+import lookupRoutes from './modules/lookups/lookup.routes';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { startCronJobs } from './utils/cron';
@@ -50,6 +51,7 @@ v1.route('/projects', projectRoutes);
 v1.route('/proposals', proposalRoutes);
 v1.route('/meetings', meetingRoutes);
 v1.route('/internal', internalRoutes);
+v1.route('lookups', lookupRoutes);
 app.route('/api/v1', v1);
 
 

@@ -80,6 +80,7 @@ CREATE TABLE "role_user" (
 	"user_id" uuid NOT NULL,
 	"role_id" integer NOT NULL,
 	"assigned_by" uuid,
+	"assigned_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "role_user_user_id_role_id_pk" PRIMARY KEY("user_id","role_id")
 );
 --> statement-breakpoint
@@ -98,6 +99,8 @@ CREATE TABLE "users" (
 	"last_name" varchar(100) NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"position" varchar(150),
+	"level" varchar(100),
+	"management_position" varchar(150),
 	"division_id" integer,
 	"mobile_phone" varchar(20),
 	"office_phone" varchar(20),
