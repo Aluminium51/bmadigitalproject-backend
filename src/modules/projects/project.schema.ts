@@ -61,8 +61,8 @@ export const CreateProjectSchema = z.object({
   projectName: z.string().min(1, "กรุณาระบุชื่อโครงการ").max(600, "ชื่อโครงการยาวเกินไป").openapi({ example: 'โครงการพัฒนาระบบให้บริการประชาชน' }),
   projectTypeId: z.number().int().optional().openapi({ example: 2 }),
   isPublic: z.boolean().default(false).openapi({ example: false }),
-  fourQuadrantsId: z.number().int().optional().openapi({ example: 1 }),
-  deputyGovernorId: z.number().int().optional().openapi({ example: 3 }),
+  fourQuadrantsId: z.coerce.number().int().openapi({ example: 1 }),
+  deputyGovernorId: z.coerce.number().int().openapi({ example: 3 }),
 });
 
 export const UpdateProjectStatusSchema = z.object({

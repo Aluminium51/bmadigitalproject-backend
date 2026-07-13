@@ -15,3 +15,11 @@ export const LoginResponseSchema = z.object({
     lastName: z.string(),
   })
 }).openapi('LoginResponse');
+
+export const VerifyEmailQuerySchema = z.object({
+  token: z.string().openapi({ description: 'รหัสยืนยันตัวตนที่ส่งไปใน Gmail' }),
+});
+
+export const SuccessResponseSchema = z.object({
+  message: z.string(),
+}).openapi('SuccessResponse');
