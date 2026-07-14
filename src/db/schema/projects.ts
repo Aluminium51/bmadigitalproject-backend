@@ -23,8 +23,8 @@ export const projects = pgTable("projects", {
   userId: uuid("user_id").references(() => users.userId).notNull(), // เจ้าของโครงการ
   divisionId: integer("division_id").references(() => divisions.divisionId).notNull(), // ส่วนราชการเจ้าของโครงการ
 
-  projectStatusId: integer("project_status_id").references(() => projectStatuses.id).notNull(),
-  projectTypeId: integer("project_type_id").references(() => projectTypes.id).notNull(),
+  projectStatusId: integer("project_status_id").references(() => projectStatuses.id).notNull().default(1),
+  projectTypeId: integer("project_type_id").references(() => projectTypes.id),
   fourQuadrantsId: integer("four_quadrants_id").references(() => fourQuadrants.id).notNull(),
   deputyGovernorId: integer("deputy_governor_id").references(() => deputyGovernors.id).notNull(),
 

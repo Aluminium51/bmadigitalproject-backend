@@ -3,7 +3,7 @@ import { z } from '@hono/zod-openapi';
 // Schema สำหรับ Error แบบมาตรฐาน
 export const ErrorSchema = z.object({
   message: z.string().openapi({ example: 'เกิดข้อผิดพลาดบางอย่าง' }),
-});
+}).openapi('ErrorResponse');
 
 // Schema สำหรับ Lookup แบบย่อ (ใช้สำหรับ Join ข้อมูลจากตารางอื่น เช่น Division, Status, ProjectType)
 const CompactLookupSchema = z.object({
@@ -63,28 +63,28 @@ export const CreateProjectSchema = z.object({
   isPublic: z.boolean().default(false).openapi({ example: false }),
   fourQuadrantsId: z.coerce.number().int().openapi({ example: 1 }),
   deputyGovernorId: z.coerce.number().int().openapi({ example: 3 }),
-});
+}).openapi('CreateProjectRequest');
 
 export const UpdateProjectStatusSchema = z.object({
   projectStatusId: z.number().int().openapi({ example: 2 }),
   remark: z.string().optional().openapi({ example: 'ผ่านการอนุมัติขั้นต้น' }),
-});
+}).openapi('UpdateProjectStatusRequest');
 
 export const UpdateProjectTypeSchema = z.object({
   projectTypeId: z.number().int().openapi({ example: 3 }),
-});
+}).openapi('UpdateProjectTypeRequest');
 
 export const AssignProjectSchema = z.object({
   analystId: z.string().uuid().openapi({ description: 'UUID ของนักวิเคราะห์' }),
-});
+}).openapi('AssignProjectRequest');
 
 // Schema สำหรับอัปเดต
-export const UpdateProjectSchema = CreateProjectSchema.partial();
+export const UpdateProjectSchema = CreateProjectSchema.partial().openapi('UpdateProjectRequest');
 
 // Schema สำหรับรับ Parameter จาก URL
 export const ProjectIdParamsSchema = z.object({
   id: z.string().uuid("ID โครงการต้องเป็น UUID").openapi({ example: '018f3a3b-1b2c-7d3e-8f4g-5h6i7j8k9l0m', description: 'รหัสโครงการ (UUID)' }),
-});
+}).openapi('ProjectIdParams');
 
 // Schema สำหรับ Query Parameters ของการดึงรายการ Project
 // ใช้สำหรับ Pagination, Search, Filter
@@ -94,7 +94,7 @@ export const ProjectQuerySchema = z.object({
   search: z.string().optional(),
   status: z.enum(['draft', 'submitted', 'all_except_draft', 'all']).default('all'),
   ownership: z.enum(['mine', 'team_only', 'team_and_mine', 'all']).default('all'),
-});
+}).openapi('ProjectQueryParams');
 
 export const PaginatedProjectResponseSchema = z.object({
   data: z.array(ProjectSchema),

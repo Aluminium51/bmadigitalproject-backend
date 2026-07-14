@@ -1,5 +1,5 @@
 {
-  "id": "182f3213-0070-4ef4-ae81-8bb7b401f13c",
+  "id": "958075c0-2aff-4879-a936-62267ec03209",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -881,13 +881,14 @@
           "name": "project_status_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": 1
         },
         "project_type_id": {
           "name": "project_type_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "four_quadrants_id": {
           "name": "four_quadrants_id",

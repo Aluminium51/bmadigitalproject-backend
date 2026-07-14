@@ -11,7 +11,7 @@ import {
   projectTypes,
   fourQuadrants,
   deputyGovernors,
-  projectStatuses, 
+  projectStatuses,
   projectAttachmentTypes,
   meetingStatuses,
   meetingTypes,
@@ -22,6 +22,7 @@ import {
 
 // ดึงข้อมูลมาจากไฟล์แยก
 import { seedData } from "./seed-data";
+import { seedMockProjects } from "./seed-projects";
 
 async function main() {
   console.log("Starting database seeding...");
@@ -131,7 +132,7 @@ async function main() {
           userId: newUser.userId,
           roleId: userData.roleId,
         });
-        
+
         console.log(`   ✅ สร้างบัญชี ${userData.username} สำเร็จ!`);
       }
     }
@@ -199,6 +200,8 @@ async function main() {
     }
 
     console.log("   ✅ เพิ่มข้อมูล Master Data สำหรับระบบการประชุมสำเร็จ");
+
+    await seedMockProjects(); // เรียกใช้ฟังก์ชัน Seed Mock Projects
 
     console.log("✅ Seed ข้อมูลเสร็จสมบูรณ์!");
     process.exit(0);
