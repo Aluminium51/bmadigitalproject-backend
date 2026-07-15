@@ -8,10 +8,16 @@ import { z } from "@hono/zod-openapi";
 export const draftProposalSchema = z.object({
   projectId: z.string().uuid().optional(),
   currentStep: z.coerce.number().optional(),
-  draftPayload: z.record(z.string(), z.any()).optional(),
+  draftPayload: z.any().optional().openapi({
+      type: 'object',
+      description: 'ข้อมูลฟอร์มแบบร่างทั้งหมด (JSON)'
+  }),
 
-}).passthrough().openapi({
-  title: 'DraftProposalRequest',
+  // service (upsertDraft)
+  projectName: z.string().optional(),
+  objective: z.string().optional(),
+  totalBudget: z.coerce.number().optional(),
+}).openapi('DraftProposalRequest', {
   description: 'Schema สำหรับข้อมูลแบบร่างโครงการ (Auto-Save)'
 });
 
