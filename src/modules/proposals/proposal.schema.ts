@@ -8,10 +8,10 @@ import { z } from "@hono/zod-openapi";
 export const draftProposalSchema = z.object({
   projectId: z.string().uuid().optional(),
   currentStep: z.coerce.number().optional(),
-  draftPayload: z.record(z.string(), z.any()).optional(), 
-  
+  draftPayload: z.record(z.string(), z.any()).optional(),
+
 }).passthrough().openapi({
-  title: 'DraftProposal',
+  title: 'DraftProposalRequest',
   description: 'Schema สำหรับข้อมูลแบบร่างโครงการ (Auto-Save)'
 });
 
@@ -177,7 +177,7 @@ export const submitProposalSchema = z.object({
   projectManager: z.string().min(2),
   totalBudget: z.coerce.number().min(1),
   budgetsByYear: z.array(budgetByYearSchema).default([]),
-  
+
   // Step 2: สาระสำคัญและขอบเขตโครงการ
   background: z.string().min(10),
   objective: z.string().min(10),
@@ -189,7 +189,7 @@ export const submitProposalSchema = z.object({
   relatedProjects: z.array(relatedProjectSchema).default([]),
   manpower: z.array(manpowerSchema).default([]),
   existingEquipment: z.array(existingEquipmentSchema).default([]),
-  
+
   // Step 3: สถาปัตยกรรมองค์กร
   isBmaPlan: z.boolean().default(false),
   isAgencyPlan: z.boolean().default(false),
@@ -203,7 +203,7 @@ export const submitProposalSchema = z.object({
   appArchitecture: z.string().min(5),
   dataOwner: z.string().min(2),
   dataExchangePlan: z.string().min(5),
-  
+
   // Step 4: งบประมาณ
   hardwareCosts: z.array(hardwareCostSchema).default([]),
   softwareCosts: z.array(softwareCostSchema).default([]),
@@ -213,7 +213,7 @@ export const submitProposalSchema = z.object({
   personnelResponsibilities: z.array(personnelResponsibilitySchema).default([]),
   trainingCourses: z.array(trainingCourseSchema).default([]),
   otherCosts: z.array(otherCostSchema).default([]),
-  
+
   // Step 5: ความพร้อม
   durationDays: z.coerce.number().min(1),
   ictPersonnel: z.array(ictPersonnelSchema).default([]),
@@ -221,7 +221,7 @@ export const submitProposalSchema = z.object({
   otherReadiness: z.string().optional(),
   expectedBenefits: z.string().min(1),
   isInRoadmap: z.boolean(),
-});
+}).openapi("SubmitProposalRequest");
 
 // Keep the old schema name as an alias for backward compatibility
 export const upsertProposalSchema = draftProposalSchema;
@@ -231,7 +231,7 @@ export const ProposalProjectParamsSchema = z.object({
     example: "018f3a3b-1b2c-7d3e-8f4b-5c6d7e8f9a0b",
     description: "Project UUID",
   }),
-});
+}).openapi("ProposalProjectParams");
 
 export type DraftProposalDTO = z.infer<typeof draftProposalSchema>;
 export type SubmitProposalDTO = z.infer<typeof submitProposalSchema>;

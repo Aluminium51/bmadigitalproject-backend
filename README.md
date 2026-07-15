@@ -20,22 +20,29 @@ This is backend project for BMA digital project. It is a full-stack web applicat
 ---
 
 ### How to run the backend project
-1. Make sure you have Bun installed on your machine.
-2. Clone the repository and navigate to the backend directory.
-3. Install dependencies using Bun:
+1. **Prerequisites**
+   Make sure you have Bun and Docker / Docker Compose installed on your machine.
+2. **Install dependencies:**
+   Clone the repository, navigate to the backend directory, and install packages:
     ```bash
+    git clone <repository-url>
+    cd <backend-directory>
     bun install
     ```
-4. Set up the PostgreSQL database and configure the connection in `src/config/database.ts`.
-5. Run this command to start the backend server:
+3. **Environment Variables:**
+   Create a `.env` file in the backend root directory. Configure your database connection and other secrets (e.g., `DATABASE_URL`).
+4. **Start the Backend Server (and Database):**
+   Use Docker Compose to spin up the database and the backend service:
+   ```bash
+   docker-compose up -d --build
+   ```
+5. **Database Migration & Seeding:**
+    Once the database container is running, generate the Drizzle ORM types, sync the schema, and seed the initial master data:
     ```bash
-    # Migrate the database schema and generate Drizzle ORM types
     bun run db:generate
-
-    # Start the backend server
-    docker-compose up -d --build
     ```
-6. The backend server should now be running and accessible at `http://localhost:8081`. You can access the API documentation at `http://localhost:8081/docs`.
+6. **Verify Backend:**
+   The backend server should now be running and accessible at `http://localhost:8081`. You can access the API documentation at `http://localhost:8081/docs/`. You can also test the health check endpoint at `http://localhost:8081/health`.
 
 ---
 
