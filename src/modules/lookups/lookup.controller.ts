@@ -6,7 +6,7 @@ import {
   getDeputyGovernorsLookup,
   getDepartmentsLookup,
   getProjectStatusesLookup,
-} from "./lookup.service";
+} from "../projects/lookup.service";
 
 export const lookupController = {
   async getDivisions(c: Context) {

@@ -54,6 +54,7 @@ export const ProjectSchema = z.object({
   status: CompactLookupSchema.nullable().openapi({ description: 'สถานะโครงการ' }),
   projectType: CompactLookupSchema.nullable().openapi({ description: 'ประเภทโครงการ' }),
   owner: CompactUserSchema.nullable().openapi({ description: 'ผู้สร้างโครงการ' }),
+  analyst: CompactUserSchema.nullable().openapi({ description: 'ผู้วิเคราะห์โครงการ' }),
 }).openapi('Project');
 
 // Schema สำหรับสร้าง Project ใหม่
