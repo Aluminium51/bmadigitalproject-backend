@@ -1,18 +1,51 @@
 // src/modules/lookups/lookup.service.ts
 import { db } from "../../db";
-import { divisions, fourQuadrants, deputyGovernors, projectStatuses } from "../../db/schema";
+import { divisions, fourQuadrants, deputyGovernors, projectStatuses, departments } from "../../db/schema";
 import { appCache } from "../../utils/memory-cache";
 
 // ตั้งเวลาให้ Cache จำข้อมูล Lookup นาน 24 ชั่วโมง (86400 วินาที)
 const LOOKUP_TTL = 86400;
 
-export const getDivisionsLookup = async () => {
-  return appCache.getOrSet(
-    "lookup:divisions", // คีย์ของ Cache
+export const getDivisionsLookup = async (departmentId?: number) => {
+  // 1. ดึงข้อมูล Divisions ทั้งหมด (จาก Cache ก่อน ถ้าไม่มีค่อยลง DB)
+  const allDivisions = await appCache.getOrSet(
+    "lookup:divisions",
     async () => {
-      // โค้ดส่วนนี้จะทำงานแค่ "ครั้งแรก" ครั้งเดียว หรือตอนหมดอายุ
       console.log("Fetching divisions from DB...");
-      return await db.select().from(divisions);
+      const result = await db.select().from(divisions);
+
+      // แปลง Key เป็น id และ name เพื่อให้ FormCombobox ใน Frontend เอาไปใช้ได้ทันที
+      return result.map(div => ({
+        id: div.divisionId,
+        name: div.divisionName,
+        departmentId: div.departmentId
+      }));
+    },
+    LOOKUP_TTL
+  );
+
+  // 2. ถ้ามีการส่ง departmentId มา ให้กรองเฉพาะส่วนราชการที่อยู่ในหน่วยงานนั้น
+  if (departmentId) {
+    return allDivisions.filter(div => div.departmentId === departmentId);
+  }
+
+  // 3. ถ้าไม่มีการส่งมา (เช่น ตอนโหลดครั้งแรก) ให้คืนค่าทั้งหมด
+  return allDivisions;
+};
+
+export const getDepartmentsLookup = async () => {
+  return appCache.getOrSet(
+    "lookup:departments",
+    async () => {
+      console.log("Fetching departments from DB...");
+      const result = await db.select().from(departments);
+
+      // แปลง Key ให้เป็น id และ name เพื่อให้ตรงกับ LookupItemSchema
+      // และตรงกับที่ Frontend (FormCombobox) คาดหวังว่าจะได้รับ
+      return result.map(dept => ({
+        id: dept.departmentId,
+        name: dept.departmentName
+      }));
     },
     LOOKUP_TTL
   );

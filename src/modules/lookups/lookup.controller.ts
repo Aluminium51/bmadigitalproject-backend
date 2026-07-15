@@ -1,15 +1,23 @@
 // src/modules/lookups/lookup.controller.ts
-import type { Context } from 'hono';
+import type { Context } from "hono";
 import {
   getDivisionsLookup,
   getFourQuadrantsLookup,
   getDeputyGovernorsLookup,
-  getProjectStatusesLookup
-} from './lookup.service';
+  getDepartmentsLookup,
+  getProjectStatusesLookup,
+} from "./lookup.service";
 
 export const lookupController = {
   async getDivisions(c: Context) {
-    const result = await getDivisionsLookup();
+    const queryId = c.req.query("departmentId");
+    const departmentId = queryId ? Number(queryId) : undefined;
+    const result = await getDivisionsLookup(departmentId);
+    return c.json({ data: result }, 200);
+  },
+
+  async getDepartments(c: Context) {
+    const result = await getDepartmentsLookup();
     return c.json({ data: result }, 200);
   },
 
@@ -26,5 +34,5 @@ export const lookupController = {
   async getProjectStatuses(c: Context) {
     const result = await getProjectStatusesLookup();
     return c.json({ data: result }, 200);
-  }
+  },
 };

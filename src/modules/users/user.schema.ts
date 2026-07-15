@@ -20,7 +20,7 @@ const DivisionSchema = z.object({
 // Response Schema (ดึงข้อมูลออกมาทั้งหมด)
 export const UserSchema = createSelectSchema(users)
   .omit({ // ปิดบังฟิลด์ที่เป็นความลับหรือข้อมูลระบบที่ไม่จำเป็น
-    password: true, 
+    password: true,
     resetPasswordToken: true,
     resetPasswordExpires: true,
     verificationToken: true,
@@ -40,6 +40,8 @@ export const CreateUserSchema = createInsertSchema(users, {
   firstName: (schema) => schema.min(1),
   lastName: (schema) => schema.min(1),
   position: (schema) => schema.min(1),
+  level: (schema) => schema.optional(),
+  managementPosition: (schema) => schema.optional(),
   email: (schema) => schema.email(),
   mobilePhone: (schema) => schema.min(6),
   officePhone: (schema) => schema.min(6).optional(),
@@ -48,16 +50,16 @@ export const CreateUserSchema = createInsertSchema(users, {
   divisionId: (schema) => schema.int().positive("กรุณาระบุฝ่ายให้ถูกต้อง"),
 })
   .omit({ // ตัด fields ที่ไม่ต้องการออกไปจาก Request Body เพราะเป็นฟิลด์ระบบ
-    userId: true,              
+    userId: true,
     isActive: true,             // Default เป็น true
-    lastLogin: true,            // ฟิลด์ระบบ ห้ามกรอกตอนสมัคร
-    resetPasswordToken: true,   // ฟิลด์ระบบ
-    resetPasswordExpires: true, // ฟิลด์ระบบ
+    lastLogin: true,
+    resetPasswordToken: true,
+    resetPasswordExpires: true,
     isVerified: true,           // ระบบจะ Default เป็น false จนกว่าจะยืนยันอีเมล
-    verificationToken: true,    // ฟิลด์ระบบ
-    verificationExpires: true,  // ฟิลด์ระบบ
-    createdAt: true,            // ระบบสร้างให้อัตโนมัติ
-    updatedAt: true             // ระบบสร้างให้อัตโนมัติ
+    verificationToken: true,
+    verificationExpires: true,
+    createdAt: true,
+    updatedAt: true
   })
   .extend({ // ต่อเติม/ขยาย fields นอกเหนือจากตาราง users เพื่อให้หน้าบ้านส่งมาได้
     // ถ้าตอนสมัครสมาชิก คุณอยากให้หน้าบ้านส่งกลุ่มของ Role ID มาพร้อมกัน (เช่น [1] สำหรับ USER) สามารถเปิดรับตรงนี้ได้ครับ

@@ -1,8 +1,8 @@
 // src/db/seed-projects.ts
 import { db } from "./index";
-import { projects } from "./schema/projects";
+import { projects, projectSequences } from "./schema/projects";
 import { v7 as uuidv7 } from "uuid";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { users } from "./schema/users";
 
 export const mockProjectsData = [
@@ -73,7 +73,6 @@ export async function seedMockProjects() {
   console.log(">> เริ่มสร้างข้อมูลโครงการทดสอบ (Mock Projects)...");
 
   try {
-    // หา Test User ที่สร้างไว้แล้ว (จากไฟล์ seed-data.ts) เพื่อเอามาเป็นเจ้าของโครงการ
     const testUser = await db.query.users.findFirst({
       where: eq(users.username, "test_user")
     });
@@ -83,11 +82,11 @@ export async function seedMockProjects() {
       return;
     }
 
-    // หา Analyst เพื่อจำลองการ Assign
     const testAnalyst = await db.query.users.findFirst({
       where: eq(users.username, "test_analyst")
     });
 
+    // --- ส่วน Insert ข้อมูล Mock ของเดิม ---
     for (const project of mockProjectsData) {
       const existing = await db.query.projects.findFirst({
         where: eq(projects.projectCode, project.projectCode)
@@ -100,8 +99,6 @@ export async function seedMockProjects() {
           projectNameOriginal: project.projectName,
           userId: testUser.userId,
           divisionId: testUser.divisionId ?? 1,
-
-          // ตัวอย่างการจำลอง Assignment ถ้าโปรเจกต์ไม่ได้เป็น Draft/Submitted
           analystId: project.projectStatusId >= 3 && testAnalyst ? testAnalyst.userId : null,
           assignedBy: project.projectStatusId >= 3 && testAnalyst ? testUser.userId : null,
           assignedAt: project.projectStatusId >= 3 ? new Date() : null,
@@ -109,6 +106,27 @@ export async function seedMockProjects() {
         console.log(`   ✅ เพิ่มโครงการ '${project.projectName}' สำเร็จ`);
       }
     }
+
+    // 3. ซิงค์ค่า Running Number ให้ตรงกับความเป็นจริง
+    console.log(">> กำลังซิงค์เลข Project Code ล่าสุด...");
+
+    // ดึงปีปัจจุบัน พ.ศ. (ให้ตรงกับ Logic ใน generateProjectCode)
+    const currentYear = new Date().getFullYear();
+    const thaiYear = currentYear + 543;
+    const maxSeedNumber = mockProjectsData.length; // จำนวนข้อมูล Seed (ตอนนี้คือ 6)
+
+    // บันทึกหรืออัปเดต Sequence ล่าสุด
+    await db.insert(projectSequences)
+      .values({ year: thaiYear, lastValue: maxSeedNumber })
+      .onConflictDoUpdate({
+        target: projectSequences.year,
+        set: {
+          // ป้องกันในกรณีที่ User สร้าง Project จริงทะลุเลข 6 ไปแล้ว เราจะไม่ถอยเลขกลับ
+          lastValue: sql`GREATEST(${projectSequences.lastValue}, ${maxSeedNumber})`
+        }
+      });
+
+    console.log(`   ✅ อัปเดต Sequence ของปี ${thaiYear} ให้เริ่มต้นจากเลข ${maxSeedNumber + 1} แล้ว`);
     console.log("✅ Seed ข้อมูลโครงการทดสอบเสร็จสิ้น!");
 
   } catch (error) {

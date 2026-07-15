@@ -19,9 +19,9 @@ export const LookupResponseSchema = z.object({
 
 // --- Division Schemas ---
 export const DivisionItemSchema = z.object({
-  divisionId: z.number().int(),
+  id: z.number().int(),
   departmentId: z.number().int(),
-  divisionName: z.string().max(255),
+  name: z.string().max(255),
 }).openapi('DivisionItem');
 
 export const DivisionResponseSchema = z.object({
@@ -36,6 +36,11 @@ export const ProjectStatusItemSchema = z.object({
 export const ProjectStatusResponseSchema = z.object({
   data: z.array(ProjectStatusItemSchema)
 }).openapi('ProjectStatusResponse');
+
+// --- Query Parameter Schemas ---
+export const DivisionQuerySchema = z.object({
+  departmentId: z.coerce.number().optional().openapi({ description: 'ใช้กรองส่วนราชการตาม ID หน่วยงานหลัก' }),
+});
 
 // --- Types ---
 export type LookupItemDTO = z.infer<typeof LookupItemSchema>;
