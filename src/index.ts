@@ -51,7 +51,7 @@ v1.route('/projects', projectRoutes);
 v1.route('/proposals', proposalRoutes);
 v1.route('/meetings', meetingRoutes);
 v1.route('/internal', internalRoutes);
-v1.route('lookups', lookupRoutes);
+v1.route('/lookups', lookupRoutes);
 app.route('/api/v1', v1);
 
 
