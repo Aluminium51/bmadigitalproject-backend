@@ -27,15 +27,15 @@ export const users = pgTable("users", {
   mobilePhone: varchar("mobile_phone", { length: 20 }),
   officePhone: varchar("office_phone", { length: 20 }),
   internalExtension: varchar("internal_extension", { length: 10 }),
-  
+
   // เก็บสถานะการใช้งานของผู้ใช้
   isActive: boolean("is_active").default(true).notNull(),
   lastLogin: timestamp("last_login", { mode: "date" }),
 
-  // ลืมรหัสผ่านและยืนยันอีเมล 
+  // ลืมรหัสผ่านและยืนยันอีเมล
   resetPasswordToken: varchar("reset_password_token", { length: 255 }).unique(),
   resetPasswordExpires: timestamp("reset_password_expires"),
-  
+
   // ทำระบบยืนยันอีเมล
   isVerified: boolean("is_verified").default(false).notNull(),
   verificationToken: varchar("verification_token", { length: 255 }).unique(),
