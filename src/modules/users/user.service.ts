@@ -28,11 +28,13 @@ const mapUserToResponse = (user: any) => {
     resetPasswordExpires, 
     verificationToken, 
     verificationExpires, 
+    loginHistory,
     ...safeUserData 
   } = user;
 
   return {
     ...safeUserData,
+    lastLogin: loginHistory?.[0]?.loginAt ?? null,
     
     // จัดรูปแบบข้อมูลแผนก (Division & Department)
     division: user.division ? {
@@ -56,7 +58,11 @@ export const getAllUsers = async () => {
       },
       roles: {
         with: { role: true } // ดึงข้อมูล Role ทะลุ RoleUsers
-      }
+      },
+      loginHistory: {
+        orderBy: (history, { desc }) => [desc(history.loginAt)],
+        limit: 1,
+      },
     }
   });
   return result.map(mapUserToResponse);
@@ -153,6 +159,10 @@ export const getUsersPage = async (queryParams: UserListQuery) => {
     with: {
       division: { with: { department: true } },
       roles: { with: { role: true } },
+      loginHistory: {
+        orderBy: (history, { desc }) => [desc(history.loginAt)],
+        limit: 1,
+      },
     },
   });
   const rowOrder = new Map(pagedIds.map(({ userId }, index) => [userId, index]));
@@ -180,6 +190,10 @@ export const getUserProfile = async (userId: string) => {
       },
       roles: {
         with: { role: true }
+      },
+      loginHistory: {
+        orderBy: (history, { desc }) => [desc(history.loginAt)],
+        limit: 1,
       }
     }
   });

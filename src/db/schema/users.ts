@@ -30,8 +30,6 @@ export const users = pgTable("users", {
 
   // เก็บสถานะการใช้งานของผู้ใช้
   isActive: boolean("is_active").default(true).notNull(),
-  lastLogin: timestamp("last_login", { mode: "date" }),
-
   // ลืมรหัสผ่านและยืนยันอีเมล
   resetPasswordToken: varchar("reset_password_token", { length: 255 }).unique(),
   resetPasswordExpires: timestamp("reset_password_expires"),
@@ -64,6 +62,16 @@ export const roleUsers = pgTable("role_user", {
   };
 });
 
+export const userLoginHistory = pgTable("user_login_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .references(() => users.userId, { onDelete: "cascade" })
+    .notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: varchar("user_agent", { length: 512 }),
+  loginAt: timestamp("login_at", { mode: "date" }).defaultNow().notNull(),
+});
+
 // --- Relations Section สำหรับ Drizzle Query ---
 export const userRelations = relations(users, ({ one, many }) => ({
   division: one(divisions, {
@@ -71,6 +79,7 @@ export const userRelations = relations(users, ({ one, many }) => ({
     references: [divisions.divisionId],
   }),
   roles: many(roleUsers),
+  loginHistory: many(userLoginHistory),
 }));
 
 export const roleUserRelations = relations(roleUsers, ({ one }) => ({
@@ -81,5 +90,12 @@ export const roleUserRelations = relations(roleUsers, ({ one }) => ({
   role: one(roles, {
     fields: [roleUsers.roleId],
     references: [roles.roleId],
+  }),
+}));
+
+export const userLoginHistoryRelations = relations(userLoginHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [userLoginHistory.userId],
+    references: [users.userId],
   }),
 }));

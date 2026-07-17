@@ -27,6 +27,9 @@ export const UserSchema = createSelectSchema(users)
     verificationExpires: true
   })
   .extend({
+    lastLogin: z.date().nullable().openapi({
+      description: "The latest successful login timestamp",
+    }),
     // เพิ่มฟิลด์ที่ได้จากการ Join
     division: DivisionSchema.nullable().openapi({ description: 'ข้อมูลหน่วยงานและต้นสังกัด' }),
     roles: z.array(RoleSchema).openapi({ description: 'สิทธิ์การใช้งานทั้งหมดของผู้ใช้' }),
@@ -52,7 +55,6 @@ export const CreateUserSchema = createInsertSchema(users, {
   .omit({ // ตัด fields ที่ไม่ต้องการออกไปจาก Request Body เพราะเป็นฟิลด์ระบบ
     userId: true,
     isActive: true,             // Default เป็น true
-    lastLogin: true,
     resetPasswordToken: true,
     resetPasswordExpires: true,
     isVerified: true,           // ระบบจะ Default เป็น false จนกว่าจะยืนยันอีเมล

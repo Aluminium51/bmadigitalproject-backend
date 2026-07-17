@@ -8,7 +8,7 @@ import {
 import { Context } from "hono";
 import { db } from "@/db";
 import { and, eq, gt, or } from "drizzle-orm";
-import { users } from "@/db/schema";
+import { userLoginHistory, users } from "@/db/schema";
 import {
   LoginRequestSchema,
   RecoveryEmailRequestSchema,
@@ -80,6 +80,18 @@ export const login = async (c: Context, body: LoginBody) => {
         403,
       );
     }
+
+    const ipAddress = getClientIp(c.req);
+    const userAgent = c.req.header("user-agent") || null;
+
+    // Record only successful, verified logins in the audit table.
+    await db
+      .insert(userLoginHistory)
+      .values({
+        userId: user.userId,
+        ipAddress,
+        userAgent,
+      });
 
     const userRoles =
       user.roles && user.roles.length > 0

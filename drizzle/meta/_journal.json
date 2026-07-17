@@ -8,6 +8,13 @@
       "when": 1784016990993,
       "tag": "0000_last_tusk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784270000000,
+      "tag": "0001_user_login_history",
+      "breakpoints": true
     }
   ]
 }
