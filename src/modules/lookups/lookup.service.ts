@@ -1,6 +1,7 @@
 // src/modules/lookups/lookup.service.ts
 import { db } from "../../db";
-import { divisions, fourQuadrants, deputyGovernors, projectStatuses, departments } from "../../db/schema";
+import { divisions, fourQuadrants, deputyGovernors, projectStatuses, departments, roles } from "../../db/schema";
+import { asc } from "drizzle-orm";
 import { appCache } from "../../utils/memory-cache";
 
 // ตั้งเวลาให้ Cache จำข้อมูล Lookup นาน 24 ชั่วโมง (86400 วินาที)
@@ -48,6 +49,21 @@ export const getDepartmentsLookup = async () => {
       }));
     },
     LOOKUP_TTL
+  );
+};
+
+export const getRolesLookup = async () => {
+  return appCache.getOrSet(
+    "lookup:roles",
+    async () => {
+      console.log("Fetching roles from DB...");
+      const result = await db.select({ id: roles.roleId, name: roles.roleName })
+        .from(roles)
+        .orderBy(asc(roles.roleName));
+
+      return result;
+    },
+    LOOKUP_TTL,
   );
 };
 

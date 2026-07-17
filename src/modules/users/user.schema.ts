@@ -74,3 +74,26 @@ export const ErrorSchema = z
     field: z.string().optional().openapi({ example: "email" }),
   })
   .openapi("ErrorResponse");
+
+export const UserQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().max(100).optional(),
+  sort: z.enum(["createdAt", "username", "name", "firstName", "email", "role", "department"]).default("createdAt"),
+  order: z.enum(["asc", "desc"]).default("desc"),
+  role: z.string().trim().max(50).optional(),
+  status: z.enum(["all", "active", "inactive"]).default("all"),
+  department: z.string().trim().max(255).optional(),
+  departmentId: z.coerce.number().int().positive().optional(),
+  divisionId: z.coerce.number().int().positive().optional(),
+}).openapi("UserQuery");
+
+export const PaginatedUserResponseSchema = z.object({
+  data: z.array(UserSchema),
+  pagination: z.object({
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+    totalPages: z.number(),
+  }),
+}).openapi("PaginatedUserResponse");

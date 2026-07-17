@@ -50,6 +50,22 @@ lookupsRouter.openapi(getDepartmentsRoute, (c) => {
   return lookupController.getDepartments(c);
 });
 
+const getRolesRoute = createRoute({
+  method: "get",
+  path: "/roles",
+  tags: ["Lookups"],
+  summary: "Get available user roles",
+  responses: {
+    200: {
+      description: "Available user roles",
+      content: { "application/json": { schema: LookupResponseSchema } },
+    },
+  },
+});
+lookupsRouter.openapi(getRolesRoute, (c) => {
+  return lookupController.getRoles(c);
+});
+
 const getFourQuadrantsRoute = createRoute({
   method: "get",
   path: "/four-quadrants",

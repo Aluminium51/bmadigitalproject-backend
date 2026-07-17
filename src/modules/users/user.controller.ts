@@ -4,13 +4,14 @@ import { HTTPException } from "hono/http-exception";
 import * as userService from "./user.service";
 import { sendVerificationEmail } from "@/utils/email.service";
 import { handleRegisterError } from "@/utils/error-handler";
+import type { UserListQuery } from "./user.service";
 
-export const getUsers = async (c: Context) => {
-  const users = await userService.getAllUsers();
-  if (!users) {
+export const getUsers = async (c: Context, query: UserListQuery) => {
+  const result = await userService.getUsersPage(query);
+  if (!result) {
     throw new HTTPException(404, { message: "ไม่พบข้อมูลผู้ใช้งานในระบบ" });
   }
-  return c.json(users, 200);
+  return c.json(result, 200);
 };
 
 export const getUserProfile = async (c: Context, userId: string) => {

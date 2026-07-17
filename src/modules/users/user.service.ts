@@ -1,9 +1,23 @@
 // src/modules/users/user.service.ts
 import { db } from "@/db";
-import { users, roleUsers } from "@/db/schema/users";
-import { eq } from "drizzle-orm";
+import { roles, users, roleUsers } from "@/db/schema/users";
+import { departments, divisions } from "@/db/schema/lookups";
+import { and, asc, countDistinct, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { v7 as uuidv7 } from "uuid";
+
+export type UserListQuery = {
+  page: number;
+  limit: number;
+  search?: string;
+  sort: "createdAt" | "username" | "name" | "firstName" | "email" | "role" | "department";
+  order: "asc" | "desc";
+  role?: string;
+  status: "all" | "active" | "inactive";
+  department?: string;
+  departmentId?: number;
+  divisionId?: number;
+};
 
 // ฟังก์ชันช่วยจัดรูปแบบข้อมูล (Mapping Helper) แปลงข้อมูลที่ Join มาให้ตรงกับ Schema
 const mapUserToResponse = (user: any) => {
@@ -49,6 +63,114 @@ export const getAllUsers = async () => {
 };
 
 // ดึงโปรไฟล์ผู้ใช้งานรายบุคคล
+export const getUsersPage = async (queryParams: UserListQuery) => {
+  const {
+    page,
+    limit,
+    search,
+    sort,
+    order,
+    role,
+    status,
+    department,
+    departmentId,
+    divisionId,
+  } = queryParams;
+  const offset = (page - 1) * limit;
+  const searchTerm = search ? `%${search}%` : undefined;
+  const roleTerm = role ? role.toUpperCase() : undefined;
+
+  const conditions = [
+    searchTerm
+      ? or(
+          ilike(users.username, searchTerm),
+          ilike(users.email, searchTerm),
+          ilike(users.firstName, searchTerm),
+          ilike(users.lastName, searchTerm),
+        )
+      : undefined,
+    roleTerm ? ilike(roles.roleName, roleTerm) : undefined,
+    status === "active" ? eq(users.isActive, true) : undefined,
+    status === "inactive" ? eq(users.isActive, false) : undefined,
+    department ? ilike(departments.departmentName, `%${department}%`) : undefined,
+    departmentId ? eq(departments.departmentId, departmentId) : undefined,
+    divisionId ? eq(divisions.divisionId, divisionId) : undefined,
+  ].filter(Boolean) as Array<ReturnType<typeof eq>>;
+
+  const filter = conditions.length > 0 ? and(...conditions) : undefined;
+  const listQuery = db
+    .select({ userId: users.userId })
+    .from(users)
+    .leftJoin(divisions, eq(users.divisionId, divisions.divisionId))
+    .leftJoin(departments, eq(divisions.departmentId, departments.departmentId))
+    .leftJoin(roleUsers, eq(users.userId, roleUsers.userId))
+    .leftJoin(roles, eq(roleUsers.roleId, roles.roleId))
+    .where(filter)
+    .groupBy(users.userId);
+
+  const sortExpression =
+    sort === "role"
+      ? sql<string>`min(${roles.roleName})`
+      : sort === "username"
+        ? sql<string>`min(${users.username})`
+        : sort === "name" || sort === "firstName"
+          ? sql<string>`min(concat(${users.firstName}, ' ', ${users.lastName}))`
+          : sort === "email"
+            ? sql<string>`min(${users.email})`
+            : sort === "department"
+              ? sql<string>`min(${departments.departmentName})`
+              : sql<Date>`min(${users.createdAt})`;
+  const orderedListQuery = listQuery.orderBy(
+    order === "asc" ? asc(sortExpression) : desc(sortExpression),
+  );
+
+  const [pagedIds, [{ total }]] = await Promise.all([
+    orderedListQuery.limit(limit).offset(offset),
+    db
+      .select({ total: countDistinct(users.userId) })
+      .from(users)
+      .leftJoin(divisions, eq(users.divisionId, divisions.divisionId))
+      .leftJoin(departments, eq(divisions.departmentId, departments.departmentId))
+      .leftJoin(roleUsers, eq(users.userId, roleUsers.userId))
+      .leftJoin(roles, eq(roleUsers.roleId, roles.roleId))
+      .where(filter),
+  ]);
+
+  if (pagedIds.length === 0) {
+    return {
+      data: [],
+      pagination: {
+        total: Number(total),
+        page,
+        limit,
+        totalPages: Math.ceil(Number(total) / limit),
+      },
+    };
+  }
+
+  const result = await db.query.users.findMany({
+    where: inArray(users.userId, pagedIds.map(({ userId }) => userId)),
+    with: {
+      division: { with: { department: true } },
+      roles: { with: { role: true } },
+    },
+  });
+  const rowOrder = new Map(pagedIds.map(({ userId }, index) => [userId, index]));
+  result.sort(
+    (left, right) => (rowOrder.get(left.userId) ?? 0) - (rowOrder.get(right.userId) ?? 0),
+  );
+
+  return {
+    data: result.map(mapUserToResponse),
+    pagination: {
+      total: Number(total),
+      page,
+      limit,
+      totalPages: Math.ceil(Number(total) / limit),
+    },
+  };
+};
+
 export const getUserProfile = async (userId: string) => {
   const result = await db.query.users.findFirst({
     where: eq(users.userId, userId),

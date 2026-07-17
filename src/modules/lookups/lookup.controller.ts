@@ -5,6 +5,7 @@ import {
   getFourQuadrantsLookup,
   getDeputyGovernorsLookup,
   getDepartmentsLookup,
+  getRolesLookup,
   getProjectStatusesLookup,
 } from "../lookups/lookup.service";
 
@@ -18,6 +19,11 @@ export const lookupController = {
 
   async getDepartments(c: Context) {
     const result = await getDepartmentsLookup();
+    return c.json({ data: result }, 200);
+  },
+
+  async getRoles(c: Context) {
+    const result = await getRolesLookup();
     return c.json({ data: result }, 200);
   },
 

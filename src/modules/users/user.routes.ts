@@ -1,19 +1,33 @@
 // src/modules/users/user.routes.ts
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
-import { UserSchema, CreateUserSchema, ErrorSchema } from './user.schema';
+import { UserSchema, CreateUserSchema, ErrorSchema, PaginatedUserResponseSchema, UserQuerySchema } from './user.schema';
 import * as userController from './user.controller';
+import { authMiddleware } from '../../middlewares/auth.middleware';
+import { HTTPException } from 'hono/http-exception';
+import type { Context, Next } from 'hono';
+import type { UserContext } from '../../utils/permission.helper';
 
 const app = new OpenAPIHono();
+
+const adminOnly = async (c: Context, next: Next) => {
+  const user = c.get('user') as UserContext | undefined;
+  if (!user?.roles.some((role) => role === 'admin' || role === 'super_admin')) {
+    throw new HTTPException(403, { message: 'Forbidden: Admin or Super Admin access is required.' });
+  }
+  await next();
+};
 
 const getUsersRoute = createRoute({
   method: 'get',
   path: '/',
   tags: ['Users'],
+  middleware: [authMiddleware, adminOnly],
+  request: { query: UserQuerySchema },
   summary: 'ดึงรายชื่อผู้ใช้งานทั้งหมด',
   responses: {
     200: {
-      content: { 'application/json': { schema: z.array(UserSchema) } },
+      content: { 'application/json': { schema: PaginatedUserResponseSchema } },
       description: 'รายชื่อผู้ใช้ทั้งหมดในระบบ',
     },
     404: {
@@ -26,7 +40,7 @@ const getUsersRoute = createRoute({
     },
   },
 });
-app.openapi(getUsersRoute, (c) => userController.getUsers(c));
+app.openapi(getUsersRoute, (c) => userController.getUsers(c, c.req.valid('query')));
 
 const getUserProfileRoute = createRoute({
   method: 'get',
