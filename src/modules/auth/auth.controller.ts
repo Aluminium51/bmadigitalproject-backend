@@ -1,16 +1,51 @@
 // src/modules/auth/auth.controller.ts
 import crypto from "crypto";
-import { sendVerificationEmail } from "@/utils/email.service";
+import {
+  sendPasswordResetEmail,
+  sendUsernameRecoveryEmail,
+  sendVerificationEmail,
+} from "@/utils/email.service";
 import { Context } from "hono";
 import { db } from "@/db";
-import { eq, or } from "drizzle-orm";
+import { and, eq, gt, or } from "drizzle-orm";
 import { users } from "@/db/schema";
-import { LoginRequestSchema } from "./auth.schema";
+import {
+  LoginRequestSchema,
+  RecoveryEmailRequestSchema,
+  ResetPasswordRequestSchema,
+} from "./auth.schema";
 import { z } from "@hono/zod-openapi";
 import { sign } from "hono/jwt";
-import { deleteCookie } from "hono/cookie"; // Import ฟังก์ชันลบ Cookie
+import { deleteCookie } from "hono/cookie";
+
+import { consumeRateLimit, getClientIp } from "@/utils/rate-limit";
 
 type LoginBody = z.infer<typeof LoginRequestSchema>;
+type RecoveryEmailBody = z.infer<typeof RecoveryEmailRequestSchema>;
+type ResetPasswordBody = z.infer<typeof ResetPasswordRequestSchema>;
+
+const RECOVERY_MESSAGE =
+  // "If this email is registered in our system, you will receive further instructions shortly.";
+  "หากอีเมลนี้มีอยู่ในระบบของเรา คุณจะได้รับอีเมลตอบกลับในไม่ช้า";
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+function recoveryRateLimitExceeded(c: Context, action: string, email: string) {
+  const emailLimit = consumeRateLimit(`${action}:email:${email}`);
+  const ipLimit = consumeRateLimit(`${action}:ip:${getClientIp(c.req)}`);
+
+  if (emailLimit.allowed && ipLimit.allowed) return null;
+
+  const retryAfterSeconds = Math.max(
+    emailLimit.retryAfterSeconds,
+    ipLimit.retryAfterSeconds,
+  );
+  c.header("Retry-After", String(retryAfterSeconds));
+  return c.json(
+    { error: "Too many recovery requests. Please try again later.", field: "email" },
+    429,
+  );
+}
 
 export const login = async (c: Context, body: LoginBody) => {
   try {
@@ -160,6 +195,98 @@ export const verifyEmail = async (c: Context) => {
       { error: "เกิดข้อผิดพลาดภายในระบบเซิร์ฟเวอร์", field: "server" },
       500,
     );
+  }
+};
+
+export const requestUsernameRecovery = async (c: Context, body: RecoveryEmailBody) => {
+  const email = normalizeEmail(body.email);
+  const limited = recoveryRateLimitExceeded(c, "username-recovery", email);
+  if (limited) return limited;
+
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email),
+      columns: { username: true, email: true },
+    });
+
+    if (user) {
+      const result = await sendUsernameRecoveryEmail(user.email, user.username);
+      if (!result.success) {
+        console.error("Username recovery email was not delivered", result.error);
+      }
+    }
+  } catch (error) {
+    console.error("Username recovery request failed:", error);
+  }
+
+  return c.json({ message: RECOVERY_MESSAGE }, 202);
+};
+
+export const requestPasswordReset = async (c: Context, body: RecoveryEmailBody) => {
+  const email = normalizeEmail(body.email);
+  const limited = recoveryRateLimitExceeded(c, "password-recovery", email);
+  if (limited) return limited;
+
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, email),
+      columns: { userId: true, email: true },
+    });
+
+    if (user) {
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+      await db
+        .update(users)
+        .set({ resetPasswordToken: token, resetPasswordExpires: expiresAt })
+        .where(eq(users.userId, user.userId));
+
+      const result = await sendPasswordResetEmail(user.email, token);
+      if (!result.success) {
+        console.error("Password reset email was not delivered", result.error);
+      }
+    }
+  } catch (error) {
+    console.error("Password reset request failed:", error);
+  }
+
+  return c.json({ message: RECOVERY_MESSAGE }, 202);
+};
+
+export const resetPassword = async (c: Context, body: ResetPasswordBody) => {
+  try {
+    const hashedPassword = await Bun.password.hash(body.newPassword);
+    const now = new Date();
+
+    // The token and expiry are part of the UPDATE predicate so two concurrent
+    // requests cannot successfully reuse the same reset link.
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        password: hashedPassword,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      })
+      .where(
+        and(
+          eq(users.resetPasswordToken, body.token),
+          gt(users.resetPasswordExpires, now),
+        ),
+      )
+      .returning({ userId: users.userId });
+
+    if (!updatedUser) {
+      return c.json(
+        { error: "This password reset link is invalid or has expired.", field: "token" },
+        400,
+      );
+    }
+
+    return c.json({ message: "Password reset successfully." }, 200);
+  } catch (error) {
+    console.error("Password reset failed:", error);
+    return c.json({ error: "Unable to reset password.", field: "server" }, 500);
   }
 };
 

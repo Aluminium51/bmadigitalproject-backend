@@ -20,6 +20,15 @@ export const VerifyEmailQuerySchema = z.object({
   token: z.string().openapi({ description: 'รหัสยืนยันตัวตนที่ส่งไปใน Gmail' }),
 });
 
+export const RecoveryEmailRequestSchema = z.object({
+  email: z.string().email().max(255),
+}).openapi('RecoveryEmailRequest');
+
+export const ResetPasswordRequestSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8),
+}).openapi('ResetPasswordRequest');
+
 export const SuccessResponseSchema = z.object({
   message: z.string(),
 }).openapi('SuccessResponse');

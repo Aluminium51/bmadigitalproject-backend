@@ -5,6 +5,8 @@ import {
   LoginRequestSchema,
   LoginResponseSchema,
   VerifyEmailQuerySchema,
+  RecoveryEmailRequestSchema,
+  ResetPasswordRequestSchema,
   SuccessResponseSchema
 } from './auth.schema';
 import { ErrorSchema } from '../users/user.schema'; // อ้างอิงจาก ErrorSchema เดิมของคุณ
@@ -38,6 +40,49 @@ const verifyRoute = createRoute({
   },
 });
 
+const forgotUsernameRoute = createRoute({
+  method: "post",
+  path: "/forgot-username",
+  tags: ["Auth"],
+  summary: "Request a username reminder",
+  request: {
+    body: { content: { "application/json": { schema: RecoveryEmailRequestSchema } } },
+  },
+  responses: {
+    202: { content: { "application/json": { schema: SuccessResponseSchema } }, description: "Recovery request accepted" },
+    429: { content: { "application/json": { schema: ErrorSchema } }, description: "Too many requests" },
+  },
+});
+
+const forgotPasswordRoute = createRoute({
+  method: "post",
+  path: "/forgot-password",
+  tags: ["Auth"],
+  summary: "Request a password reset link",
+  request: {
+    body: { content: { "application/json": { schema: RecoveryEmailRequestSchema } } },
+  },
+  responses: {
+    202: { content: { "application/json": { schema: SuccessResponseSchema } }, description: "Recovery request accepted" },
+    429: { content: { "application/json": { schema: ErrorSchema } }, description: "Too many requests" },
+  },
+});
+
+const resetPasswordRoute = createRoute({
+  method: "post",
+  path: "/reset-password",
+  tags: ["Auth"],
+  summary: "Set a new password using a reset token",
+  request: {
+    body: { content: { "application/json": { schema: ResetPasswordRequestSchema } } },
+  },
+  responses: {
+    200: { content: { "application/json": { schema: SuccessResponseSchema } }, description: "Password reset" },
+    400: { content: { "application/json": { schema: ErrorSchema } }, description: "Invalid or expired token" },
+    500: { content: { "application/json": { schema: ErrorSchema } }, description: "Server error" },
+  },
+});
+
 export const logoutRoute = createRoute({
   method: "post",
   path: "/logout",
@@ -53,6 +98,9 @@ export const logoutRoute = createRoute({
 // การ Binding Routes กับ Controller
 app.openapi(loginRoute, (c) => authController.login(c, c.req.valid('json')));
 app.openapi(verifyRoute, (c) => authController.verifyEmail(c));
+app.openapi(forgotUsernameRoute, (c) => authController.requestUsernameRecovery(c, c.req.valid("json")));
+app.openapi(forgotPasswordRoute, (c) => authController.requestPasswordReset(c, c.req.valid("json")));
+app.openapi(resetPasswordRoute, (c) => authController.resetPassword(c, c.req.valid("json")));
 app.openapi(logoutRoute, (c) => authController.logout(c));
 
 export default app;
