@@ -15,6 +15,13 @@
       "when": 1784270000000,
       "tag": "0001_user_login_history",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784280000000,
+      "tag": "0002_project_workflow",
+      "breakpoints": true
     }
   ]
 }

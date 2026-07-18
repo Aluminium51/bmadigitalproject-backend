@@ -14,6 +14,11 @@ import { projects } from "../../db/schema/projects";
 import { users } from "../../db/schema/users";
 import { HTTPException } from "hono/http-exception";
 import { v7 as uuidv7 } from "uuid";
+import {
+  PROJECT_STATUS,
+  OWNER_EDITABLE_STATUS_IDS,
+  applyProjectStatusTransition,
+} from "../projects/project-workflow";
 
 // ============================================================================
 // Helper Function: สำหรับจัดการ Update, Insert, Delete ด้วย Promise.all
@@ -59,9 +64,22 @@ async function assertUserExists(userId: string) {
   if (!user) throw new HTTPException(401, { message: "Invalid authentication token: user not found" });
 }
 
-async function assertProjectExists(projectId: string) {
-  const [project] = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, projectId)).limit(1);
+async function assertOwnerCanEditProject(projectId: string, userId: string) {
+  const [project] = await db
+    .select({ id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
   if (!project) throw new HTTPException(404, { message: "Project not found" });
+  if (project.ownerId !== userId) {
+    throw new HTTPException(403, { message: "Only the project owner can edit this proposal" });
+  }
+  if (!OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number])) {
+    throw new HTTPException(409, { message: "This project is currently outside the owner's editing stage" });
+  }
+
+  return project;
 }
 
 export const proposalService = {
@@ -72,7 +90,7 @@ export const proposalService = {
 
   async initializeDraft(projectId: string, userId: string) {
     await assertUserExists(userId);
-    await assertProjectExists(projectId);
+    await assertOwnerCanEditProject(projectId, userId);
 
     const existing = await db.query.proposalDrafts.findFirst({
       where: eq(proposalDrafts.projectId, projectId)
@@ -106,7 +124,7 @@ export const proposalService = {
   // บันทึกแบบร่างอัตโนมัติ (Upsert) -> ถ้าไม่มีให้ Insert, ถ้ามีให้ Update
   async upsertDraft(projectId: string, userId: string, payload: any) {
     await assertUserExists(userId);
-    await assertProjectExists(projectId);
+    await assertOwnerCanEditProject(projectId, userId);
 
     const formData = payload.draftPayload || payload;
     const summaryData = {
@@ -164,7 +182,10 @@ export const proposalService = {
 
   async submitProposal(userId: string, data: any) {
     await assertUserExists(userId);
-    await assertProjectExists(data.projectId);
+    const project = await assertOwnerCanEditProject(data.projectId, userId);
+    const targetStatus = project.statusId === PROJECT_STATUS.DRAFT || project.statusId === PROJECT_STATUS.RETURNED_SECRETARY
+      ? PROJECT_STATUS.PENDING_SECRETARY
+      : PROJECT_STATUS.IN_ANALYSIS;
 
     return await db.transaction(async (tx) => {
       // 1. จัดการตารางแม่ (Proposals) ด้วย Upsert -> ตัดปัญหา Race Condition 
@@ -344,6 +365,13 @@ export const proposalService = {
           (vm) => ({ vmDescription: vm.vmDescription, osDatabase: vm.osDatabase, vcpu: vm.vcpu, ramGb: vm.ramGb, gpuGb: vm.gpuGb, storageGb: vm.storageGb, price: vm.price ? String(vm.price) : "0" })
         );
       }));
+
+      await applyProjectStatusTransition(tx, {
+        projectId: data.projectId,
+        userId,
+        oldStatusId: project.statusId,
+        newStatusId: targetStatus,
+      });
 
       // ============================================================================
       // 5. ปิดท้าย: ลบ Draft ออกเมื่อ Submit ข้อมูลจริงเรียบร้อยแล้ว

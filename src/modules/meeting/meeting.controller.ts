@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { HTTPException } from "hono/http-exception";
 import { meetingService } from './meeting.service';
 import { getUserId } from '../../utils/controller-helper';
-import type { CreateMeetingDTO, UpdateMeetingDTO, CreateAgendaDTO, UpdateAgendaDTO } from './meeting.schema';
+import type { CreateMeetingDTO, UpdateMeetingDTO, CreateAgendaDTO, UpdateAgendaDTO, RecordResolutionDTO } from './meeting.schema';
 
 export const meetingController = {
   // --- Meetings ---
@@ -59,5 +59,11 @@ export const meetingController = {
     getUserId(c); // บังคับเช็ค
     await meetingService.deleteAgenda(id);
     return c.json({ message: 'ลบวาระการประชุมสำเร็จ' }, 200);
+  },
+
+  async recordResolution(c: Context, agendaId: string, body: RecordResolutionDTO) {
+    const userId = getUserId(c);
+    const result = await meetingService.recordResolution(agendaId, body, userId);
+    return c.json({ data: result }, 200);
   }
 };

@@ -5,3 +5,4 @@ export * from "./projects";
 export * from "./proposal_drafts";
 export * from "./proposals";
 export * from "./meetings";
+export * from "./project_status_logs";

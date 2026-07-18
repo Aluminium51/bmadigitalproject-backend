@@ -92,12 +92,21 @@ mockUsers: [
   ],
 
   projectStatuses: [
-    { id: 1, statusName: "Draft" },               // ร่าง
-    { id: 2, statusName: "Submitted" },           // ส่งแล้ว รอตรวจสอบ
-    { id: 3, statusName: "In Review" },           // กำลังพิจารณา
-    { id: 4, statusName: "Need Revision" },       // ส่งกลับไปแก้ไข
-    { id: 5, statusName: "Approved" },            // อนุมัติแล้ว
-    { id: 6, statusName: "Rejected" }             // ไม่อนุมัติ
+    { id: 1, statusName: "Draft" },
+    { id: 2, statusName: "Pending Secretary" },
+    { id: 3, statusName: "Returned by Secretary" },
+    { id: 4, statusName: "Rejected by Secretary" },
+    { id: 5, statusName: "Pending Assignment" },
+    { id: 6, statusName: "In Analysis" },
+    { id: 7, statusName: "Returned by Analyst" },
+    { id: 8, statusName: "Rejected by Analyst" },
+    { id: 9, statusName: "Pending Small Board" },
+    { id: 10, statusName: "Returned by Small Board" },
+    { id: 11, statusName: "Rejected by Small Board" },
+    { id: 12, statusName: "Pending Big Board" },
+    { id: 13, statusName: "Returned by Big Board" },
+    { id: 14, statusName: "Rejected by Big Board" },
+    { id: 15, statusName: "Approved" },
   ],
 
   projectAttachmentTypes: [

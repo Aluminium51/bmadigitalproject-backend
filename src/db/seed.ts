@@ -142,7 +142,13 @@ async function main() {
       const existing = await db.query.projectStatuses.findFirst({
         where: eq(projectStatuses.id, ps.id),
       });
-      if (!existing) await db.insert(projectStatuses).values(ps);
+      if (!existing) {
+        await db.insert(projectStatuses).values(ps);
+      } else if (existing.statusName !== ps.statusName) {
+        await db.update(projectStatuses)
+          .set({ statusName: ps.statusName })
+          .where(eq(projectStatuses.id, ps.id));
+      }
     }
 
     // Project Attachment Types

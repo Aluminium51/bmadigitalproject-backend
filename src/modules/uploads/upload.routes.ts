@@ -1,8 +1,10 @@
 // src/modules/uploads/upload.routes.ts
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { UploadController } from './upload.controller';
+import { authMiddleware } from '../../middlewares/auth.middleware';
 
 const uploadRoutes = new OpenAPIHono();
+uploadRoutes.use('*', authMiddleware);
 
 const uploadDocumentRoute = createRoute({
   method: 'post',
@@ -18,6 +20,7 @@ const uploadDocumentRoute = createRoute({
               format: 'binary', // สำคัญ : ทำให้ Swagger โชว์ปุ่มเลือกไฟล์
               description: 'เอกสาร PDF ที่ต้องการบีบอัด'
             }),
+            projectId: z.string().uuid(),
           }),
         },
       },

@@ -68,6 +68,7 @@ export const CreateProjectSchema = z.object({
 
 export const UpdateProjectStatusSchema = z.object({
   projectStatusId: z.number().int().openapi({ example: 2 }),
+  projectTypeId: z.number().int().optional().openapi({ example: 2 }),
   remark: z.string().optional().openapi({ example: 'ผ่านการอนุมัติขั้นต้น' }),
 }).openapi('UpdateProjectStatusRequest');
 

@@ -28,6 +28,11 @@ import {
 } from "../../db/schema/lookups";
 import { users } from "@/db/schema/users";
 import { checkPermission, UserContext } from "@/utils/permission.helper";
+import {
+  PROJECT_STATUS,
+  applyProjectStatusTransition,
+  assertValidProjectTransition,
+} from "./project-workflow";
 
 async function assertUserExists(userId: string) {
   const [user] = await db
@@ -308,21 +313,41 @@ export const updateProjectStatus = async (
 ) => {
   const project = await findProjectById(id, user);
 
-  // ถ้าไม่ใช่ Admin หรือ Super Admin จะไม่สามารถเปลี่ยนสถานะได้
-  if (!user.roles.includes("admin") && !user.roles.includes("super_admin")) {
-    throw new HTTPException(403, {
-      message: "เฉพาะผู้ดูแลระบบหรือหัวหน้าหน่วยงานที่สามารถเปลี่ยนสถานะได้",
-    });
+  const isPrivileged = user.roles.some((role) => ["admin", "super_admin"].includes(role));
+  const isSecretaryApproval =
+    project.projectStatusId === PROJECT_STATUS.PENDING_SECRETARY &&
+    data.projectStatusId === PROJECT_STATUS.PENDING_ASSIGNMENT;
+
+  if (!isPrivileged && !user.roles.includes("secretary") && !user.roles.includes("analyst")) {
+    throw new HTTPException(403, { message: "You do not have permission to change project status" });
+  }
+  if (!isPrivileged && user.roles.includes("secretary") && !isSecretaryApproval && project.projectStatusId !== PROJECT_STATUS.PENDING_SECRETARY) {
+    throw new HTTPException(403, { message: "Secretary status actions are only available during Secretary review" });
+  }
+  if (!isPrivileged && user.roles.includes("analyst") && project.projectStatusId !== PROJECT_STATUS.IN_ANALYSIS) {
+    throw new HTTPException(403, { message: "Analyst status actions are only available during analysis" });
+  }
+  if (isSecretaryApproval && data.projectTypeId !== 1 && data.projectTypeId !== 2) {
+    throw new HTTPException(400, { message: "A Hardware or Software project type is required before approval" });
   }
 
-  await db
-    .update(projects)
-    .set({
-      projectStatusId: data.projectStatusId,
-      updatedBy: user.userId,
-      updatedAt: new Date(),
-    })
-    .where(eq(projects.id, id));
+  assertValidProjectTransition(project.projectStatusId, data.projectStatusId, data.remark);
+
+  await db.transaction(async (tx) => {
+    if (isSecretaryApproval) {
+      await tx
+        .update(projects)
+        .set({ projectTypeId: data.projectTypeId })
+        .where(eq(projects.id, id));
+    }
+    await applyProjectStatusTransition(tx, {
+      projectId: id,
+      userId: user.userId,
+      oldStatusId: project.projectStatusId,
+      newStatusId: data.projectStatusId,
+      remark: data.remark,
+    });
+  });
 
   return await findProjectById(id, user);
 };
@@ -332,22 +357,33 @@ export const assignProject = async (
   data: AssignProjectDTO,
   user: UserContext,
 ) => {
-  await findProjectById(id, user);
+  const project = await findProjectById(id, user);
 
   if (!user.roles.includes("admin") && !user.roles.includes("super_admin")) {
     throw new HTTPException(403, { message: "ไม่มีสิทธิ์มอบหมายงาน" });
   }
 
-  await db
-    .update(projects)
-    .set({
-      analystId: data.analystId,
-      assignedBy: user.userId,
-      assignedAt: new Date(),
-      updatedBy: user.userId,
-      updatedAt: new Date(),
-    })
-    .where(eq(projects.id, id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(projects)
+      .set({
+        analystId: data.analystId,
+        assignedBy: user.userId,
+        assignedAt: new Date(),
+        updatedBy: user.userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.id, id));
+
+    if (project.projectStatusId === PROJECT_STATUS.PENDING_ASSIGNMENT) {
+      await applyProjectStatusTransition(tx, {
+        projectId: id,
+        userId: user.userId,
+        oldStatusId: PROJECT_STATUS.PENDING_ASSIGNMENT,
+        newStatusId: PROJECT_STATUS.IN_ANALYSIS,
+      });
+    }
+  });
 
   return await findProjectById(id, user);
 };

@@ -65,8 +65,14 @@ export const CreateAgendaSchema = z.object({
 
 export const UpdateAgendaSchema = CreateAgendaSchema.omit({ meetingId: true }).partial().openapi('UpdateAgenda');
 
+export const RecordResolutionSchema = z.object({
+  resolutionStatusId: z.number().int().min(1).max(4),
+  comment: z.string().optional(),
+}).openapi('RecordResolution');
+
 // --- Types ---
 export type CreateMeetingDTO = z.infer<typeof CreateMeetingSchema>;
 export type UpdateMeetingDTO = z.infer<typeof UpdateMeetingSchema>;
 export type CreateAgendaDTO = z.infer<typeof CreateAgendaSchema>;
 export type UpdateAgendaDTO = z.infer<typeof UpdateAgendaSchema>;
+export type RecordResolutionDTO = z.infer<typeof RecordResolutionSchema>;

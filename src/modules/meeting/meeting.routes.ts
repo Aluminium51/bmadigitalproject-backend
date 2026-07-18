@@ -10,6 +10,7 @@ import {
   CreateAgendaSchema,
   UpdateAgendaSchema,
   AgendaSchema,
+  RecordResolutionSchema,
   ErrorSchema
 } from './meeting.schema';
 
@@ -166,6 +167,24 @@ const deleteAgendaRoute = createRoute({
 meetingsRouter.openapi(deleteAgendaRoute, (c) => {
   const { id } = c.req.valid('param');
   return meetingController.deleteAgenda(c, id);
+});
+
+const recordResolutionRoute = createRoute({
+  method: 'post',
+  path: '/agendas/{id}/resolution',
+  tags: ['Resolutions'],
+  request: {
+    params: IdParamSchema,
+    body: { content: { 'application/json': { schema: RecordResolutionSchema } } },
+  },
+  responses: {
+    200: { description: 'Resolution recorded', content: { 'application/json': { schema: z.object({ data: z.any() }) } } },
+    400: { description: 'Invalid resolution', content: { 'application/json': { schema: ErrorSchema } } },
+    409: { description: 'Invalid workflow state', content: { 'application/json': { schema: ErrorSchema } } },
+  },
+});
+meetingsRouter.openapi(recordResolutionRoute, (c) => {
+  return meetingController.recordResolution(c, c.req.valid('param').id, c.req.valid('json'));
 });
 
 export default meetingsRouter;
