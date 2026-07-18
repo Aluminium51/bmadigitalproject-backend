@@ -11,7 +11,7 @@ import {
 } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db";
-import { projects, projectSequences } from "../../db/schema/projects";
+import { projects, projectAttachments, projectSequences } from "../../db/schema/projects";
 import { HTTPException } from "hono/http-exception";
 import type {
   AssignProjectDTO,
@@ -25,6 +25,7 @@ import {
   departments,
   projectStatuses,
   projectTypes,
+  projectAttachmentTypes,
 } from "../../db/schema/lookups";
 import { users } from "@/db/schema/users";
 import { checkPermission, UserContext } from "@/utils/permission.helper";
@@ -234,7 +235,24 @@ export const findProjectById = async (id: string, user: UserContext) => {
   checkPermission(user, "read", "project", {
     departmentId: project.division?.departmentId,
   });
-  return project;
+  const attachments = await db
+    .select({
+      id: projectAttachments.id,
+      projectId: projectAttachments.projectId,
+      docTypeId: projectAttachments.docTypeId,
+      docTypeName: projectAttachmentTypes.docTypeName,
+      uploadedBy: projectAttachments.uploadedBy,
+      fileName: projectAttachments.fileName,
+      fileUrl: projectAttachments.fileUrl,
+      fileType: projectAttachments.fileType,
+      createdAt: projectAttachments.createdAt,
+    })
+    .from(projectAttachments)
+    .leftJoin(projectAttachmentTypes, eq(projectAttachments.docTypeId, projectAttachmentTypes.id))
+    .where(eq(projectAttachments.projectId, id))
+    .orderBy(desc(projectAttachments.createdAt));
+
+  return { ...project, attachments };
 };
 
 export const createProject = async (

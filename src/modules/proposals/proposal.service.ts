@@ -126,12 +126,31 @@ export const proposalService = {
     await assertUserExists(userId);
     await assertOwnerCanEditProject(projectId, userId);
 
-    const formData = payload.draftPayload || payload;
+    const existingDraft = await db.query.proposalDrafts.findFirst({
+      where: eq(proposalDrafts.projectId, projectId),
+    });
+    const incomingFormData = payload.draftPayload || payload;
+    const formData = {
+      ...(existingDraft?.draftPayload && typeof existingDraft.draftPayload === "object"
+        ? existingDraft.draftPayload as Record<string, unknown>
+        : {}),
+      ...(incomingFormData && typeof incomingFormData === "object"
+        ? incomingFormData as Record<string, unknown>
+        : {}),
+    };
     const summaryData = {
-      projectName: payload.projectName || null,
-      objective: payload.objective || null,
-      totalBudget: payload.totalBudget ? String(payload.totalBudget) : null,
-      currentStep: payload.currentStep || 1,
+      projectName: payload.projectName !== undefined
+        ? payload.projectName || null
+        : existingDraft?.projectName ?? null,
+      objective: payload.objective !== undefined
+        ? payload.objective || null
+        : existingDraft?.objective ?? null,
+      totalBudget: payload.totalBudget !== undefined
+        ? payload.totalBudget === null || payload.totalBudget === "" ? null : String(payload.totalBudget)
+        : existingDraft?.totalBudget ?? null,
+      currentStep: payload.currentStep !== undefined
+        ? payload.currentStep || 1
+        : existingDraft?.currentStep ?? 1,
       draftPayload: formData,
       updatedAt: new Date(),
       updatedBy: userId,

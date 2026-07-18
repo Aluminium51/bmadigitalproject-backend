@@ -1,47 +1,45 @@
-// src/modules/uploads/upload.controller.ts
-import { Context } from "hono";
-import { UploadService } from "./upload.service";
+import type { Context } from "hono";
 import { getUserId } from "../../utils/controller-helper";
-import { db } from "../../db";
-import { projects } from "../../db/schema/projects";
-import { eq } from "drizzle-orm";
-import { OWNER_EDITABLE_STATUS_IDS } from "../projects/project-workflow";
+import { UploadService, UploadValidationError } from "./upload.service";
 
-export class UploadController {
-  static async uploadDocument(c: Context) {
-    try {
-      const userId = getUserId(c);
-      const body = await c.req.parseBody();
-      const file = body["file"] as File;
-      const projectId = body["projectId"] as string;
+export const uploadDocument = async (c: Context) => {
+  const userId = getUserId(c);
+  const body = await c.req.parseBody();
+  const file = body.file as File | undefined;
+  const projectId = typeof body.projectId === "string" ? body.projectId : undefined;
+  const docTypeId = Number(body.docTypeId);
 
-      if (!file || !projectId) {
-        return c.json({ error: "File and projectId are required" }, 400);
-      }
-
-      const [project] = await db
-        .select({ ownerId: projects.userId, statusId: projects.projectStatusId })
-        .from(projects)
-        .where(eq(projects.id, projectId))
-        .limit(1);
-      if (!project) return c.json({ error: "Project not found" }, 404);
-      if (project.ownerId !== userId) return c.json({ error: "Only the project owner can upload proposal files" }, 403);
-      if (!OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number])) {
-        return c.json({ error: "Proposal uploads are locked at the current project stage" }, 409);
-      }
-
-      // โยนให้ Service จัดการ
-      const result = await UploadService.processAndUploadDocument(file);
-
-      return c.json({ 
-        success: true, 
-        message: "File compressed and uploaded successfully",
-        data: result
-      }, 201);
-
-    } catch (error) {
-      console.error("Upload Error:", error);
-      return c.json({ error: "Internal Server Error" }, 500);
-    }
+  if (!file || !projectId || !Number.isInteger(docTypeId) || docTypeId < 1) {
+    return c.json({ error: "File, projectId, and docTypeId are required" }, 400);
   }
-}
+
+  try {
+    const result = await UploadService.uploadDocument(file, projectId, userId, docTypeId);
+    return c.json(
+      {
+        success: true,
+        message: "File compressed and uploaded successfully",
+        data: result,
+      },
+      201,
+    );
+  } catch (error) {
+    if (error instanceof UploadValidationError) {
+      return c.json({ error: error.message }, 413);
+    }
+    throw error;
+  }
+};
+
+export const getUploadedFile = async (c: Context) => {
+  const result = await UploadService.getStoredDocument(c.req.param("fileName"));
+  const canRenderInline = result.contentType.startsWith("image/") || result.contentType === "application/pdf";
+  return new Response(result.file, {
+    status: 200,
+    headers: {
+      "Content-Type": result.contentType,
+      "Content-Disposition": `${canRenderInline ? "inline" : "attachment"}; filename="${result.fileName.replace(/"/g, "")}"`,
+      "Cache-Control": "private, max-age=3600",
+    },
+  });
+};

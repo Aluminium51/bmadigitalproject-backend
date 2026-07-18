@@ -117,7 +117,10 @@ mockUsers: [
     { id: 5, docTypeName: "presentation" },
     { id: 6, docTypeName: "report" },
     { id: 7, docTypeName: "ใบเบิกเงิน" },
-    { id: 8, docTypeName: "other" }
+    { id: 8, docTypeName: "other" },
+    { id: 9, docTypeName: "quotation" },
+    { id: 10, docTypeName: "one_page_summary" },
+    { id: 11, docTypeName: "approval_document" }
   ],
 
   meetingStatuses: [

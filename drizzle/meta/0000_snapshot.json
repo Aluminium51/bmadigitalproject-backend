@@ -1,5 +1,5 @@
 {
-  "id": "958075c0-2aff-4879-a936-62267ec03209",
+  "id": "c2ce1269-8a80-410c-9116-75866790d153",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -529,6 +529,65 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.user_login_history": {
+      "name": "user_login_history",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ip_address": {
+          "name": "ip_address",
+          "type": "varchar(45)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "login_at": {
+          "name": "login_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_login_history_user_id_users_user_id_fk": {
+          "name": "user_login_history_user_id_users_user_id_fk",
+          "tableFrom": "user_login_history",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.users": {
       "name": "users",
       "schema": "",
@@ -617,12 +676,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
-        },
-        "last_login": {
-          "name": "last_login",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
         },
         "reset_password_token": {
           "name": "reset_password_token",
@@ -3088,6 +3141,116 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.project_status_logs": {
+      "name": "project_status_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_status_id": {
+          "name": "old_status_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "new_status_id": {
+          "name": "new_status_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "remark": {
+          "name": "remark",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "project_status_logs_project_id_projects_project_id_fk": {
+          "name": "project_status_logs_project_id_projects_project_id_fk",
+          "tableFrom": "project_status_logs",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "project_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_status_logs_user_id_users_user_id_fk": {
+          "name": "project_status_logs_user_id_users_user_id_fk",
+          "tableFrom": "project_status_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "user_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "project_status_logs_old_status_id_project_statuses_project_status_id_fk": {
+          "name": "project_status_logs_old_status_id_project_statuses_project_status_id_fk",
+          "tableFrom": "project_status_logs",
+          "tableTo": "project_statuses",
+          "columnsFrom": [
+            "old_status_id"
+          ],
+          "columnsTo": [
+            "project_status_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "project_status_logs_new_status_id_project_statuses_project_status_id_fk": {
+          "name": "project_status_logs_new_status_id_project_statuses_project_status_id_fk",
+          "tableFrom": "project_status_logs",
+          "tableTo": "project_statuses",
+          "columnsFrom": [
+            "new_status_id"
+          ],
+          "columnsTo": [
+            "project_status_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

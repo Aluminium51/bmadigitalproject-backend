@@ -17,7 +17,7 @@ export const draftProposalSchema = z.object({
   projectName: z.string().optional(),
   objective: z.string().optional(),
   totalBudget: z.coerce.number().optional(),
-}).openapi('DraftProposalRequest', {
+}).partial().openapi('DraftProposalRequest', {
   description: 'Schema สำหรับข้อมูลแบบร่างโครงการ (Auto-Save)'
 });
 

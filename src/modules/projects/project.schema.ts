@@ -55,6 +55,17 @@ export const ProjectSchema = z.object({
   projectType: CompactLookupSchema.nullable().openapi({ description: 'ประเภทโครงการ' }),
   owner: CompactUserSchema.nullable().openapi({ description: 'ผู้สร้างโครงการ' }),
   analyst: CompactUserSchema.nullable().openapi({ description: 'ผู้วิเคราะห์โครงการ' }),
+  attachments: z.array(z.object({
+    id: z.string().uuid(),
+    projectId: z.string().uuid(),
+    docTypeId: z.number().int(),
+    docTypeName: z.string().nullable(),
+    uploadedBy: z.string().uuid(),
+    fileName: z.string(),
+    fileUrl: z.string().url(),
+    fileType: z.string(),
+    createdAt: z.union([z.string(), z.date()]),
+  })).default([]),
 }).openapi('Project');
 
 // Schema สำหรับสร้าง Project ใหม่

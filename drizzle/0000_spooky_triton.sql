@@ -91,6 +91,14 @@ CREATE TABLE "roles" (
 	CONSTRAINT "roles_role_name_unique" UNIQUE("role_name")
 );
 --> statement-breakpoint
+CREATE TABLE "user_login_history" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"ip_address" varchar(45),
+	"user_agent" varchar(512),
+	"login_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "users" (
 	"user_id" uuid PRIMARY KEY NOT NULL,
 	"username" varchar(100) NOT NULL,
@@ -106,7 +114,6 @@ CREATE TABLE "users" (
 	"office_phone" varchar(20),
 	"internal_extension" varchar(10),
 	"is_active" boolean DEFAULT true NOT NULL,
-	"last_login" timestamp,
 	"reset_password_token" varchar(255),
 	"reset_password_expires" timestamp,
 	"is_verified" boolean DEFAULT false NOT NULL,
@@ -430,10 +437,21 @@ CREATE TABLE "resolutions" (
 	CONSTRAINT "resolutions_agenda_id_unique" UNIQUE("agenda_id")
 );
 --> statement-breakpoint
+CREATE TABLE "project_status_logs" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"project_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"old_status_id" integer NOT NULL,
+	"new_status_id" integer NOT NULL,
+	"remark" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "divisions" ADD CONSTRAINT "divisions_department_id_departments_department_id_fk" FOREIGN KEY ("department_id") REFERENCES "public"."departments"("department_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "role_user" ADD CONSTRAINT "role_user_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "role_user" ADD CONSTRAINT "role_user_role_id_roles_role_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("role_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "role_user" ADD CONSTRAINT "role_user_assigned_by_users_user_id_fk" FOREIGN KEY ("assigned_by") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_login_history" ADD CONSTRAINT "user_login_history_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_division_id_divisions_division_id_fk" FOREIGN KEY ("division_id") REFERENCES "public"."divisions"("division_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_attachments" ADD CONSTRAINT "project_attachments_project_id_projects_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("project_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_attachments" ADD CONSTRAINT "project_attachments_doc_type_id_project_attachment_types_doc_type_id_fk" FOREIGN KEY ("doc_type_id") REFERENCES "public"."project_attachment_types"("doc_type_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -477,4 +495,8 @@ ALTER TABLE "meetings" ADD CONSTRAINT "meetings_created_by_users_user_id_fk" FOR
 ALTER TABLE "meetings" ADD CONSTRAINT "meetings_updated_by_users_user_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resolutions" ADD CONSTRAINT "resolutions_agenda_id_agendas_id_fk" FOREIGN KEY ("agenda_id") REFERENCES "public"."agendas"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resolutions" ADD CONSTRAINT "resolutions_resolution_status_id_resolution_statuses_id_fk" FOREIGN KEY ("resolution_status_id") REFERENCES "public"."resolution_statuses"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "resolutions" ADD CONSTRAINT "resolutions_recorded_by_users_user_id_fk" FOREIGN KEY ("recorded_by") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;
+ALTER TABLE "resolutions" ADD CONSTRAINT "resolutions_recorded_by_users_user_id_fk" FOREIGN KEY ("recorded_by") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_project_id_projects_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("project_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_old_status_id_project_statuses_project_status_id_fk" FOREIGN KEY ("old_status_id") REFERENCES "public"."project_statuses"("project_status_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_new_status_id_project_statuses_project_status_id_fk" FOREIGN KEY ("new_status_id") REFERENCES "public"."project_statuses"("project_status_id") ON DELETE no action ON UPDATE no action;
