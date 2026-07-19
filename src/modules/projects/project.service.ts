@@ -8,10 +8,15 @@ import {
   ne,
   not,
   aliasedTable,
+  isNull,
+  inArray,
 } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db";
 import { projects, projectAttachments, projectSequences } from "../../db/schema/projects";
+import { agendas, meetingAttachments } from "../../db/schema/meetings";
+import { proposals } from "../../db/schema/proposals";
+import { proposalDrafts } from "../../db/schema/proposal_drafts";
 import { HTTPException } from "hono/http-exception";
 import type {
   AssignProjectDTO,
@@ -31,9 +36,14 @@ import { users } from "@/db/schema/users";
 import { checkPermission, UserContext } from "@/utils/permission.helper";
 import {
   PROJECT_STATUS,
+  OWNER_EDITABLE_STATUS_IDS,
   applyProjectStatusTransition,
   assertValidProjectTransition,
 } from "./project-workflow";
+import { basename, join } from "node:path";
+import { unlink } from "node:fs/promises";
+
+const UPLOAD_STORAGE_DIR = process.env.UPLOAD_STORAGE_DIR ?? join(process.cwd(), "uploads");
 
 async function assertUserExists(userId: string) {
   const [user] = await db
@@ -67,6 +77,7 @@ const generateProjectCode = async (): Promise<string> => {
 };
 
 const analysts = aliasedTable(users, "analysts");
+const attachmentUploaders = aliasedTable(users, "attachment_uploaders");
 
 // Helper 1: สร้าง Query กลางสำหรับการ Join เพื่อไม่ให้โค้ดซ้ำซ้อน
 const getBaseProjectQuery = () => {
@@ -151,7 +162,7 @@ export const findAllProjects = async (user: UserContext, queryParams: any) => {
     .from(projects)
     .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId)) as any;
 
-  const conditions = [];
+  const conditions = [isNull(projects.deletedAt)];
   const isAdmin =
     user.roles.includes("super_admin") || user.roles.includes("admin");
 
@@ -225,7 +236,7 @@ export const findAllProjects = async (user: UserContext, queryParams: any) => {
 };
 
 export const findProjectById = async (id: string, user: UserContext) => {
-  const rows = await getBaseProjectQuery().where(eq(projects.id, id));
+  const rows = await getBaseProjectQuery().where(and(eq(projects.id, id), isNull(projects.deletedAt)));
   if (!rows || rows.length === 0)
     throw new HTTPException(404, { message: "ไม่พบข้อมูลโครงการ" });
 
@@ -245,14 +256,38 @@ export const findProjectById = async (id: string, user: UserContext) => {
       fileName: projectAttachments.fileName,
       fileUrl: projectAttachments.fileUrl,
       fileType: projectAttachments.fileType,
+      description: projectAttachments.description,
+      uploader: {
+        userId: attachmentUploaders.userId,
+        firstName: attachmentUploaders.firstName,
+        lastName: attachmentUploaders.lastName,
+      },
       createdAt: projectAttachments.createdAt,
     })
     .from(projectAttachments)
     .leftJoin(projectAttachmentTypes, eq(projectAttachments.docTypeId, projectAttachmentTypes.id))
+    .leftJoin(attachmentUploaders, eq(projectAttachments.uploadedBy, attachmentUploaders.userId))
     .where(eq(projectAttachments.projectId, id))
     .orderBy(desc(projectAttachments.createdAt));
 
-  return { ...project, attachments };
+  const isSuperAdmin = user.roles.includes("super_admin");
+  const isOwner = project.userId === user.userId;
+  const isSameDepartment = project.division?.departmentId === user.departmentId;
+  const hasAttachmentRole = user.roles.some((role) => ["secretary", "admin", "super_admin"].includes(role));
+  const isOwnerEditableStage = OWNER_EDITABLE_STATUS_IDS.includes(
+    project.projectStatusId as typeof OWNER_EDITABLE_STATUS_IDS[number],
+  );
+
+  return {
+    ...project,
+    attachments,
+    permissions: {
+      canDelete: isSuperAdmin || (isOwner && project.projectStatusId === PROJECT_STATUS.DRAFT),
+      canManageAttachments: isSuperAdmin || (
+        isOwnerEditableStage && (isOwner || isSameDepartment || hasAttachmentRole)
+      ),
+    },
+  };
 };
 
 export const createProject = async (
@@ -410,11 +445,56 @@ export const removeProject = async (id: string, user: UserContext) => {
   const project = await findProjectById(id, user); // จะ Throw 404/403 หากหาไม่เจอหรือไม่มีสิทธิ์อ่าน
 
   // เช็คสิทธิ์ก่อนลบ
-  checkPermission(user, "delete", "project", {
-    departmentId: project.division?.departmentId,
-    status: project.status?.id === 1 ? "draft" : "other_status", // 1 = draft
-  });
+  const isSuperAdmin = user.roles.includes("super_admin");
+  const isOwnerDraft = project.userId === user.userId && project.projectStatusId === PROJECT_STATUS.DRAFT;
+  if (!isSuperAdmin && !isOwnerDraft) {
+    throw new HTTPException(403, { message: "Only the project owner can delete a draft project" });
+  }
 
-  await db.delete(projects).where(eq(projects.id, id));
-  return true;
+  if (project.projectStatusId === PROJECT_STATUS.DRAFT) {
+    const attachmentFileUrls = project.attachments.map((attachment) => attachment.fileUrl);
+
+    await db.transaction(async (tx) => {
+      // Drafts are disposable. Remove explicit non-cascading project children
+      // first, then let the project foreign keys cascade attachments/logs.
+      const projectAgendas = await tx
+        .select({ id: agendas.id })
+        .from(agendas)
+        .where(eq(agendas.projectId, id));
+      const agendaIds = projectAgendas.map((agenda) => agenda.id);
+      if (agendaIds.length > 0) {
+        await tx.delete(meetingAttachments).where(inArray(meetingAttachments.agendaId, agendaIds));
+        await tx.delete(agendas).where(inArray(agendas.id, agendaIds));
+      }
+
+      await tx.delete(proposalDrafts).where(eq(proposalDrafts.projectId, id));
+      await tx.delete(proposals).where(eq(proposals.projectId, id));
+
+      const deleted = await tx
+        .delete(projects)
+        .where(and(eq(projects.id, id), eq(projects.projectStatusId, PROJECT_STATUS.DRAFT)))
+        .returning({ id: projects.id });
+      if (deleted.length === 0) {
+        throw new HTTPException(409, { message: "Project status changed before deletion completed" });
+      }
+    });
+
+    // Database rows are already gone; clean the corresponding local files too.
+    await Promise.all(attachmentFileUrls.map(async (fileUrl) => {
+      const fileName = decodeURIComponent(fileUrl.split("/").pop() || "");
+      if (fileName && basename(fileName) === fileName) {
+        await unlink(join(UPLOAD_STORAGE_DIR, fileName)).catch(() => undefined);
+      }
+    }));
+    return { mode: "hard" as const };
+  }
+
+  // Only Super Admin can delete a progressed project, and it remains available
+  // for audit/history queries through its soft-delete timestamp.
+  await db.update(projects).set({
+    deletedAt: new Date(),
+    updatedBy: user.userId,
+    updatedAt: new Date(),
+  }).where(and(eq(projects.id, id), isNull(projects.deletedAt)));
+  return { mode: "soft" as const };
 };

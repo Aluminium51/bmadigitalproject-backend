@@ -1,6 +1,6 @@
 // src/modules/proposals/proposal.service.ts
 import { db } from "../../db";
-import { eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt } from "drizzle-orm";
 import {
   proposals, proposalBudgets, proposalRelatedProjects, proposalManpower,
   proposalExistingEquipments, proposalHardwareCosts, proposalSoftwareCosts,
@@ -68,7 +68,7 @@ async function assertOwnerCanEditProject(projectId: string, userId: string) {
   const [project] = await db
     .select({ id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId })
     .from(projects)
-    .where(eq(projects.id, projectId))
+    .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
     .limit(1);
 
   if (!project) throw new HTTPException(404, { message: "Project not found" });

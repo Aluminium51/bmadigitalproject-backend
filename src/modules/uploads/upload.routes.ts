@@ -1,10 +1,11 @@
 import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
-import { getUploadedFile, uploadDocument } from "./upload.controller";
+import { deleteUploadedFile, getUploadedFile, uploadDocument } from "./upload.controller";
 import {
   UploadDocumentRequestSchema,
   UploadDocumentResponseSchema,
   UploadErrorSchema,
   UploadedFileParamsSchema,
+  DeleteUploadedFileParamsSchema,
 } from "./upload.schema";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 
@@ -83,5 +84,33 @@ const uploadDocumentRoute = createRoute({
 });
 
 uploadRoutes.openapi(uploadDocumentRoute, (c) => uploadDocument(c));
+
+const deleteUploadedFileRoute = createRoute({
+  method: "delete",
+  path: "/files/{fileId}",
+  tags: ["Uploads"],
+  summary: "Delete a project attachment",
+  request: { params: DeleteUploadedFileParamsSchema },
+  responses: {
+    200: {
+      description: "File deleted",
+      content: { "application/json": { schema: UploadErrorSchema } },
+    },
+    403: {
+      description: "The authenticated user cannot delete this file",
+      content: { "application/json": { schema: UploadErrorSchema } },
+    },
+    404: {
+      description: "File not found",
+      content: { "application/json": { schema: UploadErrorSchema } },
+    },
+    409: {
+      description: "File management is locked for the current project stage",
+      content: { "application/json": { schema: UploadErrorSchema } },
+    },
+  },
+});
+
+uploadRoutes.openapi(deleteUploadedFileRoute, (c) => deleteUploadedFile(c));
 
 export default uploadRoutes;

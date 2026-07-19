@@ -135,6 +135,7 @@ CREATE TABLE "project_attachments" (
 	"file_name" varchar(500) NOT NULL,
 	"file_url" varchar(1000) NOT NULL,
 	"file_type" varchar(100) NOT NULL,
+	"description" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -165,6 +166,7 @@ CREATE TABLE "projects" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"updated_by" uuid,
+	"deleted_at" timestamp,
 	CONSTRAINT "projects_project_code_unique" UNIQUE("project_code"),
 	CONSTRAINT "projects_external_task_id_unique" UNIQUE("external_task_id"),
 	CONSTRAINT "projects_public_token_unique" UNIQUE("public_token")

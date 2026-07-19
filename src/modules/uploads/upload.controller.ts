@@ -1,20 +1,21 @@
 import type { Context } from "hono";
-import { getUserId } from "../../utils/controller-helper";
+import { getUserContext } from "../../utils/controller-helper";
 import { UploadService, UploadValidationError } from "./upload.service";
 
 export const uploadDocument = async (c: Context) => {
-  const userId = getUserId(c);
+  const user = getUserContext(c);
   const body = await c.req.parseBody();
   const file = body.file as File | undefined;
   const projectId = typeof body.projectId === "string" ? body.projectId : undefined;
   const docTypeId = Number(body.docTypeId);
+  const description = typeof body.description === "string" ? body.description : undefined;
 
   if (!file || !projectId || !Number.isInteger(docTypeId) || docTypeId < 1) {
     return c.json({ error: "File, projectId, and docTypeId are required" }, 400);
   }
 
   try {
-    const result = await UploadService.uploadDocument(file, projectId, userId, docTypeId);
+    const result = await UploadService.uploadDocument(file, projectId, user, docTypeId, description);
     return c.json(
       {
         success: true,
@@ -29,6 +30,12 @@ export const uploadDocument = async (c: Context) => {
     }
     throw error;
   }
+};
+
+export const deleteUploadedFile = async (c: Context) => {
+  const user = getUserContext(c);
+  await UploadService.deleteDocument(c.req.param("fileId"), user);
+  return c.json({ success: true, message: "File deleted successfully" }, 200);
 };
 
 export const getUploadedFile = async (c: Context) => {

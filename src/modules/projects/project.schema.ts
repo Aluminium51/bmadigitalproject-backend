@@ -48,6 +48,7 @@ export const ProjectSchema = z.object({
   createdAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
   updatedAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
   updatedBy: z.string().uuid().nullable().openapi({ example: null }),
+  deletedAt: z.string().datetime().nullable().openapi({ type: 'string', format: 'date-time', nullable: true, example: null }),
 
   // เพิ่มฟิลด์ที่ถูก Join สำหรับการใช้งานฝั่งหน้าบ้าน
   division: DivisionLookupSchema.nullable().openapi({ description: 'ข้อมูลส่วนราชการเจ้าของโครงการ' }),
@@ -64,8 +65,14 @@ export const ProjectSchema = z.object({
     fileName: z.string(),
     fileUrl: z.string().url(),
     fileType: z.string(),
+    description: z.string().nullable(),
+    uploader: CompactUserSchema.nullable(),
     createdAt: z.union([z.string(), z.date()]),
   })).default([]),
+  permissions: z.object({
+    canDelete: z.boolean(),
+    canManageAttachments: z.boolean(),
+  }).optional(),
 }).openapi('Project');
 
 // Schema สำหรับสร้าง Project ใหม่

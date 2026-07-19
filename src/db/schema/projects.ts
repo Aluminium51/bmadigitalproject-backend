@@ -7,7 +7,8 @@ import {
   boolean,
   timestamp,
   numeric,
-  uuid
+  uuid,
+  text,
 } from "drizzle-orm/pg-core";
 import { fourQuadrants, deputyGovernors, divisions } from "./lookups";
 import { projectStatuses, projectTypes, projectAttachmentTypes } from "./lookups";
@@ -51,6 +52,7 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: uuid("updated_by"),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // ---------------------------------------------------------------------------
@@ -66,6 +68,7 @@ export const projectAttachments = pgTable("project_attachments", {
   fileName: varchar("file_name", { length: 500 }).notNull(),
   fileUrl: varchar("file_url", { length: 1000 }).notNull(),
   fileType: varchar("file_type", { length: 100 }).notNull(),
+  description: text("description"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
