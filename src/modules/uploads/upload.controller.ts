@@ -1,4 +1,5 @@
 import type { Context } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { getUserContext } from "../../utils/controller-helper";
 import { UploadService, UploadValidationError } from "./upload.service";
 
@@ -34,12 +35,16 @@ export const uploadDocument = async (c: Context) => {
 
 export const deleteUploadedFile = async (c: Context) => {
   const user = getUserContext(c);
-  await UploadService.deleteDocument(c.req.param("fileId"), user);
+  const fileId = c.req.param("fileId");
+  if (!fileId) throw new HTTPException(400, { message: "File ID is required" });
+  await UploadService.deleteDocument(fileId, user);
   return c.json({ success: true, message: "File deleted successfully" }, 200);
 };
 
 export const getUploadedFile = async (c: Context) => {
-  const result = await UploadService.getStoredDocument(c.req.param("fileName"));
+  const fileName = c.req.param("fileName");
+  if (!fileName) throw new HTTPException(400, { message: "File name is required" });
+  const result = await UploadService.getStoredDocument(fileName);
   const canRenderInline = result.contentType.startsWith("image/") || result.contentType === "application/pdf";
   return new Response(result.file, {
     status: 200,

@@ -48,7 +48,7 @@ export const ProjectSchema = z.object({
   createdAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
   updatedAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
   updatedBy: z.string().uuid().nullable().openapi({ example: null }),
-  deletedAt: z.string().datetime().nullable().openapi({ type: 'string', format: 'date-time', nullable: true, example: null }),
+  deletedAt: z.string().datetime().nullable().openapi({ type: 'string', format: 'date-time', example: null }),
 
   // เพิ่มฟิลด์ที่ถูก Join สำหรับการใช้งานฝั่งหน้าบ้าน
   division: DivisionLookupSchema.nullable().openapi({ description: 'ข้อมูลส่วนราชการเจ้าของโครงการ' }),

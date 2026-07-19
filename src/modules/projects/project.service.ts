@@ -10,6 +10,7 @@ import {
   aliasedTable,
   isNull,
   inArray,
+  type SQL,
 } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { db } from "../../db";
@@ -162,7 +163,7 @@ export const findAllProjects = async (user: UserContext, queryParams: any) => {
     .from(projects)
     .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId)) as any;
 
-  const conditions = [isNull(projects.deletedAt)];
+  const conditions: SQL[] = [isNull(projects.deletedAt)];
   const isAdmin =
     user.roles.includes("super_admin") || user.roles.includes("admin");
 
@@ -177,7 +178,7 @@ export const findAllProjects = async (user: UserContext, queryParams: any) => {
       or(
         eq(divisions.departmentId, user.departmentId),
         ne(projects.projectStatusId, 1),
-      ),
+      )!,
     );
   }
 
@@ -210,7 +211,7 @@ export const findAllProjects = async (user: UserContext, queryParams: any) => {
       or(
         ilike(projects.projectName, `%${search}%`),
         ilike(projects.projectCode, `%${search}%`),
-      ),
+      )!,
     );
   }
 
@@ -452,7 +453,9 @@ export const removeProject = async (id: string, user: UserContext) => {
   }
 
   if (project.projectStatusId === PROJECT_STATUS.DRAFT) {
-    const attachmentFileUrls = project.attachments.map((attachment) => attachment.fileUrl);
+    const attachmentFileUrls: string[] = project.attachments.map(
+      (attachment: { fileUrl: string }) => attachment.fileUrl,
+    );
 
     await db.transaction(async (tx) => {
       // Drafts are disposable. Remove explicit non-cascading project children
@@ -480,7 +483,7 @@ export const removeProject = async (id: string, user: UserContext) => {
     });
 
     // Database rows are already gone; clean the corresponding local files too.
-    await Promise.all(attachmentFileUrls.map(async (fileUrl) => {
+    await Promise.all(attachmentFileUrls.map(async (fileUrl: string) => {
       const fileName = decodeURIComponent(fileUrl.split("/").pop() || "");
       if (fileName && basename(fileName) === fileName) {
         await unlink(join(UPLOAD_STORAGE_DIR, fileName)).catch(() => undefined);
