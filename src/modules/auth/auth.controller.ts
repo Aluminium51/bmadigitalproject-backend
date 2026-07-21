@@ -310,7 +310,8 @@ export const logout = async (c: Context) => {
       path: "/",
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
-      sameSite: "Strict",
+      // sameSite: "Strict",
+      sameSite: "lax",
     });
 
     return c.json({ message: "ออกจากระบบสำเร็จ" }, 200);

@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
   },
   // เพิ่มส่วนนี้ถ้า server ของ BMA มีปัญหาเรื่องใบรับรอง SSL ภายใน
   tls: {
-    rejectUnauthorized: false 
+    rejectUnauthorized: false
   }
 });
 
@@ -36,32 +36,32 @@ export const sendVerificationEmail = async (email: string, token: string, name: 
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
         </head>
         <body style="margin: 0; padding: 0; background-color: #f9f9ff; font-family: 'Inter', 'Sarabun', sans-serif; -webkit-font-smoothing: antialiased;">
-          
+
           <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9f9ff; padding: 48px 16px;">
             <tr>
               <td align="center">
-                
+
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border: 1px solid #D1CDC7; border-radius: 8px; box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.04); overflow: hidden;">
-                  
+
                   <tr>
                     <td style="padding: 48px 40px; text-align: left;">
-                      
+
                       <p style="margin: 0 0 16px 0; font-size: 14px; font-weight: 700; line-height: 16px; letter-spacing: 0.04em; text-transform: uppercase; color: #00734B;">
                         Account Verification
                       </p>
-                      
+
                       <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 500; line-height: 32px; color: #191c20; letter-spacing: -0.01em;">
                         สวัสดีคุณ ${name}
                       </h1>
-                      
+
                       <p style="margin: 0 0 16px 0; font-size: 16px; font-weight: 400; line-height: 24px; color: #191c20;">
                         ขอบคุณที่ลงทะเบียนเข้าใช้งานระบบ <strong>BMA Digital Project</strong> แพลตฟอร์มบริหารจัดการโครงการเทคโนโลยีสารสนเทศ กรุงเทพมหานคร
                       </p>
-                      
+
                       <p style="margin: 0 0 40px 0; font-size: 16px; font-weight: 400; line-height: 24px; color: #3f4942;">
                         กรุณาคลิกปุ่มด้านล่างนี้เพื่อยืนยันความถูกต้องของอีเมล และเปิดใช้งานบัญชีของคุณภายใน 24 ชั่วโมง
                       </p>
-                      
+
                       <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 16px auto;">
                         <tr>
                           <td align="center" style="border-radius: 4px; background-color: #00734B;">
@@ -71,10 +71,10 @@ export const sendVerificationEmail = async (email: string, token: string, name: 
                           </td>
                         </tr>
                       </table>
-                      
+
                     </td>
                   </tr>
-                  
+
                   <tr>
                     <td style="padding: 24px 40px; background-color: #f3f3fa; border-top: 1px solid #D1CDC7; text-align: center;">
                       <p style="margin: 0; font-size: 13px; font-weight: 400; line-height: 20px; color: #696969;">
@@ -83,13 +83,13 @@ export const sendVerificationEmail = async (email: string, token: string, name: 
                       </p>
                     </td>
                   </tr>
-                  
+
                 </table>
-                
+
               </td>
             </tr>
           </table>
-  
+
         </body>
         </html>
       `,

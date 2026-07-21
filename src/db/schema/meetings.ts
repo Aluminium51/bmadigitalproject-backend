@@ -1,7 +1,13 @@
-import { pgTable, uuid, integer, varchar, text, timestamp } from "drizzle-orm/pg-core";
-import { users } from "./users";       
+import { index, pgTable, uuid, integer, varchar, text, timestamp } from "drizzle-orm/pg-core";
+import { users } from "./users";
 import { projects } from "./projects";
-import { meetingTypes, meetingStatuses, meetingAttachmentTypes, agendaTypes, resolutionStatuses, projectAttachmentTypes } from "./lookups";
+import {
+  meetingTypes,
+  meetingStatuses,
+  meetingAttachmentTypes,
+  agendaTypes,
+  resolutionStatuses,
+} from "./lookups";
 
 export const meetings = pgTable("meetings", {
   id: uuid("id").primaryKey(),
@@ -20,21 +26,26 @@ export const meetings = pgTable("meetings", {
 export const agendas = pgTable("agendas", {
   id: uuid("id").primaryKey(),
   meetingId: uuid("meeting_id")
-    .references(() => meetings.id, { onDelete: "cascade" }) // ถ้า Meeting ถูกลบ วาระทั้งหมดจะถูกลบด้วย
+    .references(() => meetings.id, { onDelete: "cascade" })
     .notNull(),
-  projectId: uuid("project_id").references(() => projects.id), // Null ได้ถ้าเป็นวาระทั่วไป
+  projectId: uuid("project_id").references(() => projects.id),
   agendaNumber: varchar("agenda_number", { length: 50 }).notNull(),
+  sortOrder: integer("sort_order").notNull(),
   agendaTypeId: integer("agenda_type_id").references(() => agendaTypes.id).notNull(),
   title: varchar("title", { length: 500 }).notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  meetingSortOrderIdx: index("agendas_meeting_sort_order_idx").on(table.meetingId, table.sortOrder),
+}));
 
 export const meetingAttachments = pgTable("meeting_attachments", {
   id: uuid("id").primaryKey(),
-  meetingId: uuid("meeting_id").references(() => meetings.id).notNull(),
-  agendaId: uuid("agenda_id").references(() => agendas.id), // ผูกกับ Agenda ได้ถ้าเป็นเอกสารเฉพาะวาระ
+  meetingId: uuid("meeting_id")
+    .references(() => meetings.id, { onDelete: "cascade" })
+    .notNull(),
+  agendaId: uuid("agenda_id").references(() => agendas.id, { onDelete: "cascade" }),
   meetingDocTypeId: integer("meeting_doc_type_id").references(() => meetingAttachmentTypes.id).notNull(),
   uploadedBy: uuid("uploaded_by").references(() => users.userId).notNull(),
   fileName: varchar("file_name", { length: 500 }).notNull(),
@@ -46,7 +57,7 @@ export const meetingAttachments = pgTable("meeting_attachments", {
 export const resolutions = pgTable("resolutions", {
   id: uuid("id").primaryKey(),
   agendaId: uuid("agenda_id")
-    .references(() => agendas.id , { onDelete: "cascade" })
+    .references(() => agendas.id, { onDelete: "cascade" })
     .notNull()
     .unique(), // 1-to-1 กับ Agenda
   resolutionStatusId: integer("resolution_status_id").references(() => resolutionStatuses.id).notNull(),

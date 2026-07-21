@@ -1,5 +1,13 @@
 // src/db/seed-data.ts
 
+export const agendaTypeSeedData = [
+  { id: 1, name: "Chairman's Announcements" },
+  { id: 2, name: "Adoption of Minutes" },
+  { id: 3, name: "Matters Arising / Follow-up" },
+  { id: 4, name: "Matters for Consideration" },
+  { id: 5, name: "Any Other Business" },
+];
+
 export const seedData = {
   departments: [
     { departmentId: 1, departmentName: "สำนักดิจิทัล" },
@@ -32,10 +40,10 @@ export const seedData = {
   ],
 
   deputyGovernors: [
-    { id: 1, name: "รองผู้ว่าฯ ด้านบริหาร" },
-    { id: 2, name: "รองผู้ว่าฯ ด้านเศรษฐกิจ" },
-    { id: 3, name: "รองผู้ว่าฯ ด้านสังคม" },
-    { id: 4, name: "รองผู้ว่าฯ ด้านสิ่งแวดล้อม" }
+    { id: 1, name: "รองผู้ว่าฯ 1" },
+    { id: 2, name: "รองผู้ว่าฯ 2" },
+    { id: 3, name: "รองผู้ว่าฯ 3" },
+    { id: 4, name: "รองผู้ว่าฯ 4" }
   ],
 
 mockUsers: [

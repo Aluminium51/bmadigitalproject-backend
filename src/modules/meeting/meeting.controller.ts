@@ -1,5 +1,4 @@
 import type { Context } from 'hono';
-import { HTTPException } from "hono/http-exception";
 import { meetingService } from './meeting.service';
 import { getUserId } from '../../utils/controller-helper';
 import type { CreateMeetingDTO, UpdateMeetingDTO, CreateAgendaDTO, UpdateAgendaDTO, RecordResolutionDTO } from './meeting.schema';

@@ -21,7 +21,7 @@ import {
 } from "./schema/lookups";
 
 // ดึงข้อมูลมาจากไฟล์แยก
-import { seedData } from "./seed-data";
+import { agendaTypeSeedData, seedData } from "./seed-data";
 import { seedMockProjects } from "./seed-projects";
 
 async function main() {
@@ -189,11 +189,15 @@ async function main() {
 
     // Agenda Types
     console.log(">> ตรวจสอบและสร้างข้อมูล Agenda Types...");
-    for (const at of seedData.agendaTypes) {
+    for (const at of agendaTypeSeedData) {
       const existing = await db.query.agendaTypes.findFirst({
         where: eq(agendaTypes.id, at.id),
       });
-      if (!existing) await db.insert(agendaTypes).values(at);
+      if (!existing) {
+        await db.insert(agendaTypes).values(at);
+      } else if (existing.name !== at.name) {
+        await db.update(agendaTypes).set({ name: at.name }).where(eq(agendaTypes.id, at.id));
+      }
     }
 
     // Resolution Statuses
