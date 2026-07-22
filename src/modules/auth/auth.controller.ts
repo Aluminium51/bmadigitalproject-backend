@@ -74,6 +74,16 @@ export const login = async (c: Context, body: LoginBody) => {
       );
     }
 
+    if (!user.isActive) {
+      return c.json(
+        {
+          error: "บัญชีของคุณถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+          field: "general",
+        },
+        403,
+      );
+    }
+
     if (!user.isVerified) {
       return c.json(
         { error: "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ", field: "general" },

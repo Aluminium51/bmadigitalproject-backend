@@ -99,3 +99,27 @@ export const PaginatedUserResponseSchema = z.object({
     totalPages: z.number(),
   }),
 }).openapi("PaginatedUserResponse");
+
+export const UpdateUserRolesSchema = z.object({
+  roleIds: z
+    .array(z.number().int().positive())
+    .min(1, "At least one role is required")
+    .max(20)
+    .refine((roleIds) => new Set(roleIds).size === roleIds.length, {
+      message: "Duplicate role IDs are not allowed",
+    }),
+}).strict().openapi("UpdateUserRolesRequest");
+
+export const UpdateUserStatusSchema = z.object({
+  isActive: z.boolean(),
+}).strict().openapi("UpdateUserStatusRequest");
+
+export const UpdateOwnProfileSchema = z.object({
+  firstName: z.string().trim().min(1).max(100).optional(),
+  lastName: z.string().trim().min(1).max(100).optional(),
+  mobilePhone: z.string().trim().min(6).max(20).nullable().optional(),
+  officePhone: z.string().trim().min(6).max(20).nullable().optional(),
+  internalExtension: z.string().trim().min(1).max(10).nullable().optional(),
+}).strict().refine((data) => Object.keys(data).length > 0, {
+  message: "At least one profile field is required",
+}).openapi("UpdateOwnProfileRequest");

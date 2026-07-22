@@ -1,20 +1,31 @@
 // src/modules/users/user.routes.ts
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
 import { z } from '@hono/zod-openapi';
-import { UserSchema, CreateUserSchema, ErrorSchema, PaginatedUserResponseSchema, UserQuerySchema } from './user.schema';
+import {
+  UserSchema,
+  CreateUserSchema,
+  ErrorSchema,
+  PaginatedUserResponseSchema,
+  UserQuerySchema,
+  UpdateUserRolesSchema,
+  UpdateUserStatusSchema,
+  UpdateOwnProfileSchema,
+} from './user.schema';
 import * as userController from './user.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { HTTPException } from 'hono/http-exception';
 import type { Context, Next } from 'hono';
-import type { UserContext } from '../../utils/permission.helper';
+import { checkPermission, type UserContext } from '../../utils/permission.helper';
+import type { Action, Resource } from '../../config/permissions.config';
 
 const app = new OpenAPIHono();
 
-const adminOnly = async (c: Context, next: Next) => {
+const requirePermission = (action: Action, resource: Resource) => async (c: Context, next: Next) => {
   const user = c.get('user') as UserContext | undefined;
-  if (!user?.roles.some((role) => role === 'admin' || role === 'super_admin')) {
-    throw new HTTPException(403, { message: 'Forbidden: Admin or Super Admin access is required.' });
+  if (!user) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
   }
+  checkPermission(user, action, resource);
   await next();
 };
 
@@ -22,7 +33,7 @@ const getUsersRoute = createRoute({
   method: 'get',
   path: '/',
   tags: ['Users'],
-  middleware: [authMiddleware, adminOnly],
+  middleware: [authMiddleware, requirePermission('read', 'user_management')],
   request: { query: UserQuerySchema },
   summary: 'ดึงรายชื่อผู้ใช้งานทั้งหมด',
   responses: {
@@ -46,6 +57,7 @@ const getUserProfileRoute = createRoute({
   method: 'get',
   path: '/profile/:userId', // ตั้ง path รับค่า userId
   tags: ['Users'],
+  middleware: [authMiddleware],
   summary: 'ดึงโปรไฟล์ผู้ใช้งานรายบุคคล',
   request: {
     params: z.object({
@@ -114,5 +126,62 @@ app.openapi(createUserRoute, (c) => {
   const body = c.req.valid('json'); 
   return userController.createUser(c, body);
 });
+
+const updateUserRolesRoute = createRoute({
+  method: 'patch',
+  path: '/:userId/roles',
+  tags: ['Users'],
+  middleware: [authMiddleware, requirePermission('update', 'rbac')],
+  request: {
+    params: z.object({ userId: z.string().uuid() }),
+    body: { content: { 'application/json': { schema: UpdateUserRolesSchema } } },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: UserSchema } }, description: 'User roles updated' },
+    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Invalid role assignment' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
+    404: { content: { 'application/json': { schema: ErrorSchema } }, description: 'User not found' },
+  },
+});
+app.openapi(updateUserRolesRoute, (c) =>
+  userController.updateUserRoles(c, c.req.valid('param').userId, c.req.valid('json')),
+);
+
+const updateUserStatusRoute = createRoute({
+  method: 'patch',
+  path: '/:userId/status',
+  tags: ['Users'],
+  middleware: [authMiddleware, requirePermission('update', 'user_management')],
+  request: {
+    params: z.object({ userId: z.string().uuid() }),
+    body: { content: { 'application/json': { schema: UpdateUserStatusSchema } } },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: UserSchema } }, description: 'User status updated' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
+    404: { content: { 'application/json': { schema: ErrorSchema } }, description: 'User not found' },
+  },
+});
+app.openapi(updateUserStatusRoute, (c) =>
+  userController.updateUserStatus(c, c.req.valid('param').userId, c.req.valid('json')),
+);
+
+const updateOwnProfileRoute = createRoute({
+  method: 'patch',
+  path: '/me',
+  tags: ['Users'],
+  middleware: [authMiddleware, requirePermission('update', 'profile')],
+  request: {
+    body: { content: { 'application/json': { schema: UpdateOwnProfileSchema } } },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: UserSchema } }, description: 'Own profile updated' },
+    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Invalid profile update' },
+    401: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Unauthorized' },
+  },
+});
+app.openapi(updateOwnProfileRoute, (c) =>
+  userController.updateOwnProfile(c, c.req.valid('json')),
+);
 
 export default app;

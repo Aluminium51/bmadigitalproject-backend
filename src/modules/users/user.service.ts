@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { roles, users, roleUsers } from "@/db/schema/users";
 import { departments, divisions } from "@/db/schema/lookups";
 import { and, asc, countDistinct, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { HTTPException } from "hono/http-exception";
 import crypto from "crypto";
 import { v7 as uuidv7 } from "uuid";
 
@@ -247,4 +248,75 @@ export const createUser = async (data: any) => {
 
     return newUser;
   });
+};
+
+export const updateUserRoles = async (
+  userId: string,
+  roleIds: number[],
+  assignedBy: string,
+) => {
+  await db.transaction(async (tx) => {
+    const [targetUser] = await tx
+      .select({ userId: users.userId })
+      .from(users)
+      .where(eq(users.userId, userId))
+      .limit(1);
+
+    if (!targetUser) {
+      throw new HTTPException(404, { message: "User not found" });
+    }
+
+    const existingRoles = await tx
+      .select({ roleId: roles.roleId })
+      .from(roles)
+      .where(inArray(roles.roleId, roleIds));
+
+    if (existingRoles.length !== roleIds.length) {
+      throw new HTTPException(400, { message: "One or more role IDs are invalid" });
+    }
+
+    await tx.delete(roleUsers).where(eq(roleUsers.userId, userId));
+    await tx.insert(roleUsers).values(
+      roleIds.map((roleId) => ({ userId, roleId, assignedBy })),
+    );
+  });
+
+  return getUserProfile(userId);
+};
+
+export const updateUserStatus = async (userId: string, isActive: boolean) => {
+  const [updatedUser] = await db
+    .update(users)
+    .set({ isActive })
+    .where(eq(users.userId, userId))
+    .returning({ userId: users.userId });
+
+  if (!updatedUser) {
+    throw new HTTPException(404, { message: "User not found" });
+  }
+
+  return getUserProfile(userId);
+};
+
+export const updateOwnProfile = async (
+  userId: string,
+  data: {
+    firstName?: string;
+    lastName?: string;
+    mobilePhone?: string | null;
+    officePhone?: string | null;
+    internalExtension?: string | null;
+  },
+) => {
+  const [updatedUser] = await db
+    .update(users)
+    .set(data)
+    .where(eq(users.userId, userId))
+    .returning({ userId: users.userId });
+
+  if (!updatedUser) {
+    throw new HTTPException(404, { message: "User not found" });
+  }
+
+  return getUserProfile(userId);
 };
