@@ -25,6 +25,8 @@ import type {
   UpdateProjectDTO,
   UpdateProjectStatusDTO,
   UpdateProjectTypeDTO,
+  SecretaryPendingProjectQueryDTO,
+  SecretaryReviewDTO,
 } from "./project.schema";
 import {
   divisions,
@@ -136,6 +138,14 @@ const mapJoinedProject = (row: any) => {
     owner: row.owner?.userId ? row.owner : null,
     analyst: row.analyst?.userId ? row.analyst : null
   };
+};
+
+const assertSecretary = (user: UserContext) => {
+  if (!user.roles.includes("secretary")) {
+    throw new HTTPException(403, {
+      message: "Only users with the secretary role can perform this action",
+    });
+  }
 };
 
 // export const findAllProjects = async () => {
@@ -291,6 +301,167 @@ export const findProjectById = async (id: string, user: UserContext) => {
   };
 };
 
+export const getPendingSecretaryProjects = async (
+  queryParams: SecretaryPendingProjectQueryDTO,
+  user: UserContext,
+) => {
+  assertSecretary(user);
+
+  const { page, limit, search } = queryParams;
+  const offset = (page - 1) * limit;
+  const conditions: SQL[] = [
+    eq(projects.projectStatusId, PROJECT_STATUS.PENDING_SECRETARY),
+    isNull(projects.deletedAt),
+  ];
+
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(projects.projectCode, pattern),
+        ilike(projects.projectName, pattern),
+        ilike(users.firstName, pattern),
+        ilike(users.lastName, pattern),
+      )!,
+    );
+  }
+
+  const query = getBaseProjectQuery().where(and(...conditions));
+  const countQuery = db
+    .select({ count: sql<number>`count(*)` })
+    .from(projects)
+    .leftJoin(users, eq(projects.userId, users.userId))
+    .where(and(...conditions));
+
+  const [rows, [{ count }]] = await Promise.all([
+    query.orderBy(desc(projects.createdAt)).limit(limit).offset(offset),
+    countQuery,
+  ]);
+
+  return {
+    data: rows.map(mapJoinedProject),
+    pagination: {
+      total: Number(count),
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(Number(count) / Number(limit)),
+    },
+  };
+};
+
+const getSecretaryProjectType = async (projectTypeId: number) => {
+  const [projectType] = await db
+    .select({ id: projectTypes.id, name: projectTypes.typeName })
+    .from(projectTypes)
+    .where(eq(projectTypes.id, projectTypeId))
+    .limit(1);
+
+  const normalizedName = projectType?.name.trim().toLowerCase();
+  if (!projectType || !["hardware", "software"].includes(normalizedName)) {
+    throw new HTTPException(400, {
+      message: "Secretary approval requires a Hardware or Software project type",
+    });
+  }
+
+  return projectType;
+};
+
+export const reviewSecretaryProject = async (
+  id: string,
+  data: SecretaryReviewDTO,
+  user: UserContext,
+) => {
+  assertSecretary(user);
+
+  const rows = await getBaseProjectQuery().where(
+    and(eq(projects.id, id), isNull(projects.deletedAt)),
+  );
+  if (rows.length === 0) {
+    throw new HTTPException(404, { message: "Project not found" });
+  }
+
+  const project = mapJoinedProject(rows[0]);
+  if (project.projectStatusId !== PROJECT_STATUS.PENDING_SECRETARY) {
+    throw new HTTPException(409, {
+      message: "This project is no longer waiting for Secretary review",
+    });
+  }
+
+  let newStatusId: number;
+  let remark: string | undefined;
+  let projectTypeId: number | undefined;
+
+  if (data.decision === "approve") {
+    await getSecretaryProjectType(data.projectTypeId);
+    projectTypeId = data.projectTypeId;
+    newStatusId = PROJECT_STATUS.PENDING_ASSIGNMENT;
+  } else if (data.decision === "return") {
+    remark = data.remark.trim();
+    newStatusId = PROJECT_STATUS.RETURNED_SECRETARY;
+  } else {
+    remark = data.remark.trim();
+    newStatusId = PROJECT_STATUS.REJECTED_SECRETARY;
+  }
+
+  assertValidProjectTransition(
+    PROJECT_STATUS.PENDING_SECRETARY,
+    newStatusId,
+    remark,
+  );
+
+  await db.transaction(async (tx) => {
+    const current = await tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.id, id),
+          eq(projects.projectStatusId, PROJECT_STATUS.PENDING_SECRETARY),
+          isNull(projects.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    if (current.length === 0) {
+      throw new HTTPException(409, {
+        message: "Project status changed before this review completed",
+      });
+    }
+
+    if (projectTypeId !== undefined) {
+      const updatedType = await tx
+        .update(projects)
+        .set({ projectTypeId })
+        .where(
+          and(
+            eq(projects.id, id),
+            eq(projects.projectStatusId, PROJECT_STATUS.PENDING_SECRETARY),
+          ),
+        )
+        .returning({ id: projects.id });
+
+      if (updatedType.length === 0) {
+        throw new HTTPException(409, {
+          message: "Project status changed before its category was saved",
+        });
+      }
+    }
+
+    await applyProjectStatusTransition(tx, {
+      projectId: id,
+      userId: user.userId,
+      oldStatusId: PROJECT_STATUS.PENDING_SECRETARY,
+      newStatusId,
+      remark,
+    });
+  });
+
+  return {
+    decision: data.decision,
+    project: await findProjectById(id, user),
+  };
+};
+
 export const createProject = async (
   user: UserContext,
   data: CreateProjectDTO,
@@ -371,6 +542,44 @@ export const updateProjectStatus = async (
   const isSecretaryApproval =
     project.projectStatusId === PROJECT_STATUS.PENDING_SECRETARY &&
     data.projectStatusId === PROJECT_STATUS.PENDING_ASSIGNMENT;
+
+  if (user.roles.includes("secretary") && !isPrivileged) {
+    if (project.projectStatusId !== PROJECT_STATUS.PENDING_SECRETARY) {
+      throw new HTTPException(403, {
+        message: "Secretary status actions are only available during Secretary review",
+      });
+    }
+
+    if (data.projectStatusId === PROJECT_STATUS.RETURNED_SECRETARY) {
+      return reviewSecretaryProject(id, {
+        decision: "return",
+        remark: data.remark ?? "",
+      }, user);
+    }
+
+    if (data.projectStatusId === PROJECT_STATUS.REJECTED_SECRETARY) {
+      return reviewSecretaryProject(id, {
+        decision: "reject",
+        remark: data.remark ?? "",
+      }, user);
+    }
+
+    if (isSecretaryApproval) {
+      if (data.projectTypeId === undefined) {
+        throw new HTTPException(400, {
+          message: "A Hardware or Software project type is required before approval",
+        });
+      }
+      return reviewSecretaryProject(id, {
+        decision: "approve",
+        projectTypeId: data.projectTypeId,
+      }, user);
+    }
+
+    throw new HTTPException(409, {
+      message: "Invalid Secretary review decision",
+    });
+  }
 
   if (!isPrivileged && !user.roles.includes("secretary") && !user.roles.includes("analyst")) {
     throw new HTTPException(403, { message: "You do not have permission to change project status" });

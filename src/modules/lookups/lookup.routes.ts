@@ -117,4 +117,20 @@ lookupsRouter.openapi(getProjectStatusesRoute, (c) => {
   return lookupController.getProjectStatuses(c);
 });
 
+const getProjectTypesRoute = createRoute({
+  method: "get",
+  path: "/project-types",
+  tags: ["Lookups"],
+  summary: "Get project types",
+  responses: {
+    200: {
+      description: "Available project types",
+      content: { "application/json": { schema: LookupResponseSchema } },
+    },
+  },
+});
+lookupsRouter.openapi(getProjectTypesRoute, (c) => {
+  return lookupController.getProjectTypes(c);
+});
+
 export default lookupsRouter;

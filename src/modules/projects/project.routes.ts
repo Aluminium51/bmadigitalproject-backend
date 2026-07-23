@@ -10,7 +10,10 @@ import {
   UpdateProjectTypeSchema,
   AssignProjectSchema,
   ProjectQuerySchema,             
-  PaginatedProjectResponseSchema  
+  PaginatedProjectResponseSchema,
+  SecretaryPendingProjectQuerySchema,
+  SecretaryReviewRequestSchema,
+  SecretaryReviewResponseSchema,
 } from './project.schema';
 import * as projectController from './project.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -44,7 +47,34 @@ app.openapi(getProjectsRoute, (c) => {
   return projectController.getProjects(c, query);
 });
 
-// --- 2. Get Project By ID ---
+// --- 2. Secretary Pending Queue ---
+const getPendingSecretaryProjectsRoute = createRoute({
+  method: 'get',
+  path: '/secretary/pending',
+  tags: ['Projects', 'Secretary Review'],
+  summary: 'ดึงรายชื่อโครงการที่รอการตรวจสอบจากเลขานุการ',
+  request: {
+    query: SecretaryPendingProjectQuerySchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PaginatedProjectResponseSchema } },
+      description: 'Projects pending Secretary review',
+    },
+    403: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Only Secretaries may access this queue',
+    },
+  },
+});
+app.openapi(getPendingSecretaryProjectsRoute, (c) => {
+  return projectController.getPendingSecretaryProjects(
+    c,
+    c.req.valid('query'),
+  );
+});
+
+// --- 3. Get Project By ID ---
 const getProjectByIdRoute = createRoute({
   method: 'get',
   path: '/{id}',
@@ -165,7 +195,49 @@ app.openapi(createRoute({
   return projectController.updateProjectStatus(c, c.req.valid('param').id, c.req.valid('json'));
 });
 
-// --- 7. Update Project Type ---
+// --- 7. Secretary Review ---
+app.openapi(createRoute({
+  method: 'post',
+  path: '/{id}/secretary-review',
+  tags: ['Projects', 'Secretary Review'],
+  summary: 'Review a project waiting for Secretary verification',
+  request: {
+    params: ProjectIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: SecretaryReviewRequestSchema } },
+    },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: SecretaryReviewResponseSchema } },
+      description: 'Secretary review completed',
+    },
+    400: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Invalid decision or missing required data',
+    },
+    403: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Only Secretaries may review projects',
+    },
+    404: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Project not found',
+    },
+    409: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Project is no longer pending Secretary review',
+    },
+  },
+}), (c) => {
+  return projectController.reviewSecretaryProject(
+    c,
+    c.req.valid('param').id,
+    c.req.valid('json'),
+  );
+});
+
+// --- 8. Update Project Type ---
 app.openapi(createRoute({
   method: 'patch', path: '/{id}/type', tags: ['Projects'], summary: 'อัปเดตประเภทโครงการ',
   request: { params: ProjectIdParamsSchema, body: { content: { 'application/json': { schema: UpdateProjectTypeSchema } } } },
@@ -174,7 +246,7 @@ app.openapi(createRoute({
   return projectController.updateProjectType(c, c.req.valid('param').id, c.req.valid('json'));
 });
 
-// --- 8. Assign Project ---
+// --- 9. Assign Project ---
 app.openapi(createRoute({
   method: 'patch', path: '/{id}/assign', tags: ['Projects'], summary: 'มอบหมายงานโครงการให้นักวิเคราะห์',
   request: { params: ProjectIdParamsSchema, body: { content: { 'application/json': { schema: AssignProjectSchema } } } },

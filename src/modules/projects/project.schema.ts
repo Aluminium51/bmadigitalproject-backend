@@ -94,6 +94,33 @@ export const UpdateProjectTypeSchema = z.object({
   projectTypeId: z.number().int().openapi({ example: 3 }),
 }).openapi('UpdateProjectTypeRequest');
 
+export const SecretaryPendingProjectQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().trim().optional(),
+}).openapi('SecretaryPendingProjectQueryParams');
+
+export const SecretaryReviewRequestSchema = z.discriminatedUnion('decision', [
+  z.object({
+    decision: z.literal('approve'),
+    projectTypeId: z.number().int().positive(),
+  }),
+  z.object({
+    decision: z.literal('return'),
+    remark: z.string().trim().min(1),
+  }),
+  z.object({
+    decision: z.literal('reject'),
+    remark: z.string().trim().min(1),
+  }),
+]).openapi('SecretaryReviewRequest');
+
+export const SecretaryReviewResponseSchema = z.object({
+  message: z.string(),
+  decision: z.enum(['approve', 'return', 'reject']),
+  project: ProjectSchema,
+}).openapi('SecretaryReviewResponse');
+
 export const AssignProjectSchema = z.object({
   analystId: z.string().uuid().openapi({ description: 'UUID ของนักวิเคราะห์' }),
 }).openapi('AssignProjectRequest');
@@ -131,3 +158,5 @@ export type UpdateProjectDTO = z.infer<typeof UpdateProjectSchema>;
 export type UpdateProjectStatusDTO = z.infer<typeof UpdateProjectStatusSchema>;
 export type UpdateProjectTypeDTO = z.infer<typeof UpdateProjectTypeSchema>;
 export type AssignProjectDTO = z.infer<typeof AssignProjectSchema>;
+export type SecretaryPendingProjectQueryDTO = z.infer<typeof SecretaryPendingProjectQuerySchema>;
+export type SecretaryReviewDTO = z.infer<typeof SecretaryReviewRequestSchema>;

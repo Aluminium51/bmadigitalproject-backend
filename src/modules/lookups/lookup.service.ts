@@ -1,6 +1,6 @@
 // src/modules/lookups/lookup.service.ts
 import { db } from "../../db";
-import { divisions, fourQuadrants, deputyGovernors, projectStatuses, departments, roles } from "../../db/schema";
+import { divisions, fourQuadrants, deputyGovernors, projectStatuses, projectTypes, departments, roles } from "../../db/schema";
 import { asc } from "drizzle-orm";
 import { appCache } from "../../utils/memory-cache";
 
@@ -95,5 +95,20 @@ export const getProjectStatusesLookup = async () => {
       return await db.select().from(projectStatuses);
     },
     LOOKUP_TTL
+  );
+};
+
+export const getProjectTypesLookup = async () => {
+  return appCache.getOrSet(
+    "lookup:projectTypes",
+    async () => {
+      const result = await db
+        .select({ id: projectTypes.id, name: projectTypes.typeName })
+        .from(projectTypes)
+        .orderBy(asc(projectTypes.typeName));
+
+      return result;
+    },
+    LOOKUP_TTL,
   );
 };

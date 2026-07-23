@@ -2,7 +2,15 @@
 import type { Context } from "hono";
 import { getUserContext } from "../../utils/controller-helper";
 import * as projectService from "./project.service";
-import type { AssignProjectDTO, CreateProjectDTO, UpdateProjectDTO, UpdateProjectStatusDTO, UpdateProjectTypeDTO } from "./project.schema";
+import type {
+  AssignProjectDTO,
+  CreateProjectDTO,
+  SecretaryPendingProjectQueryDTO,
+  SecretaryReviewDTO,
+  UpdateProjectDTO,
+  UpdateProjectStatusDTO,
+  UpdateProjectTypeDTO,
+} from "./project.schema";
 
 export const getProjects = async (c: Context, query: any) => {
   const user = getUserContext(c);
@@ -14,6 +22,15 @@ export const getProjectById = async (c: Context, id: string) => {
   const user = getUserContext(c);
   const project = await projectService.findProjectById(id, user);
   return c.json(project, 200);
+};
+
+export const getPendingSecretaryProjects = async (
+  c: Context,
+  query: SecretaryPendingProjectQueryDTO,
+) => {
+  const user = getUserContext(c);
+  const result = await projectService.getPendingSecretaryProjects(query, user);
+  return c.json(result, 200);
 };
 
 export const createProject = async (c: Context, body: CreateProjectDTO) => {
@@ -36,6 +53,19 @@ export const updateProjectStatus = async (c: Context, id: string, body: UpdatePr
   const user = getUserContext(c);
   const updatedProject = await projectService.updateProjectStatus(id, body, user);
   return c.json({ message: "อัปเดตสถานะโครงการสำเร็จ", project: updatedProject }, 200);
+};
+
+export const reviewSecretaryProject = async (
+  c: Context,
+  id: string,
+  body: SecretaryReviewDTO,
+) => {
+  const user = getUserContext(c);
+  const result = await projectService.reviewSecretaryProject(id, body, user);
+  return c.json({
+    message: "Secretary review completed successfully",
+    ...result,
+  }, 200);
 };
 
 export const updateProjectType = async (c: Context, id: string, body: UpdateProjectTypeDTO) => {
