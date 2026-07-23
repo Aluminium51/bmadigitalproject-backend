@@ -64,7 +64,8 @@ export const getAllUsers = async () => {
         with: { department: true } // ดึงข้อมูล Department ทะลุ Division
       },
       roles: {
-        with: { role: true } // ดึงข้อมูล Role ทะลุ RoleUsers
+        with: { role: true }, // ดึงข้อมูล Role ทะลุ RoleUsers
+        orderBy: (roleUser, { asc }) => [asc(roleUser.roleId)],
       },
       loginHistory: {
         orderBy: (history, { desc }) => [desc(history.loginAt)],
@@ -165,7 +166,10 @@ export const getUsersPage = async (queryParams: UserListQuery) => {
     where: inArray(users.userId, pagedIds.map(({ userId }) => userId)),
     with: {
       division: { with: { department: true } },
-      roles: { with: { role: true } },
+      roles: {
+        with: { role: true },
+        orderBy: (roleUser, { asc }) => [asc(roleUser.roleId)],
+      },
       loginHistory: {
         orderBy: (history, { desc }) => [desc(history.loginAt)],
         limit: 1,
@@ -196,7 +200,8 @@ export const getUserProfile = async (userId: string) => {
         with: { department: true }
       },
       roles: {
-        with: { role: true }
+        with: { role: true },
+        orderBy: (roleUser, { asc }) => [asc(roleUser.roleId)],
       },
       loginHistory: {
         orderBy: (history, { desc }) => [desc(history.loginAt)],
