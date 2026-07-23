@@ -61,7 +61,8 @@ export const permissionMatrix: PermissionMatrix = {
   secretary: {
     profile: ['read', 'update'],
     user_management: ['read'], // ดู User Profile/List ได้
-    project: ['read'], // ดู Project List ได้
+    project: ['read', 'update'], // ดูและแก้ไขข้อมูลโครงการได้ทุกสถานะ
+    proposal_form: ['read', 'update'], // ตรวจสอบและแก้ไขข้อมูลข้อเสนอได้ทุกสถานะ
     market: ['create', 'read', 'update', 'delete'],
     book_receive: ['create', 'read', 'update', 'delete'], // พระเอกเรื่องหนังสือรับ
     book_send: ['create', 'read', 'update', 'delete'], // พระเอกเรื่องหนังสือส่ง

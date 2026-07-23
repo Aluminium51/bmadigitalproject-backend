@@ -18,6 +18,7 @@ import { projects, projectAttachments, projectSequences } from "../../db/schema/
 import { agendas, meetingAttachments } from "../../db/schema/meetings";
 import { proposals } from "../../db/schema/proposals";
 import { proposalDrafts } from "../../db/schema/proposal_drafts";
+import { projectStatusLogs } from "../../db/schema/project_status_logs";
 import { HTTPException } from "hono/http-exception";
 import type {
   AssignProjectDTO,
@@ -281,7 +282,36 @@ export const findProjectById = async (id: string, user: UserContext) => {
     .where(eq(projectAttachments.projectId, id))
     .orderBy(desc(projectAttachments.createdAt));
 
+  const [latestReturnLog] = await db
+    .select({
+      remark: projectStatusLogs.remark,
+      createdAt: projectStatusLogs.createdAt,
+      oldStatusId: projectStatusLogs.oldStatusId,
+      newStatusId: projectStatusLogs.newStatusId,
+      reviewer: {
+        userId: users.userId,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      },
+    })
+    .from(projectStatusLogs)
+    .leftJoin(users, eq(projectStatusLogs.userId, users.userId))
+    .where(
+      and(
+        eq(projectStatusLogs.projectId, id),
+        inArray(projectStatusLogs.newStatusId, [
+          PROJECT_STATUS.RETURNED_SECRETARY,
+          PROJECT_STATUS.RETURNED_ANALYST,
+          PROJECT_STATUS.RETURNED_SMALL_BOARD,
+          PROJECT_STATUS.RETURNED_BIG_BOARD,
+        ]),
+      ),
+    )
+    .orderBy(desc(projectStatusLogs.createdAt))
+    .limit(1);
+
   const isSuperAdmin = user.roles.includes("super_admin");
+  const isSecretary = user.roles.includes("secretary");
   const isOwner = project.userId === user.userId;
   const isSameDepartment = project.division?.departmentId === user.departmentId;
   const hasAttachmentRole = user.roles.some((role) => ["secretary", "admin", "super_admin"].includes(role));
@@ -289,15 +319,43 @@ export const findProjectById = async (id: string, user: UserContext) => {
     project.projectStatusId as typeof OWNER_EDITABLE_STATUS_IDS[number],
   );
 
+  const canUpdateProject = user.roles.some((role) =>
+    ["secretary", "admin", "super_admin", "analyst"].includes(role),
+  );
+  const canEditProposal = isSecretary || (isOwner && isOwnerEditableStage);
+  const canSubmitProposal = !isSecretary && isOwner && isOwnerEditableStage;
+
+  const reviewerRoleByStatus: Record<number, string> = {
+    [PROJECT_STATUS.RETURNED_SECRETARY]: "Secretary",
+    [PROJECT_STATUS.RETURNED_ANALYST]: "Analyst",
+    [PROJECT_STATUS.RETURNED_SMALL_BOARD]: "Small Board",
+    [PROJECT_STATUS.RETURNED_BIG_BOARD]: "Big Board",
+  };
+
   return {
     ...project,
     attachments,
     permissions: {
       canDelete: isSuperAdmin || (isOwner && project.projectStatusId === PROJECT_STATUS.DRAFT),
-      canManageAttachments: isSuperAdmin || (
+      canManageAttachments: isSecretary || isSuperAdmin || (
         isOwnerEditableStage && (isOwner || isSameDepartment || hasAttachmentRole)
       ),
+      canUpdateProject,
+      canEditProposal,
+      canSubmitProposal,
     },
+    latestReturnFeedback: latestReturnLog
+      ? {
+          remark: latestReturnLog.remark ?? "",
+          reviewer: latestReturnLog.reviewer?.userId
+            ? latestReturnLog.reviewer
+            : null,
+          reviewerRole: reviewerRoleByStatus[latestReturnLog.newStatusId] ?? "Reviewer",
+          createdAt: latestReturnLog.createdAt,
+          oldStatusId: latestReturnLog.oldStatusId,
+          newStatusId: latestReturnLog.newStatusId,
+        }
+      : null,
   };
 };
 
@@ -491,6 +549,12 @@ export const updateProject = async (
 ) => {
   await assertUserExists(user.userId);
   const project = await findProjectById(id, user);
+
+  if (Object.prototype.hasOwnProperty.call(data as Record<string, unknown>, "projectStatusId")) {
+    throw new HTTPException(400, {
+      message: "Project status must be changed through the workflow endpoint",
+    });
+  }
 
   // เช็คสิทธิ์การแก้ไข (ป้องกันการยิง API มาแก้โปรเจกต์แผนกอื่น)
   checkPermission(user, "update", "project", {

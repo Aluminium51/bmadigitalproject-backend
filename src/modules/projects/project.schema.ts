@@ -25,6 +25,15 @@ const DivisionLookupSchema = z.object({
   departmentName: z.string().nullable(),
 });
 
+const ReturnFeedbackSchema = z.object({
+  remark: z.string(),
+  reviewer: CompactUserSchema.nullable(),
+  reviewerRole: z.string(),
+  createdAt: z.union([z.string(), z.date()]),
+  oldStatusId: z.number().int(),
+  newStatusId: z.number().int(),
+}).nullable();
+
 // Schema ของโปรเจกต์เต็มรูปแบบ (ใช้สำหรับ Response)
 export const ProjectSchema = z.object({
   id: z.string().uuid().openapi({ example: '550e8400-e29b-41d4-a716-446655440000' }),
@@ -72,7 +81,11 @@ export const ProjectSchema = z.object({
   permissions: z.object({
     canDelete: z.boolean(),
     canManageAttachments: z.boolean(),
+    canUpdateProject: z.boolean(),
+    canEditProposal: z.boolean(),
+    canSubmitProposal: z.boolean(),
   }).optional(),
+  latestReturnFeedback: ReturnFeedbackSchema.default(null),
 }).openapi('Project');
 
 // Schema สำหรับสร้าง Project ใหม่

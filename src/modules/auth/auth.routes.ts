@@ -7,9 +7,11 @@ import {
   VerifyEmailQuerySchema,
   RecoveryEmailRequestSchema,
   ResetPasswordRequestSchema,
-  SuccessResponseSchema
+  SuccessResponseSchema,
+  RefreshSessionResponseSchema,
 } from './auth.schema';
 import { ErrorSchema } from '../users/user.schema'; // อ้างอิงจาก ErrorSchema เดิมของคุณ
+import { authMiddleware } from '../../middlewares/auth.middleware';
 
 const app = new OpenAPIHono();
 
@@ -95,12 +97,31 @@ export const logoutRoute = createRoute({
   },
 });
 
+const refreshSessionRoute = createRoute({
+  method: "post",
+  path: "/refresh",
+  tags: ["Auth"],
+  summary: "Refresh the current user's session claims",
+  middleware: [authMiddleware],
+  responses: {
+    200: {
+      content: { "application/json": { schema: RefreshSessionResponseSchema } },
+      description: "Session refreshed",
+    },
+    401: {
+      content: { "application/json": { schema: ErrorSchema } },
+      description: "Unauthorized",
+    },
+  },
+});
+
 // การ Binding Routes กับ Controller
 app.openapi(loginRoute, (c) => authController.login(c, c.req.valid('json')));
 app.openapi(verifyRoute, (c) => authController.verifyEmail(c));
 app.openapi(forgotUsernameRoute, (c) => authController.requestUsernameRecovery(c, c.req.valid("json")));
 app.openapi(forgotPasswordRoute, (c) => authController.requestPasswordReset(c, c.req.valid("json")));
 app.openapi(resetPasswordRoute, (c) => authController.resetPassword(c, c.req.valid("json")));
+app.openapi(refreshSessionRoute, (c) => authController.refreshSession(c));
 app.openapi(logoutRoute, (c) => authController.logout(c));
 
 export default app;

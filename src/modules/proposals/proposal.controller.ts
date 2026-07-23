@@ -1,20 +1,42 @@
 import { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { proposalService } from "./proposal.service";
-import type { DraftProposalDTO, SubmitProposalDTO } from "./proposal.schema";
-import { getUserId } from "../../utils/controller-helper";
+import type {
+  DraftProposalDTO,
+  SubmitProposalDTO,
+  SubmittedProposalPatchDTO,
+} from "./proposal.schema";
+import { getUserContext, getUserId } from "../../utils/controller-helper";
 
 export const getProposal = async (c: Context, projectId: string) => {
-  getUserId(c);
-  const proposal = await proposalService.getProposalByProjectId(projectId);
+  const user = getUserContext(c);
+  const proposal = await proposalService.getProposalByProjectId(projectId, user);
   if (!proposal)
     return c.json({ data: null, message: "No proposal found" }, 200);
   return c.json({ data: proposal }, 200);
 };
 
+export const patchSubmittedProposal = async (
+  c: Context,
+  projectId: string,
+  body: SubmittedProposalPatchDTO,
+) => {
+  const user = getUserContext(c);
+  const proposal = await proposalService.patchSubmittedProposal(projectId, user, body);
+
+  return c.json(
+    {
+      success: true,
+      message: "Submitted proposal updated successfully",
+      data: proposal,
+    },
+    200,
+  );
+};
+
 export const getDraftByProjectId = async (c: Context, projectId: string) => {
-  getUserId(c);
-  const draft = await proposalService.getDraftByProjectId(projectId);
+  const user = getUserContext(c);
+  const draft = await proposalService.getDraftByProjectId(projectId, user);
   if (!draft) return c.json({ data: null, message: "ไม่พบข้อมูลแบบร่าง" }, 200);
   return c.json({ data: draft }, 200);
 };

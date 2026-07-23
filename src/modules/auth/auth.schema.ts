@@ -16,6 +16,10 @@ export const LoginResponseSchema = z.object({
   })
 }).openapi('LoginResponse');
 
+export const RefreshSessionResponseSchema = z.object({
+  token: z.string(),
+}).openapi('RefreshSessionResponse');
+
 export const VerifyEmailQuerySchema = z.object({
   token: z.string().openapi({ description: 'รหัสยืนยันตัวตนที่ส่งไปใน Gmail' }),
 });

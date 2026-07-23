@@ -229,6 +229,12 @@ export const submitProposalSchema = z.object({
   isInRoadmap: z.boolean(),
 }).openapi("SubmitProposalRequest");
 
+export const submittedProposalPatchSchema = submitProposalSchema
+  .partial()
+  .openapi("SubmittedProposalPatchRequest", {
+    description: "Partial update for a submitted proposal by an authorized Secretary",
+  });
+
 // Keep the old schema name as an alias for backward compatibility
 export const upsertProposalSchema = draftProposalSchema;
 
@@ -241,3 +247,4 @@ export const ProposalProjectParamsSchema = z.object({
 
 export type DraftProposalDTO = z.infer<typeof draftProposalSchema>;
 export type SubmitProposalDTO = z.infer<typeof submitProposalSchema>;
+export type SubmittedProposalPatchDTO = z.infer<typeof submittedProposalPatchSchema>;

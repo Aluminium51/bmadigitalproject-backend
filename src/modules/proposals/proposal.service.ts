@@ -14,6 +14,8 @@ import { projects } from "../../db/schema/projects";
 import { users } from "../../db/schema/users";
 import { HTTPException } from "hono/http-exception";
 import { v7 as uuidv7 } from "uuid";
+import type { UserContext } from "../../utils/permission.helper";
+import { checkPermission } from "../../utils/permission.helper";
 import {
   PROJECT_STATUS,
   OWNER_EDITABLE_STATUS_IDS,
@@ -82,6 +84,142 @@ async function assertOwnerCanEditProject(projectId: string, userId: string) {
   return project;
 }
 
+const submittedProposalScalarColumns = {
+  projectName: proposals.projectName,
+  agencyName: proposals.agencyName,
+  headOfAgency: proposals.headOfAgency,
+  dcioName: proposals.dcioName,
+  projectManager: proposals.projectManager,
+  totalBudget: proposals.totalBudget,
+  background: proposals.background,
+  objective: proposals.objective,
+  target: proposals.target,
+  scope: proposals.scope,
+  projectType: proposals.projectType,
+  currentSystemStatus: proposals.currentSystemStatus,
+  currentProblems: proposals.currentProblems,
+  isBmaPlan: proposals.isBmaPlan,
+  isAgencyPlan: proposals.isAgencyPlan,
+  agencyStrategy: proposals.agencyStrategy,
+  agencyIssue: proposals.agencyIssue,
+  agencyKpi: proposals.agencyKpi,
+  isGovernorPolicy: proposals.isGovernorPolicy,
+  governorPolicyCode: proposals.governorPolicyCode,
+  governorPolicyName: proposals.governorPolicyName,
+  obstacleLaws: proposals.obstacleLaws,
+  appArchitecture: proposals.appArchitecture,
+  dataOwner: proposals.dataOwner,
+  dataExchangePlan: proposals.dataExchangePlan,
+  isReady: proposals.isReady,
+  readinessDetails: proposals.readinessDetails,
+  durationDays: proposals.durationDays,
+  otherReadiness: proposals.otherReadiness,
+  expectedBenefits: proposals.expectedBenefits,
+  isInRoadmap: proposals.isInRoadmap,
+} as const;
+
+const hasOwn = (payload: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(payload, key);
+
+async function syncSubmittedProposalCollections(
+  tx: any,
+  proposalId: string,
+  payload: Record<string, any>,
+) {
+  const syncIfProvided = (
+    key: string,
+    table: any,
+    payloadRows: any[],
+    mapInsert: (row: any) => any,
+    mapUpdate: (row: any) => any,
+  ) => {
+    if (!hasOwn(payload, key)) return Promise.resolve();
+    return syncSubTable(
+      tx,
+      table,
+      table.proposalId,
+      proposalId,
+      table.id,
+      Array.isArray(payloadRows) ? payloadRows : [],
+      mapInsert,
+      mapUpdate,
+    );
+  };
+
+  await Promise.all([
+    syncIfProvided(
+      "budgetsByYear",
+      proposalBudgets,
+      payload.budgetsByYear ?? payload.budgets,
+      (row) => ({ id: uuidv7(), proposalId, year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
+      (row) => ({ year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
+    ),
+    syncIfProvided(
+      "budgets",
+      proposalBudgets,
+      payload.budgets,
+      (row) => ({ id: uuidv7(), proposalId, year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
+      (row) => ({ year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
+    ),
+    syncIfProvided(
+      "relatedProjects",
+      proposalRelatedProjects,
+      payload.relatedProjects,
+      (row) => ({ id: uuidv7(), proposalId, projectName: row.projectName, agency: row.agency, fiscalYear: row.fiscalYear, relationType: row.relationType, remark: row.remark }),
+      (row) => ({ projectName: row.projectName, agency: row.agency, fiscalYear: row.fiscalYear, relationType: row.relationType, remark: row.remark }),
+    ),
+    syncIfProvided(
+      "manpower",
+      proposalManpower,
+      payload.manpower,
+      (row) => ({ id: uuidv7(), proposalId, agencyPart: row.agencyPart, positionLimit: row.positionLimit, occupied: row.occupied, vacant: row.vacant }),
+      (row) => ({ agencyPart: row.agencyPart, positionLimit: row.positionLimit, occupied: row.occupied, vacant: row.vacant }),
+    ),
+    syncIfProvided(
+      "existingEquipment",
+      proposalExistingEquipments,
+      payload.existingEquipment ?? payload.existingEquipments,
+      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, ageYears: String(row.ageYears), quantity: row.quantity, user: row.user, location: row.location, remark: row.remark }),
+      (row) => ({ itemName: row.itemName, ageYears: String(row.ageYears), quantity: row.quantity, user: row.user, location: row.location, remark: row.remark }),
+    ),
+    syncIfProvided(
+      "hardwareCosts",
+      proposalHardwareCosts,
+      payload.hardwareCosts,
+      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
+      (row) => ({ itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
+    ),
+    syncIfProvided(
+      "softwareCosts",
+      proposalSoftwareCosts,
+      payload.softwareCosts,
+      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
+      (row) => ({ itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
+    ),
+    syncIfProvided(
+      "personnelResponsibilities",
+      proposalPersonnelResponsibilities,
+      payload.personnelResponsibilities,
+      (row) => ({ id: uuidv7(), proposalId, position: row.position, responsibility: row.responsibility }),
+      (row) => ({ position: row.position, responsibility: row.responsibility }),
+    ),
+    syncIfProvided(
+      "otherCosts",
+      proposalOtherCosts,
+      payload.otherCosts,
+      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), remark: row.remark, costType: row.costType }),
+      (row) => ({ itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), remark: row.remark, costType: row.costType }),
+    ),
+    syncIfProvided(
+      "ictPersonnel",
+      proposalIctPersonnel,
+      payload.ictPersonnel,
+      (row) => ({ id: uuidv7(), proposalId, position: row.position, level: row.level, count: row.count }),
+      (row) => ({ position: row.position, level: row.level, count: row.count }),
+    ),
+  ]);
+}
+
 export const proposalService = {
 
   // ============================================================================
@@ -108,7 +246,8 @@ export const proposalService = {
     return newDraft;
   },
 
-  async getDraftByProjectId(projectId: string) {
+  async getDraftByProjectId(projectId: string, user: UserContext) {
+    checkPermission(user, "read", "proposal_form");
     return await db.query.proposalDrafts.findFirst({
       where: eq(proposalDrafts.projectId, projectId)
     });
@@ -174,7 +313,8 @@ export const proposalService = {
   // 2. ระบบข้อเสนอโครงการตัวจริง (PROPOSALS)
   // ============================================================================
 
-  async getProposalByProjectId(projectId: string) {
+  async getProposalByProjectId(projectId: string, user: UserContext) {
+    checkPermission(user, "read", "proposal_form");
     try {
       return await db.query.proposals.findFirst({
         where: eq(proposals.projectId, projectId),
@@ -197,6 +337,55 @@ export const proposalService = {
       console.error("❌ Error in getProposalByProjectId:", error);
       throw error;
     }
+  },
+
+  async patchSubmittedProposal(
+    projectId: string,
+    user: UserContext,
+    payload: Record<string, any>,
+  ) {
+    if (!user.roles.includes("secretary")) {
+      throw new HTTPException(403, {
+        message: "Only Secretaries can update submitted proposals",
+      });
+    }
+    checkPermission(user, "update", "proposal_form");
+
+    const [existing] = await db
+      .select({ id: proposals.id, projectId: proposals.projectId })
+      .from(proposals)
+      .where(eq(proposals.projectId, projectId))
+      .limit(1);
+
+    if (!existing) {
+      throw new HTTPException(404, { message: "Submitted proposal not found" });
+    }
+
+    await db.transaction(async (tx) => {
+      const scalarUpdates: Record<string, unknown> = {};
+
+      for (const [field, column] of Object.entries(submittedProposalScalarColumns)) {
+        if (!hasOwn(payload, field) || payload[field] === undefined) continue;
+        scalarUpdates[column.name] = field === "totalBudget" && payload[field] !== null
+          ? String(payload[field])
+          : payload[field];
+      }
+
+      if (Object.keys(scalarUpdates).length > 0) {
+        await tx
+          .update(proposals)
+          .set({
+            ...(scalarUpdates as any),
+            updatedBy: user.userId,
+            updatedAt: new Date(),
+          })
+          .where(eq(proposals.id, existing.id));
+      }
+
+      await syncSubmittedProposalCollections(tx, existing.id, payload);
+    });
+
+    return await this.getProposalByProjectId(projectId, user);
   },
 
   async submitProposal(userId: string, data: any) {

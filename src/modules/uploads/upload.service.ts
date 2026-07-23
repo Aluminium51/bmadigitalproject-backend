@@ -26,11 +26,12 @@ export class UploadService {
     project: { ownerId: string; statusId: number; ownerDepartmentId: number | null },
   ) {
     const isSuperAdmin = user.roles.includes("super_admin");
+    const isSecretary = user.roles.includes("secretary");
     const isOwner = project.ownerId === user.userId;
     const isSameDepartment = project.ownerDepartmentId !== null && project.ownerDepartmentId === user.departmentId;
     const hasAttachmentRole = user.roles.some((role) => ["secretary", "admin", "super_admin"].includes(role));
 
-    if (!OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number]) && !isSuperAdmin) {
+    if (!isSecretary && !OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number]) && !isSuperAdmin) {
       throw new HTTPException(409, { message: "Project attachments are read-only at the current project stage" });
     }
     if (!isSuperAdmin && !isOwner && !isSameDepartment && !hasAttachmentRole) {

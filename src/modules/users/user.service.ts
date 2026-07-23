@@ -46,7 +46,13 @@ const mapUserToResponse = (user: any) => {
     } : null,
 
     // จัดรูปแบบข้อมูลสิทธิ์ (Roles) - ดึงเฉพาะตาราง role ออกมาจากตาราง many-to-many
-    roles: user.roles?.map((ur: any) => ur.role) || []
+    roles: (user.roles ?? [])
+      .map((userRole: any) => userRole.role ?? userRole)
+      .filter((role: any) => role?.roleId && role?.roleName)
+      .map((role: any) => ({
+        roleId: role.roleId,
+        roleName: role.roleName,
+      }))
   };
 };
 

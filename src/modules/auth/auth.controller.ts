@@ -17,12 +17,40 @@ import {
 import { z } from "@hono/zod-openapi";
 import { sign } from "hono/jwt";
 import { deleteCookie } from "hono/cookie";
-
+import type { UserContext } from "@/utils/permission.helper";
+import { HTTPException } from "hono/http-exception";
 import { consumeRateLimit, getClientIp } from "@/utils/rate-limit";
 
 type LoginBody = z.infer<typeof LoginRequestSchema>;
 type RecoveryEmailBody = z.infer<typeof RecoveryEmailRequestSchema>;
 type ResetPasswordBody = z.infer<typeof ResetPasswordRequestSchema>;
+
+async function issueUserToken(user: any) {
+  const userRoles =
+    user.roles && user.roles.length > 0
+      ? user.roles
+          .map((userRole: any) => userRole.role?.roleName)
+          .filter(Boolean)
+          .map((roleName: string) => roleName.toLowerCase())
+      : ["user"];
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is not defined in environment variables");
+  }
+
+  return sign(
+    {
+      userId: user.userId,
+      username: user.username,
+      roles: userRoles,
+      divisionId: user.divisionId,
+      departmentId: user.division?.departmentId || 0,
+      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+    },
+    secret,
+  );
+}
 
 const RECOVERY_MESSAGE =
   // "If this email is registered in our system, you will receive further instructions shortly.";
@@ -103,25 +131,7 @@ export const login = async (c: Context, body: LoginBody) => {
         userAgent,
       });
 
-    const userRoles =
-      user.roles && user.roles.length > 0
-        ? user.roles.map((ur: any) => ur.role.roleName.toLowerCase())
-        : ["user"];
-
-    const payload = {
-      userId: user.userId,
-      username: user.username,
-      roles: userRoles,
-      divisionId: user.divisionId,
-      departmentId: user.division?.departmentId || 0,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
-    };
-
-    const secret = process.env.JWT_SECRET;
-    if (!secret)
-      throw new Error("JWT_SECRET is not defined in environment variables");
-
-    const token = await sign(payload, secret);
+    const token = await issueUserToken(user);
 
     return c.json(
       {
@@ -143,6 +153,32 @@ export const login = async (c: Context, body: LoginBody) => {
       500,
     );
   }
+};
+
+/**
+ * Re-issues the current user's JWT from the database. This is intentionally
+ * separate from login so role changes become effective without requiring the
+ * user to enter their password again.
+ */
+export const refreshSession = async (c: Context) => {
+  const actor = c.get("user") as UserContext | undefined;
+  if (!actor?.userId) {
+    throw new HTTPException(401, { message: "Unauthorized" });
+  }
+
+  const user = await db.query.users.findFirst({
+    where: eq(users.userId, actor.userId),
+    with: {
+      roles: { with: { role: true } },
+      division: true,
+    },
+  });
+
+  if (!user || !user.isActive || !user.isVerified) {
+    throw new HTTPException(401, { message: "Session is no longer valid" });
+  }
+
+  return c.json({ token: await issueUserToken(user) }, 200);
 };
 
 export const registerUser = async (c: Context) => {
