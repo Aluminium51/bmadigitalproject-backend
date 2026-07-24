@@ -1,7 +1,7 @@
 // src/db/seed.ts
 import { db } from "./index";
 import { roles, users, roleUsers } from "./schema/users";
-import { eq, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 
 // import all form schema/lookup schema
@@ -155,12 +155,23 @@ async function main() {
     console.log(">> ตรวจสอบและสร้างข้อมูล Project Attachment Types...");
     for (const pat of seedData.projectAttachmentTypes) {
       const existing = await db.query.projectAttachmentTypes.findFirst({
-        where: or(
-          eq(projectAttachmentTypes.id, pat.id),
-          eq(projectAttachmentTypes.docTypeName, pat.docTypeName),
-        ),
+        where: eq(projectAttachmentTypes.docTypeName, pat.docTypeName),
       });
-      if (!existing) await db.insert(projectAttachmentTypes).values(pat);
+      if (existing) {
+        if (existing.id !== pat.id) {
+          console.warn(
+            `Attachment type '${pat.docTypeName}' already uses ID ${existing.id}; keeping the existing ID. Run the guarded development reset only when deterministic IDs are required.`,
+          );
+        }
+        continue;
+      }
+
+      // Normal startup seeding is name-based and non-destructive. The guarded
+      // reset command is responsible for recreating deterministic numeric IDs.
+      await db
+        .insert(projectAttachmentTypes)
+        .values({ docTypeName: pat.docTypeName })
+        .onConflictDoNothing({ target: projectAttachmentTypes.docTypeName });
     }
 
     // Meeting Statuses

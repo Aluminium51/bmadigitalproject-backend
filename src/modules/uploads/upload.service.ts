@@ -109,7 +109,7 @@ export class UploadService {
     }
   }
 
-  static async uploadDocument(file: File, projectId: string, user: UserContext, docTypeId: number, description?: string) {
+  static async uploadDocument(file: File, projectId: string, user: UserContext, docTypeName: string, description?: string) {
     const [project] = await db
       .select({ ownerId: projects.userId, statusId: projects.projectStatusId, ownerDepartmentId: divisions.departmentId })
       .from(projects)
@@ -123,7 +123,7 @@ export class UploadService {
     const [documentType] = await db
       .select({ id: projectAttachmentTypes.id, name: projectAttachmentTypes.docTypeName })
       .from(projectAttachmentTypes)
-      .where(eq(projectAttachmentTypes.id, docTypeId))
+      .where(eq(projectAttachmentTypes.docTypeName, docTypeName))
       .limit(1);
     if (!documentType) throw new HTTPException(400, { message: "Invalid project attachment type" });
 
@@ -135,7 +135,7 @@ export class UploadService {
       await db.insert(projectAttachments).values({
         id: attachmentId,
         projectId,
-        docTypeId,
+        docTypeId: documentType.id,
         uploadedBy: user.userId,
         fileName: processed.fileName,
         fileUrl: processed.url,
@@ -156,6 +156,8 @@ export class UploadService {
     const { storagePath: _storagePath, ...result } = processed;
     return {
       attachmentId,
+      docTypeId: documentType.id,
+      docTypeName: documentType.name,
       ...result,
       canDelete:
         documentType.name !== "approval_document" ||

@@ -32,6 +32,7 @@ services:
       # - RESEND_API_KEY=${RESEND_API_KEY}
       - PORT=8081
       - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:8081/api/v1}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
     depends_on:
       postgres:
         condition: service_healthy

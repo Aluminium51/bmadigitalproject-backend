@@ -3,6 +3,7 @@ import { db } from "../../db";
 import { divisions, fourQuadrants, deputyGovernors, projectStatuses, projectTypes, projectAttachmentTypes, departments, roles } from "../../db/schema";
 import { asc } from "drizzle-orm";
 import { appCache } from "../../utils/memory-cache";
+import { getProjectAttachmentTypeLabel } from "./project-attachment-types";
 
 // ตั้งเวลาให้ Cache จำข้อมูล Lookup นาน 24 ชั่วโมง (86400 วินาที)
 const LOOKUP_TTL = 86400;
@@ -122,7 +123,10 @@ export const getProjectAttachmentTypesLookup = async () => {
         .from(projectAttachmentTypes)
         .orderBy(asc(projectAttachmentTypes.docTypeName));
 
-      return result;
+      return result.map((type) => ({
+        ...type,
+        label: getProjectAttachmentTypeLabel(type.name),
+      }));
     },
     LOOKUP_TTL,
   );

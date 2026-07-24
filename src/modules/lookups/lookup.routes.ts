@@ -6,6 +6,7 @@ import {
   ProjectStatusResponseSchema,
   DivisionQuerySchema,
   ErrorSchema,
+  ProjectAttachmentTypeLookupResponseSchema,
 } from "./lookup.schema";
 
 const lookupsRouter = new OpenAPIHono();
@@ -141,7 +142,9 @@ const getProjectAttachmentTypesRoute = createRoute({
   responses: {
     200: {
       description: "Available project attachment types",
-      content: { "application/json": { schema: LookupResponseSchema } },
+      content: {
+        "application/json": { schema: ProjectAttachmentTypeLookupResponseSchema },
+      },
     },
   },
 });

@@ -12,15 +12,15 @@ export const uploadDocument = async (c: Context) => {
   const body = await c.req.parseBody();
   const file = body.file as File | undefined;
   const projectId = typeof body.projectId === "string" ? body.projectId : undefined;
-  const docTypeId = Number(body.docTypeId);
+  const docTypeName = typeof body.docTypeName === "string" ? body.docTypeName.trim() : undefined;
   const description = typeof body.description === "string" ? body.description : undefined;
 
-  if (!file || !projectId || !Number.isInteger(docTypeId) || docTypeId < 1) {
-    return c.json({ error: "File, projectId, and docTypeId are required" }, 400);
+  if (!file || !projectId || !docTypeName || typeof body.docTypeId === "string") {
+    return c.json({ error: "File, projectId, and docTypeName are required" }, 400);
   }
 
   try {
-    const result = await UploadService.uploadDocument(file, projectId, user, docTypeId, description);
+    const result = await UploadService.uploadDocument(file, projectId, user, docTypeName, description);
     return c.json(
       {
         success: true,

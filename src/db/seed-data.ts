@@ -1,5 +1,7 @@
 // src/db/seed-data.ts
 
+import { PROJECT_ATTACHMENT_TYPES } from "../modules/lookups/project-attachment-types";
+
 export const agendaTypeSeedData = [
   { id: 1, name: "Chairman's Announcements" },
   { id: 2, name: "Adoption of Minutes" },
@@ -117,20 +119,7 @@ mockUsers: [
     { id: 15, statusName: "Approved" },
   ],
 
-  projectAttachmentTypes: [
-    { id: 1, docTypeName: "system_diagram" },
-    { id: 2, docTypeName: "network_diagram" },
-    { id: 3, docTypeName: "use_case_diagram" },
-    { id: 4, docTypeName: "security_diagram" },
-    { id: 5, docTypeName: "presentation" },
-    { id: 6, docTypeName: "report" },
-    { id: 7, docTypeName: "ใบเบิกเงิน" },
-    { id: 8, docTypeName: "other" },
-    { id: 9, docTypeName: "quotation" },
-    { id: 10, docTypeName: "one_page_summary" },
-    { id: 11, docTypeName: "approval_document" },
-    { id: 12, docTypeName: "bma_dc_usage" }
-  ],
+  projectAttachmentTypes: PROJECT_ATTACHMENT_TYPES,
 
   meetingStatuses: [
     { id: 1, name: "Scheduled (รอการประชุม)" },

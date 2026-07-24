@@ -17,6 +17,16 @@ export const LookupResponseSchema = z.object({
   data: z.array(LookupItemSchema)
 }).openapi('LookupResponse');
 
+export const ProjectAttachmentTypeLookupItemSchema = z.object({
+  id: z.number().int(),
+  name: z.string().max(255),
+  label: z.string().max(255),
+}).openapi('ProjectAttachmentTypeLookupItem');
+
+export const ProjectAttachmentTypeLookupResponseSchema = z.object({
+  data: z.array(ProjectAttachmentTypeLookupItemSchema),
+}).openapi('ProjectAttachmentTypeLookupResponse');
+
 // --- Division Schemas ---
 export const DivisionItemSchema = z.object({
   id: z.number().int(),
