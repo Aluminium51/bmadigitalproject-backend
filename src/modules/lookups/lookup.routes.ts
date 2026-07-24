@@ -133,4 +133,20 @@ lookupsRouter.openapi(getProjectTypesRoute, (c) => {
   return lookupController.getProjectTypes(c);
 });
 
+const getProjectAttachmentTypesRoute = createRoute({
+  method: "get",
+  path: "/project-attachment-types",
+  tags: ["Lookups"],
+  summary: "Get project attachment types",
+  responses: {
+    200: {
+      description: "Available project attachment types",
+      content: { "application/json": { schema: LookupResponseSchema } },
+    },
+  },
+});
+lookupsRouter.openapi(getProjectAttachmentTypesRoute, (c) => {
+  return lookupController.getProjectAttachmentTypes(c);
+});
+
 export default lookupsRouter;

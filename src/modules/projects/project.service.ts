@@ -280,7 +280,7 @@ export const findProjectById = async (id: string, user: UserContext) => {
     .leftJoin(projectAttachmentTypes, eq(projectAttachments.docTypeId, projectAttachmentTypes.id))
     .leftJoin(attachmentUploaders, eq(projectAttachments.uploadedBy, attachmentUploaders.userId))
     .where(eq(projectAttachments.projectId, id))
-    .orderBy(desc(projectAttachments.createdAt));
+    .orderBy(desc(projectAttachments.createdAt), desc(projectAttachments.id));
 
   const [latestReturnLog] = await db
     .select({
@@ -311,6 +311,7 @@ export const findProjectById = async (id: string, user: UserContext) => {
     .limit(1);
 
   const isSuperAdmin = user.roles.includes("super_admin");
+  const isAdmin = user.roles.includes("admin") || isSuperAdmin;
   const isSecretary = user.roles.includes("secretary");
   const isOwner = project.userId === user.userId;
   const isSameDepartment = project.division?.departmentId === user.departmentId;
@@ -324,6 +325,17 @@ export const findProjectById = async (id: string, user: UserContext) => {
   );
   const canEditProposal = isSecretary || (isOwner && isOwnerEditableStage);
   const canSubmitProposal = !isSecretary && isOwner && isOwnerEditableStage;
+  const canManageAttachments = isSecretary || isSuperAdmin || (
+    isOwnerEditableStage && (isOwner || isSameDepartment || hasAttachmentRole)
+  );
+
+  const attachmentsWithPermissions = attachments.map((attachment) => ({
+    ...attachment,
+    canDelete:
+      attachment.docTypeName === "approval_document"
+        ? isAdmin
+        : canManageAttachments,
+  }));
 
   const reviewerRoleByStatus: Record<number, string> = {
     [PROJECT_STATUS.RETURNED_SECRETARY]: "Secretary",
@@ -334,12 +346,10 @@ export const findProjectById = async (id: string, user: UserContext) => {
 
   return {
     ...project,
-    attachments,
+    attachments: attachmentsWithPermissions,
     permissions: {
       canDelete: isSuperAdmin || (isOwner && project.projectStatusId === PROJECT_STATUS.DRAFT),
-      canManageAttachments: isSecretary || isSuperAdmin || (
-        isOwnerEditableStage && (isOwner || isSameDepartment || hasAttachmentRole)
-      ),
+      canManageAttachments,
       canUpdateProject,
       canEditProposal,
       canSubmitProposal,

@@ -77,6 +77,7 @@ export const ProjectSchema = z.object({
     description: z.string().nullable(),
     uploader: CompactUserSchema.nullable(),
     createdAt: z.union([z.string(), z.date()]),
+    canDelete: z.boolean(),
   })).default([]),
   permissions: z.object({
     canDelete: z.boolean(),

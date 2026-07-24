@@ -51,7 +51,7 @@ export class UploadService {
     this.assertAttachmentPermission(user, project);
 
     const [documentType] = await db
-      .select({ id: projectAttachmentTypes.id })
+      .select({ id: projectAttachmentTypes.id, name: projectAttachmentTypes.docTypeName })
       .from(projectAttachmentTypes)
       .where(eq(projectAttachmentTypes.id, docTypeId))
       .limit(1);
@@ -81,7 +81,14 @@ export class UploadService {
       .where(eq(users.userId, user.userId))
       .limit(1);
     const { storagePath: _storagePath, ...result } = processed;
-    return { attachmentId, ...result, uploader: uploader ?? null };
+    return {
+      attachmentId,
+      ...result,
+      canDelete:
+        documentType.name !== "approval_document" ||
+        user.roles.some((role) => ["admin", "super_admin"].includes(role)),
+      uploader: uploader ?? null,
+    };
   }
 
   static async deleteDocument(fileId: string, user: UserContext) {
@@ -90,21 +97,32 @@ export class UploadService {
         id: projectAttachments.id,
         fileUrl: projectAttachments.fileUrl,
         projectId: projectAttachments.projectId,
+        docTypeId: projectAttachments.docTypeId,
+        docTypeName: projectAttachmentTypes.docTypeName,
         ownerId: projects.userId,
         statusId: projects.projectStatusId,
         ownerDepartmentId: divisions.departmentId,
       })
       .from(projectAttachments)
       .innerJoin(projects, eq(projectAttachments.projectId, projects.id))
+      .innerJoin(projectAttachmentTypes, eq(projectAttachments.docTypeId, projectAttachmentTypes.id))
       .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId))
       .where(and(eq(projectAttachments.id, fileId), isNull(projects.deletedAt)))
       .limit(1);
     if (!attachment) throw new HTTPException(404, { message: "Uploaded file not found" });
 
-    this.assertAttachmentPermission(
-      user,
-      attachment,
-    );
+    if (
+      attachment.docTypeName === "approval_document" &&
+      !user.roles.some((role) => ["admin", "super_admin"].includes(role))
+    ) {
+      throw new HTTPException(403, {
+        message: "Only Admin or Super Admin can delete Approval Document versions",
+      });
+    }
+
+    if (attachment.docTypeName !== "approval_document") {
+      this.assertAttachmentPermission(user, attachment);
+    }
     await db.delete(projectAttachments).where(eq(projectAttachments.id, fileId));
 
     const rawName = attachment.fileUrl.split("/").pop() || "";

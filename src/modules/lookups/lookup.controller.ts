@@ -8,6 +8,7 @@ import {
   getRolesLookup,
   getProjectStatusesLookup,
   getProjectTypesLookup,
+  getProjectAttachmentTypesLookup,
 } from "../lookups/lookup.service";
 
 export const lookupController = {
@@ -45,6 +46,11 @@ export const lookupController = {
 
   async getProjectTypes(c: Context) {
     const result = await getProjectTypesLookup();
+    return c.json({ data: result }, 200);
+  },
+
+  async getProjectAttachmentTypes(c: Context) {
+    const result = await getProjectAttachmentTypesLookup();
     return c.json({ data: result }, 200);
   },
 };
