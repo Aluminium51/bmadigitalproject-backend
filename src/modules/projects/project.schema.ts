@@ -74,6 +74,7 @@ export const ProjectSchema = z.object({
     fileName: z.string(),
     fileUrl: z.string().url(),
     fileType: z.string(),
+    fileSize: z.number().int().nullable(),
     description: z.string().nullable(),
     uploader: CompactUserSchema.nullable(),
     createdAt: z.union([z.string(), z.date()]),

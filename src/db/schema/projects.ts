@@ -9,6 +9,7 @@ import {
   numeric,
   uuid,
   text,
+  bigint,
 } from "drizzle-orm/pg-core";
 import { fourQuadrants, deputyGovernors, divisions } from "./lookups";
 import { projectStatuses, projectTypes, projectAttachmentTypes } from "./lookups";
@@ -68,6 +69,7 @@ export const projectAttachments = pgTable("project_attachments", {
   fileName: varchar("file_name", { length: 500 }).notNull(),
   fileUrl: varchar("file_url", { length: 1000 }).notNull(),
   fileType: varchar("file_type", { length: 100 }).notNull(),
+  fileSize: bigint("file_size", { mode: "number" }),
   description: text("description"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),

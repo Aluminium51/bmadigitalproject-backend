@@ -1,7 +1,11 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { getUserContext } from "../../utils/controller-helper";
-import { UploadService, UploadValidationError } from "./upload.service";
+import {
+  UploadService,
+  UploadTypeValidationError,
+  UploadValidationError,
+} from "./upload.service";
 
 export const uploadDocument = async (c: Context) => {
   const user = getUserContext(c);
@@ -28,6 +32,9 @@ export const uploadDocument = async (c: Context) => {
   } catch (error) {
     if (error instanceof UploadValidationError) {
       return c.json({ error: error.message }, 413);
+    }
+    if (error instanceof UploadTypeValidationError) {
+      return c.json({ error: error.message }, 400);
     }
     throw error;
   }

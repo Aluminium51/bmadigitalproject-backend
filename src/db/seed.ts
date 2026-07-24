@@ -1,7 +1,7 @@
 // src/db/seed.ts
 import { db } from "./index";
 import { roles, users, roleUsers } from "./schema/users";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 
 // import all form schema/lookup schema
@@ -155,7 +155,10 @@ async function main() {
     console.log(">> ตรวจสอบและสร้างข้อมูล Project Attachment Types...");
     for (const pat of seedData.projectAttachmentTypes) {
       const existing = await db.query.projectAttachmentTypes.findFirst({
-        where: eq(projectAttachmentTypes.id, pat.id),
+        where: or(
+          eq(projectAttachmentTypes.id, pat.id),
+          eq(projectAttachmentTypes.docTypeName, pat.docTypeName),
+        ),
       });
       if (!existing) await db.insert(projectAttachmentTypes).values(pat);
     }

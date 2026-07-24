@@ -268,6 +268,7 @@ export const findProjectById = async (id: string, user: UserContext) => {
       fileName: projectAttachments.fileName,
       fileUrl: projectAttachments.fileUrl,
       fileType: projectAttachments.fileType,
+      fileSize: projectAttachments.fileSize,
       description: projectAttachments.description,
       uploader: {
         userId: attachmentUploaders.userId,

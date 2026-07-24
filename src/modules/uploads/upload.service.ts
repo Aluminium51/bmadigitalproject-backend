@@ -20,6 +20,76 @@ export class UploadValidationError extends Error {
   status = 413 as const;
 }
 
+export class UploadTypeValidationError extends Error {
+  status = 400 as const;
+}
+
+const PRESENTATION_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+const PDF_MIME_TYPES = new Set(["application/pdf"]);
+const DIAGRAM_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+const getFileExtension = (fileName: string) => {
+  const extension = fileName.toLowerCase().split(".").pop();
+  return extension ? `.${extension}` : "";
+};
+
+function getEffectiveContentType(file: File) {
+  if (file.type) return file.type;
+
+  const extension = getFileExtension(file.name);
+  return (
+    {
+      ".pdf": "application/pdf",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".webp": "image/webp",
+      ".ppt": "application/vnd.ms-powerpoint",
+      ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    } as Record<string, string>
+  )[extension] ?? "application/octet-stream";
+}
+
+function assertDocumentTypeMatchesFile(file: File, docTypeName: string) {
+  const extension = getFileExtension(file.name);
+  const mimeType = file.type.toLowerCase();
+  let allowedExtensions: Set<string> | null = null;
+  let allowedMimeTypes: Set<string> | null = null;
+
+  if (docTypeName === "presentation") {
+    allowedExtensions = new Set([".pdf", ".ppt", ".pptx"]);
+    allowedMimeTypes = PRESENTATION_MIME_TYPES;
+  } else if (["quotation", "one_page_summary", "bma_dc_usage"].includes(docTypeName)) {
+    allowedExtensions = new Set([".pdf"]);
+    allowedMimeTypes = PDF_MIME_TYPES;
+  } else if (
+    ["system_diagram", "network_diagram", "use_case_diagram", "security_diagram"].includes(docTypeName)
+  ) {
+    allowedExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+    allowedMimeTypes = DIAGRAM_MIME_TYPES;
+  }
+
+  if (!allowedExtensions) return;
+
+  if (!allowedExtensions.has(extension)) {
+    throw new UploadTypeValidationError(
+      `The selected file extension is not allowed for ${docTypeName}`,
+    );
+  }
+
+  // Some clients omit File.type. In that case the extension is still checked;
+  // a reported MIME type must always match the selected document category.
+  if (mimeType && !allowedMimeTypes?.has(mimeType)) {
+    throw new UploadTypeValidationError(
+      `The selected file MIME type is not allowed for ${docTypeName}`,
+    );
+  }
+}
+
 export class UploadService {
   private static assertAttachmentPermission(
     user: UserContext,
@@ -57,6 +127,8 @@ export class UploadService {
       .limit(1);
     if (!documentType) throw new HTTPException(400, { message: "Invalid project attachment type" });
 
+    assertDocumentTypeMatchesFile(file, documentType.name);
+
     const processed = await this.processAndUploadDocument(file);
     const attachmentId = uuidv7();
     try {
@@ -68,6 +140,7 @@ export class UploadService {
         fileName: processed.fileName,
         fileUrl: processed.url,
         fileType: processed.contentType,
+        fileSize: processed.fileSize,
         description: description?.trim() || null,
       });
     } catch (error) {
@@ -133,20 +206,22 @@ export class UploadService {
   }
 
   static async processAndUploadDocument(file: File) {
-    if (file.type === "application/pdf" && file.size > MAX_PDF_UPLOAD_BYTES) {
+    const contentType = getEffectiveContentType(file);
+
+    if (contentType === "application/pdf" && file.size > MAX_PDF_UPLOAD_BYTES) {
       throw new UploadValidationError("PDF files must be smaller than 20 MB");
     }
-    if (file.type.startsWith("image/") && file.size > MAX_IMAGE_UPLOAD_BYTES) {
+    if (contentType.startsWith("image/") && file.size > MAX_IMAGE_UPLOAD_BYTES) {
       throw new UploadValidationError("Images must be smaller than 10 MB");
     }
-    if (!file.type.startsWith("image/") && file.type !== "application/pdf" && file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+    if (!contentType.startsWith("image/") && contentType !== "application/pdf" && file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
       throw new UploadValidationError("Documents must be smaller than 25 MB");
     }
 
     let finalBuffer = await file.arrayBuffer();
     let compressionApplied = false;
 
-    if (file.type === "application/pdf") {
+    if (contentType === "application/pdf") {
       try {
         const compressedBuffer = await compressPdf(finalBuffer, "/ebook");
         if (compressedBuffer.byteLength < finalBuffer.byteLength) {
@@ -172,7 +247,7 @@ export class UploadService {
       storedFileName,
       storagePath,
       fileSize: finalBuffer.byteLength,
-      contentType: file.type || "application/octet-stream",
+      contentType,
       compressionApplied,
       url: `${publicApiBase}/uploads/files/${encodeURIComponent(storedFileName)}`,
     };

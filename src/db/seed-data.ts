@@ -128,7 +128,8 @@ mockUsers: [
     { id: 8, docTypeName: "other" },
     { id: 9, docTypeName: "quotation" },
     { id: 10, docTypeName: "one_page_summary" },
-    { id: 11, docTypeName: "approval_document" }
+    { id: 11, docTypeName: "approval_document" },
+    { id: 12, docTypeName: "bma_dc_usage" }
   ],
 
   meetingStatuses: [

@@ -51,7 +51,7 @@ const uploadDocumentRoute = createRoute({
       },
     },
     400: {
-      description: "Missing file or project ID",
+      description: "Missing file/project ID or invalid file type for the document category",
       content: {
         "application/json": { schema: UploadErrorSchema },
       },
