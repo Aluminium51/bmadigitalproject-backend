@@ -20,7 +20,7 @@ async function resetAttachmentTypes() {
   await db.transaction(async (tx) => {
     await tx.delete(projectAttachments);
     await tx.delete(projectAttachmentTypes);
-    await tx.insert(projectAttachmentTypes).values(seedData.projectAttachmentTypes);
+    await tx.insert(projectAttachmentTypes).values([...seedData.projectAttachmentTypes]);
     await tx.execute(sql`
       SELECT setval(
         pg_get_serial_sequence('project_attachment_types', 'doc_type_id'),

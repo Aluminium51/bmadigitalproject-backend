@@ -235,6 +235,227 @@ export const submittedProposalPatchSchema = submitProposalSchema
     description: "Partial update for a submitted proposal by an authorized Secretary",
   });
 
+// ---------------------------------------------------------------------------
+// Submitted proposal response
+// ---------------------------------------------------------------------------
+// Numeric PostgreSQL columns are serialized by the postgres driver as strings
+// in some environments, so response schemas intentionally accept both JSON
+// numbers and numeric strings. The frontend normalizer formats them safely.
+const responseNumber = z.union([z.number(), z.string()]).nullable();
+const responseString = z.string().nullable();
+const responseDate = z.string().datetime();
+
+const proposalBudgetResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  year: z.number().nullable(),
+  amount: responseNumber,
+  budgetType: responseString,
+}).passthrough();
+
+const proposalRelatedProjectResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  projectName: responseString,
+  agency: responseString,
+  fiscalYear: responseString,
+  relationType: responseString,
+  remark: responseString,
+}).passthrough();
+
+const proposalManpowerResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  agencyPart: responseString,
+  positionLimit: z.number().nullable(),
+  occupied: z.number().nullable(),
+  vacant: z.number().nullable(),
+}).passthrough();
+
+const proposalExistingEquipmentResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  itemName: responseString,
+  ageYears: responseNumber,
+  quantity: z.number().nullable(),
+  user: responseString,
+  location: responseString,
+  remark: responseString,
+}).passthrough();
+
+const proposalCostResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  itemName: responseString,
+  quantity: z.number().nullable(),
+  unitPrice: responseNumber,
+  referenceType: z.string().nullable(),
+  mdesMonth: responseString,
+  mdesYear: responseString,
+  mdesItemNo: responseString,
+  marketCount: z.number().nullable(),
+  marketCompany: responseString,
+  prevProject: responseString,
+  prevYear: responseString,
+  otherDetail: responseString,
+}).passthrough();
+
+const proposalPersonnelCostResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  personnelType: z.string(),
+  position: responseString,
+  degree: responseString,
+  fieldOfStudy: responseString,
+  experienceYears: responseNumber,
+  baseSalary: responseNumber,
+  multiplier: responseNumber,
+  personCount: z.number().nullable(),
+  durationMonths: z.number().nullable(),
+}).passthrough();
+
+const proposalPersonnelResponsibilityResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  position: responseString,
+  responsibility: responseString,
+}).passthrough();
+
+const proposalTrainingSpeakerCostResponseSchema = z.object({
+  id: z.string().uuid(),
+  trainingId: z.string().uuid(),
+  itemName: z.string(),
+  hours: z.number(),
+  ratePerHour: responseNumber,
+  days: z.number(),
+}).passthrough();
+
+const proposalTrainingFoodCostResponseSchema = z.object({
+  id: z.string().uuid(),
+  trainingId: z.string().uuid(),
+  itemName: z.string(),
+  mealsCount: z.number(),
+  ratePerMeal: responseNumber,
+  traineesCount: z.number(),
+  days: z.number(),
+}).passthrough();
+
+const proposalTrainingResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  courseName: responseString,
+  trainingMethod: responseString,
+  locationType: z.string().nullable(),
+  hasSpeakerCost: z.boolean().nullable(),
+  speakerReason: responseString,
+  speakerCosts: z.array(proposalTrainingSpeakerCostResponseSchema),
+  foodCosts: z.array(proposalTrainingFoodCostResponseSchema),
+}).passthrough();
+
+const proposalOtherCostResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  itemName: responseString,
+  quantity: z.number().nullable(),
+  unitPrice: responseNumber,
+  remark: responseString,
+  costType: z.string().nullable(),
+}).passthrough();
+
+const proposalIctPersonnelResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  position: responseString,
+  level: responseString,
+  count: z.number().nullable(),
+}).passthrough();
+
+const proposalCloudVmResponseSchema = z.object({
+  id: z.string().uuid(),
+  cloudRequestId: z.string().uuid(),
+  vmDescription: z.string(),
+  osDatabase: responseString,
+  vcpu: z.number().nullable(),
+  ramGb: z.number().nullable(),
+  gpuGb: z.number().nullable(),
+  storageGb: z.number().nullable(),
+  price: responseNumber,
+}).passthrough();
+
+const proposalCloudRequestResponseSchema = z.object({
+  id: z.string().uuid(),
+  proposalId: z.string().uuid(),
+  systemName: z.string(),
+  requestedServiceDate: responseDate.nullable(),
+  recordedRequestDate: responseDate.nullable(),
+  vms: z.array(proposalCloudVmResponseSchema),
+}).passthrough();
+
+export const proposalResponseSchema = z.strictObject({
+  id: z.string().uuid(),
+  status: z.string(),
+  projectId: z.string().uuid().nullable(),
+  userId: z.string().uuid(),
+  updatedBy: z.string().uuid().nullable(),
+  version: z.number().nullable(),
+
+  projectName: responseString,
+  agencyName: responseString,
+  headOfAgency: responseString,
+  dcioName: responseString,
+  projectManager: responseString,
+  totalBudget: responseNumber,
+
+  background: responseString,
+  objective: responseString,
+  target: responseString,
+  scope: responseString,
+  projectType: z.string().nullable(),
+  currentSystemStatus: responseString,
+  currentProblems: responseString,
+
+  isBmaPlan: z.boolean().nullable(),
+  isAgencyPlan: z.boolean().nullable(),
+  agencyStrategy: responseString,
+  agencyIssue: responseString,
+  agencyKpi: responseString,
+  isGovernorPolicy: z.boolean().nullable(),
+  governorPolicyCode: responseString,
+  governorPolicyName: responseString,
+  obstacleLaws: responseString,
+  appArchitecture: responseString,
+  dataOwner: responseString,
+  dataExchangePlan: responseString,
+
+  isReady: z.boolean().nullable(),
+  readinessDetails: responseString,
+  durationDays: z.number().nullable(),
+  otherReadiness: responseString,
+  expectedBenefits: responseString,
+  isInRoadmap: z.boolean().nullable(),
+  createdAt: responseDate,
+  updatedAt: responseDate,
+
+  budgets: z.array(proposalBudgetResponseSchema),
+  relatedProjects: z.array(proposalRelatedProjectResponseSchema),
+  manpower: z.array(proposalManpowerResponseSchema),
+  existingEquipments: z.array(proposalExistingEquipmentResponseSchema),
+  hardwareCosts: z.array(proposalCostResponseSchema),
+  softwareCosts: z.array(proposalCostResponseSchema),
+  personnelCosts: z.array(proposalPersonnelCostResponseSchema),
+  personnelResponsibilities: z.array(proposalPersonnelResponsibilityResponseSchema),
+  trainings: z.array(proposalTrainingResponseSchema),
+  otherCosts: z.array(proposalOtherCostResponseSchema),
+  ictPersonnel: z.array(proposalIctPersonnelResponseSchema),
+  cloudRequests: z.array(proposalCloudRequestResponseSchema),
+}).openapi("ProposalResponse", { additionalProperties: false });
+
+export const proposalDataResponseSchema = z.object({
+  data: proposalResponseSchema.nullable(),
+  message: z.string().optional(),
+  success: z.boolean().optional(),
+}).openapi("ProposalDataResponse");
+
 // Keep the old schema name as an alias for backward compatibility
 export const upsertProposalSchema = draftProposalSchema;
 

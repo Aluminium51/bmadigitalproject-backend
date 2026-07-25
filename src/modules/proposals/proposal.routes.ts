@@ -15,6 +15,7 @@ import {
   ProposalProjectParamsSchema,
   submitProposalSchema,
   submittedProposalPatchSchema,
+  proposalDataResponseSchema,
 } from "./proposal.schema";
 import { authMiddleware } from "../../middlewares/auth.middleware";
 
@@ -230,7 +231,7 @@ proposalRoutes.openapi(
         description: "Submitted proposal",
         content: {
           "application/json": {
-            schema: DataResponseSchema,
+            schema: proposalDataResponseSchema,
           },
         },
       },
