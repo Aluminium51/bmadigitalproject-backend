@@ -16,6 +16,20 @@ export interface ResourceData {
 }
 
 /**
+ * Submission permissions are additive. A Secretary-only account cannot
+ * submit as a project owner, while Secretary combined with another role can.
+ */
+export const isSecretaryOnlyUser = (
+  user: Pick<UserContext, "roles">,
+): boolean => {
+  const normalizedRoles = user.roles.map((role) => String(role).toLowerCase());
+
+  return normalizedRoles.length > 0 && normalizedRoles.every(
+    (role) => role === "secretary",
+  );
+};
+
+/**
  * ฟังก์ชันกลางสำหรับตรวจสอบสิทธิ์การเข้าถึงและการจัดการข้อมูล
  * @param user ข้อมูลผู้ใช้งานปัจจุบัน (ดึงจาก JWT)
  * @param action การกระทำ (create, read, update, delete)

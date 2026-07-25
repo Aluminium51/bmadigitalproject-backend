@@ -15,7 +15,10 @@ import { users } from "../../db/schema/users";
 import { HTTPException } from "hono/http-exception";
 import { v7 as uuidv7 } from "uuid";
 import type { UserContext } from "../../utils/permission.helper";
-import { checkPermission } from "../../utils/permission.helper";
+import {
+  checkPermission,
+  isSecretaryOnlyUser,
+} from "../../utils/permission.helper";
 import {
   PROJECT_STATUS,
   OWNER_EDITABLE_STATUS_IDS,
@@ -388,9 +391,16 @@ export const proposalService = {
     return await this.getProposalByProjectId(projectId, user);
   },
 
-  async submitProposal(userId: string, data: any) {
-    await assertUserExists(userId);
-    const project = await assertOwnerCanEditProject(data.projectId, userId);
+  async submitProposal(user: UserContext, data: any) {
+    await assertUserExists(user.userId);
+
+    if (isSecretaryOnlyUser(user)) {
+      throw new HTTPException(403, {
+        message: "Secretary-only users cannot submit projects as the project owner",
+      });
+    }
+
+    const project = await assertOwnerCanEditProject(data.projectId, user.userId);
     const targetStatus = project.statusId === PROJECT_STATUS.DRAFT || project.statusId === PROJECT_STATUS.RETURNED_SECRETARY
       ? PROJECT_STATUS.PENDING_SECRETARY
       : PROJECT_STATUS.IN_ANALYSIS;
@@ -398,7 +408,7 @@ export const proposalService = {
     return await db.transaction(async (tx) => {
       // 1. จัดการตารางแม่ (Proposals) ด้วย Upsert -> ตัดปัญหา Race Condition 
       const mainProposalData = {
-        userId,
+        userId: user.userId,
         status: "submitted" as const,
         projectName: data.projectName,
         agencyName: data.agencyName,
@@ -432,7 +442,7 @@ export const proposalService = {
         expectedBenefits: data.expectedBenefits,
         isInRoadmap: data.isInRoadmap,
         updatedAt: new Date(),
-        updatedBy: userId,
+        updatedBy: user.userId,
       };
 
       const [upsertedProposal] = await tx.insert(proposals).values({

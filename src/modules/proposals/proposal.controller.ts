@@ -77,9 +77,9 @@ export const submitProposal = async (
   projectId: string,
   body: SubmitProposalDTO,
 ) => {
-  const userId = getUserId(c);
+  const user = getUserContext(c);
   const proposalData = { ...body, projectId };
-  const proposal = await proposalService.submitProposal(userId, proposalData);
+  const proposal = await proposalService.submitProposal(user, proposalData);
 
   return c.json(
     {

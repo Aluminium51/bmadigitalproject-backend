@@ -37,7 +37,11 @@ import {
   projectAttachmentTypes,
 } from "../../db/schema/lookups";
 import { users } from "@/db/schema/users";
-import { checkPermission, UserContext } from "@/utils/permission.helper";
+import {
+  checkPermission,
+  isSecretaryOnlyUser,
+  UserContext,
+} from "@/utils/permission.helper";
 import {
   PROJECT_STATUS,
   OWNER_EDITABLE_STATUS_IDS,
@@ -325,7 +329,8 @@ export const findProjectById = async (id: string, user: UserContext) => {
     ["secretary", "admin", "super_admin", "analyst"].includes(role),
   );
   const canEditProposal = isSecretary || (isOwner && isOwnerEditableStage);
-  const canSubmitProposal = !isSecretary && isOwner && isOwnerEditableStage;
+  const canSubmitProposal =
+    !isSecretaryOnlyUser(user) && isOwner && isOwnerEditableStage;
   const canManageAttachments = isSecretary || isSuperAdmin || (
     isOwnerEditableStage && (isOwner || isSameDepartment || hasAttachmentRole)
   );
