@@ -7,6 +7,8 @@ import type {
   CreateProjectDTO,
   SecretaryPendingProjectQueryDTO,
   SecretaryReviewDTO,
+  AssignmentProjectQueryDTO,
+  BulkAssignProjectDTO,
   UpdateProjectDTO,
   UpdateProjectStatusDTO,
   UpdateProjectTypeDTO,
@@ -30,6 +32,15 @@ export const getPendingSecretaryProjects = async (
 ) => {
   const user = getUserContext(c);
   const result = await projectService.getPendingSecretaryProjects(query, user);
+  return c.json(result, 200);
+};
+
+export const getPendingAssignmentProjects = async (
+  c: Context,
+  query: AssignmentProjectQueryDTO,
+) => {
+  const user = getUserContext(c);
+  const result = await projectService.getPendingAssignmentProjects(query, user);
   return c.json(result, 200);
 };
 
@@ -78,6 +89,12 @@ export const assignProject = async (c: Context, id: string, body: AssignProjectD
   const user = getUserContext(c);
   const updatedProject = await projectService.assignProject(id, body, user);
   return c.json({ message: "มอบหมายโครงการสำเร็จ", project: updatedProject }, 200); 
+};
+
+export const bulkAssignProjects = async (c: Context, body: BulkAssignProjectDTO) => {
+  const user = getUserContext(c);
+  const result = await projectService.bulkAssignProjects(body, user);
+  return c.json(result, 200);
 };
 
 export const deleteProject = async (c: Context, id: string) => {

@@ -14,6 +14,10 @@ import {
   SecretaryPendingProjectQuerySchema,
   SecretaryReviewRequestSchema,
   SecretaryReviewResponseSchema,
+  AssignmentProjectQuerySchema,
+  PaginatedAssignmentProjectResponseSchema,
+  BulkAssignProjectSchema,
+  BulkAssignProjectResponseSchema,
 } from './project.schema';
 import * as projectController from './project.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -73,6 +77,49 @@ app.openapi(getPendingSecretaryProjectsRoute, (c) => {
     c.req.valid('query'),
   );
 });
+
+const getPendingAssignmentProjectsRoute = createRoute({
+  method: 'get',
+  path: '/assignment/pending',
+  tags: ['Projects', 'Assignment'],
+  summary: 'Get projects waiting for Analyst assignment',
+  request: { query: AssignmentProjectQuerySchema },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: PaginatedAssignmentProjectResponseSchema } },
+      description: 'Projects waiting for assignment',
+    },
+    403: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Only Admin users may access the assignment queue',
+    },
+  },
+});
+app.openapi(getPendingAssignmentProjectsRoute, (c) =>
+  projectController.getPendingAssignmentProjects(c, c.req.valid('query')),
+);
+
+const bulkAssignProjectsRoute = createRoute({
+  method: 'post',
+  path: '/assignment/bulk',
+  tags: ['Projects', 'Assignment'],
+  summary: 'Assign multiple projects to an Analyst',
+  request: {
+    body: { content: { 'application/json': { schema: BulkAssignProjectSchema } } },
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: BulkAssignProjectResponseSchema } },
+      description: 'Projects assigned successfully',
+    },
+    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Invalid Analyst' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
+    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'A project is no longer pending assignment' },
+  },
+});
+app.openapi(bulkAssignProjectsRoute, (c) =>
+  projectController.bulkAssignProjects(c, c.req.valid('json')),
+);
 
 // --- 3. Get Project By ID ---
 const getProjectByIdRoute = createRoute({

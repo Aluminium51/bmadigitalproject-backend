@@ -140,6 +140,55 @@ export const AssignProjectSchema = z.object({
   analystId: z.string().uuid().openapi({ description: 'UUID ของนักวิเคราะห์' }),
 }).openapi('AssignProjectRequest');
 
+export const AssignmentProjectQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().max(100).optional(),
+}).openapi('AssignmentProjectQueryParams');
+
+export const AssignmentProjectSchema = z.object({
+  id: z.string().uuid(),
+  projectCode: z.string().nullable(),
+  projectName: z.string().nullable(),
+  projectType: CompactLookupSchema.nullable(),
+  division: DivisionLookupSchema.nullable(),
+  owner: CompactUserSchema.nullable(),
+  projectStatusId: z.number().int(),
+  createdAt: z.union([z.string(), z.date()]),
+  analystId: z.string().uuid().nullable(),
+}).openapi('AssignmentProject');
+
+export const PaginatedAssignmentProjectResponseSchema = z.object({
+  data: z.array(AssignmentProjectSchema),
+  pagination: z.object({
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+    totalPages: z.number(),
+  }),
+}).openapi('PaginatedAssignmentProjectResponse');
+
+export const BulkAssignProjectSchema = z.object({
+  projectIds: z.array(z.string().uuid()).min(1).max(100).refine(
+    (projectIds) => new Set(projectIds).size === projectIds.length,
+    { message: 'Duplicate project IDs are not allowed' },
+  ),
+  analystId: z.string().uuid(),
+}).strict().openapi('BulkAssignProjectRequest');
+
+export const AssignedProjectResultSchema = z.object({
+  id: z.string().uuid(),
+  projectCode: z.string().nullable(),
+  projectStatusId: z.number().int(),
+  analystId: z.string().uuid(),
+});
+
+export const BulkAssignProjectResponseSchema = z.object({
+  count: z.number().int(),
+  analyst: CompactUserSchema,
+  projects: z.array(AssignedProjectResultSchema),
+}).openapi('BulkAssignProjectResponse');
+
 // Schema สำหรับอัปเดต
 export const UpdateProjectSchema = CreateProjectSchema.partial().openapi('UpdateProjectRequest');
 
@@ -173,5 +222,7 @@ export type UpdateProjectDTO = z.infer<typeof UpdateProjectSchema>;
 export type UpdateProjectStatusDTO = z.infer<typeof UpdateProjectStatusSchema>;
 export type UpdateProjectTypeDTO = z.infer<typeof UpdateProjectTypeSchema>;
 export type AssignProjectDTO = z.infer<typeof AssignProjectSchema>;
+export type AssignmentProjectQueryDTO = z.infer<typeof AssignmentProjectQuerySchema>;
+export type BulkAssignProjectDTO = z.infer<typeof BulkAssignProjectSchema>;
 export type SecretaryPendingProjectQueryDTO = z.infer<typeof SecretaryPendingProjectQuerySchema>;
 export type SecretaryReviewDTO = z.infer<typeof SecretaryReviewRequestSchema>;

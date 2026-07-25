@@ -10,6 +10,7 @@ import {
   UpdateUserRolesSchema,
   UpdateUserStatusSchema,
   UpdateOwnProfileSchema,
+  AnalystWorkloadResponseSchema,
 } from './user.schema';
 import * as userController from './user.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -52,6 +53,25 @@ const getUsersRoute = createRoute({
   },
 });
 app.openapi(getUsersRoute, (c) => userController.getUsers(c, c.req.valid('query')));
+
+const getAnalystWorkloadsRoute = createRoute({
+  method: 'get',
+  path: '/analysts/workload',
+  tags: ['Users', 'Project Assignment'],
+  middleware: [authMiddleware, requirePermission('read', 'project_assign')],
+  summary: 'Get active Analysts and their current workload',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: AnalystWorkloadResponseSchema } },
+      description: 'Analyst workload list',
+    },
+    403: {
+      content: { 'application/json': { schema: ErrorSchema } },
+      description: 'Only Admin users may access Analyst workload data',
+    },
+  },
+});
+app.openapi(getAnalystWorkloadsRoute, (c) => userController.getAnalystWorkloads(c));
 
 const getUserProfileRoute = createRoute({
   method: 'get',

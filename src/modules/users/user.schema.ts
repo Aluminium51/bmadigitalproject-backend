@@ -100,6 +100,19 @@ export const PaginatedUserResponseSchema = z.object({
   }),
 }).openapi("PaginatedUserResponse");
 
+export const AnalystWorkloadSchema = z.object({
+  userId: z.string().uuid(),
+  username: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  position: z.string().nullable(),
+  activeTaskCount: z.number().int(),
+}).openapi("AnalystWorkload");
+
+export const AnalystWorkloadResponseSchema = z.object({
+  data: z.array(AnalystWorkloadSchema),
+}).openapi("AnalystWorkloadResponse");
+
 export const UpdateUserRolesSchema = z.object({
   roleIds: z
     .array(z.number().int().positive())

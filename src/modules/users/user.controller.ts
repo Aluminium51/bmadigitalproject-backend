@@ -54,6 +54,11 @@ export const createUser = async (c: Context, body: any) => {
   }
 };
 
+export const getAnalystWorkloads = async (c: Context) => {
+  const result = await userService.getAnalystWorkloads();
+  return c.json(result, 200);
+};
+
 export const updateUserRoles = async (c: Context, userId: string, body: { roleIds: number[] }) => {
   const actor = getUserContext(c);
   checkPermission(actor, "update", "rbac");

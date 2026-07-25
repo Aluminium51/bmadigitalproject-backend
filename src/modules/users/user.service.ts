@@ -1,11 +1,13 @@
 // src/modules/users/user.service.ts
 import { db } from "@/db";
 import { roles, users, roleUsers } from "@/db/schema/users";
+import { projects } from "@/db/schema/projects";
 import { departments, divisions } from "@/db/schema/lookups";
-import { and, asc, countDistinct, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, countDistinct, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import crypto from "crypto";
 import { v7 as uuidv7 } from "uuid";
+import { PROJECT_STATUS } from "@/modules/projects/project-workflow";
 
 export type UserListQuery = {
   page: number;
@@ -259,6 +261,52 @@ export const createUser = async (data: any) => {
 
     return newUser;
   });
+};
+
+export const getAnalystWorkloads = async () => {
+  const activeStatuses = [
+    PROJECT_STATUS.IN_ANALYSIS,
+    PROJECT_STATUS.RETURNED_ANALYST,
+    PROJECT_STATUS.PENDING_SMALL_BOARD,
+    PROJECT_STATUS.RETURNED_SMALL_BOARD,
+    PROJECT_STATUS.PENDING_BIG_BOARD,
+    PROJECT_STATUS.RETURNED_BIG_BOARD,
+  ];
+
+  const rows = await db
+    .select({
+      userId: users.userId,
+      username: users.username,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      position: users.position,
+      activeTaskCount: countDistinct(projects.id),
+    })
+    .from(users)
+    .innerJoin(roleUsers, eq(roleUsers.userId, users.userId))
+    .innerJoin(roles, eq(roles.roleId, roleUsers.roleId))
+    .leftJoin(projects, and(
+      eq(projects.analystId, users.userId),
+      isNull(projects.deletedAt),
+      inArray(projects.projectStatusId, activeStatuses),
+    ))
+    .where(and(
+      eq(users.isActive, true),
+      sql`lower(${roles.roleName}) = 'analyst'`,
+    ))
+    .groupBy(users.userId, users.username, users.firstName, users.lastName, users.position)
+    .orderBy(
+      asc(countDistinct(projects.id)),
+      asc(users.firstName),
+      asc(users.lastName),
+    );
+
+  return {
+    data: rows.map((row) => ({
+      ...row,
+      activeTaskCount: Number(row.activeTaskCount),
+    })),
+  };
 };
 
 export const updateUserRoles = async (

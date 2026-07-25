@@ -28,6 +28,8 @@ import type {
   UpdateProjectTypeDTO,
   SecretaryPendingProjectQueryDTO,
   SecretaryReviewDTO,
+  AssignmentProjectQueryDTO,
+  BulkAssignProjectDTO,
 } from "./project.schema";
 import {
   divisions,
@@ -36,7 +38,7 @@ import {
   projectTypes,
   projectAttachmentTypes,
 } from "../../db/schema/lookups";
-import { users } from "@/db/schema/users";
+import { roles, roleUsers, users } from "@/db/schema/users";
 import {
   checkPermission,
   isSecretaryOnlyUser,
@@ -151,6 +153,57 @@ const assertSecretary = (user: UserContext) => {
       message: "Only users with the secretary role can perform this action",
     });
   }
+};
+
+const assertProjectAssignmentAdmin = (user: UserContext) => {
+  const normalizedRoles = user.roles.map((role) => String(role).toLowerCase());
+  if (!normalizedRoles.some((role) => role === "admin" || role === "super_admin")) {
+    throw new HTTPException(403, {
+      message: "Only Admin users can manage project assignments",
+    });
+  }
+};
+
+const getAnalystForAssignment = async (executor: any, analystId: string) => {
+  const [analyst] = await executor
+    .select({
+      userId: users.userId,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      isActive: users.isActive,
+    })
+    .from(users)
+    .innerJoin(roleUsers, eq(roleUsers.userId, users.userId))
+    .innerJoin(roles, eq(roles.roleId, roleUsers.roleId))
+    .where(and(
+      eq(users.userId, analystId),
+      eq(users.isActive, true),
+      sql`lower(${roles.roleName}) = 'analyst'`,
+    ))
+    .limit(1);
+
+  if (!analyst) {
+    throw new HTTPException(400, {
+      message: "The selected user is not an active Analyst",
+    });
+  }
+
+  return analyst;
+};
+
+const mapAssignmentProject = (row: any) => {
+  const project = mapJoinedProject(row);
+  return {
+    id: project.id,
+    projectCode: project.projectCode,
+    projectName: project.projectName,
+    projectType: project.projectType,
+    division: project.division,
+    owner: project.owner,
+    projectStatusId: project.projectStatusId,
+    createdAt: project.createdAt,
+    analystId: project.analystId,
+  };
 };
 
 // export const findAllProjects = async () => {
@@ -414,6 +467,54 @@ export const getPendingSecretaryProjects = async (
 
   return {
     data: rows.map(mapJoinedProject),
+    pagination: {
+      total: Number(count),
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(Number(count) / Number(limit)),
+    },
+  };
+};
+
+export const getPendingAssignmentProjects = async (
+  queryParams: AssignmentProjectQueryDTO,
+  user: UserContext,
+) => {
+  assertProjectAssignmentAdmin(user);
+
+  const { page, limit, search } = queryParams;
+  const offset = (page - 1) * limit;
+  const conditions: SQL[] = [
+    eq(projects.projectStatusId, PROJECT_STATUS.PENDING_ASSIGNMENT),
+    isNull(projects.deletedAt),
+  ];
+
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      or(
+        ilike(projects.projectCode, pattern),
+        ilike(projects.projectName, pattern),
+        ilike(users.firstName, pattern),
+        ilike(users.lastName, pattern),
+      )!,
+    );
+  }
+
+  const query = getBaseProjectQuery().where(and(...conditions));
+  const countQuery = db
+    .select({ count: sql<number>`count(distinct ${projects.id})` })
+    .from(projects)
+    .leftJoin(users, eq(projects.userId, users.userId))
+    .where(and(...conditions));
+
+  const [rows, [{ count }]] = await Promise.all([
+    query.orderBy(desc(projects.createdAt)).limit(limit).offset(offset),
+    countQuery,
+  ]);
+
+  return {
+    data: rows.map(mapAssignmentProject),
     pagination: {
       total: Number(count),
       page: Number(page),
@@ -701,13 +802,16 @@ export const assignProject = async (
   user: UserContext,
 ) => {
   const project = await findProjectById(id, user);
+  assertProjectAssignmentAdmin(user);
 
   if (!user.roles.includes("admin") && !user.roles.includes("super_admin")) {
     throw new HTTPException(403, { message: "ไม่มีสิทธิ์มอบหมายงาน" });
   }
 
   await db.transaction(async (tx) => {
-    await tx
+    await getAnalystForAssignment(tx, data.analystId);
+
+    const updated = await tx
       .update(projects)
       .set({
         analystId: data.analystId,
@@ -716,19 +820,110 @@ export const assignProject = async (
         updatedBy: user.userId,
         updatedAt: new Date(),
       })
-      .where(eq(projects.id, id));
+      .where(and(
+        eq(projects.id, id),
+        eq(projects.projectStatusId, PROJECT_STATUS.PENDING_ASSIGNMENT),
+        isNull(projects.deletedAt),
+      ))
+      .returning({ id: projects.id });
 
-    if (project.projectStatusId === PROJECT_STATUS.PENDING_ASSIGNMENT) {
+    if (updated.length === 0) {
+      throw new HTTPException(409, {
+        message: "Project is no longer waiting for Analyst assignment",
+      });
+    }
+
+    await applyProjectStatusTransition(tx, {
+      projectId: id,
+      userId: user.userId,
+      oldStatusId: PROJECT_STATUS.PENDING_ASSIGNMENT,
+      newStatusId: PROJECT_STATUS.IN_ANALYSIS,
+    });
+  });
+
+  return await findProjectById(id, user);
+};
+
+export const bulkAssignProjects = async (
+  data: BulkAssignProjectDTO,
+  user: UserContext,
+) => {
+  assertProjectAssignmentAdmin(user);
+
+  const result = await db.transaction(async (tx) => {
+    const analyst = await getAnalystForAssignment(tx, data.analystId);
+    const pendingProjects = await tx
+      .select({ id: projects.id, projectCode: projects.projectCode })
+      .from(projects)
+      .where(and(
+        inArray(projects.id, data.projectIds),
+        eq(projects.projectStatusId, PROJECT_STATUS.PENDING_ASSIGNMENT),
+        isNull(projects.deletedAt),
+      ));
+
+    if (pendingProjects.length !== data.projectIds.length) {
+      throw new HTTPException(409, {
+        message: "One or more selected projects are no longer waiting for assignment",
+      });
+    }
+
+    const assignedProjects: Array<{
+      id: string;
+      projectCode: string | null;
+      projectStatusId: number;
+      analystId: string;
+    }> = [];
+
+    for (const project of pendingProjects) {
+      const updated = await tx
+        .update(projects)
+        .set({
+          analystId: data.analystId,
+          assignedBy: user.userId,
+          assignedAt: new Date(),
+          updatedBy: user.userId,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(projects.id, project.id),
+          eq(projects.projectStatusId, PROJECT_STATUS.PENDING_ASSIGNMENT),
+          isNull(projects.deletedAt),
+        ))
+        .returning({ id: projects.id, projectCode: projects.projectCode });
+
+      if (updated.length === 0) {
+        throw new HTTPException(409, {
+          message: "A selected project changed before assignment completed",
+        });
+      }
+
       await applyProjectStatusTransition(tx, {
-        projectId: id,
+        projectId: project.id,
         userId: user.userId,
         oldStatusId: PROJECT_STATUS.PENDING_ASSIGNMENT,
         newStatusId: PROJECT_STATUS.IN_ANALYSIS,
       });
+
+      assignedProjects.push({
+        id: project.id,
+        projectCode: project.projectCode,
+        projectStatusId: PROJECT_STATUS.IN_ANALYSIS,
+        analystId: data.analystId,
+      });
     }
+
+    return { analyst, projects: assignedProjects };
   });
 
-  return await findProjectById(id, user);
+  return {
+    count: result.projects.length,
+    analyst: {
+      userId: result.analyst.userId,
+      firstName: result.analyst.firstName,
+      lastName: result.analyst.lastName,
+    },
+    projects: result.projects,
+  };
 };
 
 export const removeProject = async (id: string, user: UserContext) => {
