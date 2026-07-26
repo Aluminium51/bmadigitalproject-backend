@@ -242,10 +242,20 @@ export const ProjectIdParamsSchema = z.object({
 
 // Schema สำหรับ Query Parameters ของการดึงรายการ Project
 // ใช้สำหรับ Pagination, Search, Filter
+const ProjectStatusIdSchema = z.coerce.number().int().min(1).max(15);
+const ProjectStatusIdsSchema = z
+  .union([
+    z.array(ProjectStatusIdSchema).max(15),
+    ProjectStatusIdSchema,
+    z.string().regex(/^\s*\d+(?:\s*,\s*\d+)*\s*$/),
+  ])
+  .optional();
+
 export const ProjectQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
   search: z.string().optional(),
+  statusIds: ProjectStatusIdsSchema,
   status: z.enum(['draft', 'submitted', 'all_except_draft', 'all']).default('all'),
   ownership: z.enum(['mine', 'team_only', 'team_and_mine', 'all']).default('all'),
 }).openapi('ProjectQueryParams');
@@ -272,3 +282,4 @@ export type SecretaryReviewDTO = z.infer<typeof SecretaryReviewRequestSchema>;
 export type AnalystAssignedProjectQueryDTO = z.infer<typeof AnalystAssignedProjectQuerySchema>;
 export type AnalystReassignmentDTO = z.infer<typeof AnalystReassignmentRequestSchema>;
 export type AnalystReviewDTO = z.infer<typeof AnalystReviewRequestSchema>;
+export type ProjectQueryDTO = z.infer<typeof ProjectQuerySchema>;

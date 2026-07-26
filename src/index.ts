@@ -33,13 +33,6 @@ app.use('/*', cors({
 }));
 app.route('/health', healthRoutes);
 // ตั้งค่าเอกสารคู่มือ API แยกตามเวอร์ชัน
-app.doc('/openapi-v1.json', {
-  openapi: '3.0.0',
-  info: { title: 'BMA Platform API (v1)', version: '1.0.0' },
-});
-app.get('/docs/', swaggerUI({ url: '/openapi-v1.json' }));
-
-
 // ==========================================
 // /api/v1/*
 // ==========================================
@@ -53,6 +46,14 @@ v1.route('/meetings', meetingRoutes);
 v1.route('/internal', internalRoutes);
 v1.route('/lookups', lookupRoutes);
 app.route('/api/v1', v1);
+
+// Register documentation after all versioned routes so generated contracts
+// include every endpoint and query parameter.
+app.doc('/openapi-v1.json', {
+  openapi: '3.0.0',
+  info: { title: 'BMA Platform API (v1)', version: '1.0.0' },
+});
+app.get('/docs/', swaggerUI({ url: '/openapi-v1.json' }));
 
 
 // start Server

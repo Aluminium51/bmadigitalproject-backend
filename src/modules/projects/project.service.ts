@@ -33,6 +33,7 @@ import type {
   AnalystAssignedProjectQueryDTO,
   AnalystReassignmentDTO,
   AnalystReviewDTO,
+  ProjectQueryDTO,
 } from "./project.schema";
 import {
   divisions,
@@ -170,6 +171,29 @@ const assertProjectAssignmentAdmin = (user: UserContext) => {
 const normalizedUserRoles = (user: UserContext) =>
   user.roles.map((role) => String(role).toLowerCase());
 
+const normalizeProjectStatusIds = (value: unknown): number[] | undefined => {
+  if (value === undefined || value === null) return undefined;
+
+  const tokens = (Array.isArray(value) ? value : [value])
+    .flatMap((item) => String(item).split(","))
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (tokens.length === 0) return undefined;
+
+  const statusIds = [...new Set(tokens.map(Number))];
+  if (
+    statusIds.length > 15 ||
+    statusIds.some((statusId) => !Number.isInteger(statusId) || statusId < 1 || statusId > 15)
+  ) {
+    throw new HTTPException(400, {
+      message: "statusIds must contain between 1 and 15 valid status IDs",
+    });
+  }
+
+  return statusIds;
+};
+
 const hasRole = (user: UserContext, role: string) =>
   normalizedUserRoles(user).includes(role);
 
@@ -275,19 +299,22 @@ const mapAnalystAssignedProject = (row: any) => {
 //   return mapJoinedProject(rows[0]);
 // };
 
-export const findAllProjects = async (user: UserContext, queryParams: any) => {
-  const { page, limit, search, status, ownership } = queryParams;
+export const findAllProjects = async (user: UserContext, queryParams: ProjectQueryDTO) => {
+  const { page, limit, search, status, statusIds: rawStatusIds, ownership } = queryParams;
+  const statusIds = normalizeProjectStatusIds(rawStatusIds);
   const offset = (page - 1) * limit;
 
   let query = getBaseProjectQuery();
   let countQuery = db
     .select({ count: sql<number>`count(*)` })
     .from(projects)
-    .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId)) as any;
+    .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId))
+    .leftJoin(users, eq(projects.userId, users.userId)) as any;
 
   const conditions: SQL[] = [isNull(projects.deletedAt)];
+  const normalizedRoles = user.roles.map((role) => String(role).toLowerCase());
   const isAdmin =
-    user.roles.includes("super_admin") || user.roles.includes("admin");
+    normalizedRoles.includes("super_admin") || normalizedRoles.includes("admin");
 
   // ==========================================
   // 1. กฎเหล็กความปลอดภัย (Security Baseline)
@@ -319,7 +346,9 @@ export const findAllProjects = async (user: UserContext, queryParams: any) => {
   // ==========================================
   // 3. ตัวกรองสถานะ (Status Filter)
   // ==========================================
-  if (status === "draft") {
+  if (statusIds && statusIds.length > 0) {
+    conditions.push(inArray(projects.projectStatusId, statusIds));
+  } else if (status === "draft") {
     conditions.push(eq(projects.projectStatusId, 1));
   } else if (status === "submitted" || status === "all_except_draft") {
     conditions.push(ne(projects.projectStatusId, 1));
@@ -333,6 +362,8 @@ export const findAllProjects = async (user: UserContext, queryParams: any) => {
       or(
         ilike(projects.projectName, `%${search}%`),
         ilike(projects.projectCode, `%${search}%`),
+        ilike(users.firstName, `%${search}%`),
+        ilike(users.lastName, `%${search}%`),
       )!,
     );
   }
