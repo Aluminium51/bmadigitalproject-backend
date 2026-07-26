@@ -6,6 +6,7 @@ import { divisions } from "./lookups";
 
 export const roles = pgTable("roles", {
   roleId: serial("role_id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   roleName: varchar("role_name", { length: 50 }).unique().notNull(),
   description: varchar("description", { length: 255 }),
 });

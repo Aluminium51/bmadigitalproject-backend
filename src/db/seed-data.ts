@@ -22,16 +22,16 @@ export const seedData = {
   ],
 
   roles: [
-    { roleId: 1, roleName: "USER" },
-    { roleId: 2, roleName: "ANALYST" },
-    { roleId: 3, roleName: "SECRETARY" },
-    { roleId: 4, roleName: "ADMIN" },
-    { roleId: 5, roleName: "SUPER_ADMIN" }
+    { roleId: 1, code: "USER", roleName: "USER" },
+    { roleId: 2, code: "ANALYST", roleName: "ANALYST" },
+    { roleId: 3, code: "SECRETARY", roleName: "SECRETARY" },
+    { roleId: 4, code: "ADMIN", roleName: "ADMIN" },
+    { roleId: 5, code: "SUPER_ADMIN", roleName: "SUPER_ADMIN" }
   ],
 
   projectTypes: [
-    { id: 1, typeName: "Hardware" },
-    { id: 2, typeName: "Software" },
+    { id: 1, code: "HARDWARE", typeName: "Hardware" },
+    { id: 2, code: "SOFTWARE", typeName: "Software" },
   ],
 
   fourQuadrants: [
@@ -102,21 +102,21 @@ mockUsers: [
   ],
 
   projectStatuses: [
-    { id: 1, statusName: "Draft" },
-    { id: 2, statusName: "Pending Secretary" },
-    { id: 3, statusName: "Returned by Secretary" },
-    { id: 4, statusName: "Rejected by Secretary" },
-    { id: 5, statusName: "Pending Assignment" },
-    { id: 6, statusName: "In Analysis" },
-    { id: 7, statusName: "Returned by Analyst" },
-    { id: 8, statusName: "Rejected by Analyst" },
-    { id: 9, statusName: "Pending Small Board" },
-    { id: 10, statusName: "Returned by Small Board" },
-    { id: 11, statusName: "Rejected by Small Board" },
-    { id: 12, statusName: "Pending Big Board" },
-    { id: 13, statusName: "Returned by Big Board" },
-    { id: 14, statusName: "Rejected by Big Board" },
-    { id: 15, statusName: "Approved" },
+    { id: 1, code: "PROJECT_DRAFT", statusName: "Draft" },
+    { id: 2, code: "PROJECT_PENDING_SECRETARY", statusName: "Pending Secretary" },
+    { id: 3, code: "PROJECT_RETURNED_SECRETARY", statusName: "Returned by Secretary" },
+    { id: 4, code: "PROJECT_REJECTED_SECRETARY", statusName: "Rejected by Secretary" },
+    { id: 5, code: "PROJECT_PENDING_ASSIGNMENT", statusName: "Pending Assignment" },
+    { id: 6, code: "PROJECT_IN_ANALYSIS", statusName: "In Analysis" },
+    { id: 7, code: "PROJECT_RETURNED_ANALYST", statusName: "Returned by Analyst" },
+    { id: 8, code: "PROJECT_REJECTED_ANALYST", statusName: "Rejected by Analyst" },
+    { id: 9, code: "PROJECT_PENDING_SMALL_BOARD", statusName: "Pending Small Board" },
+    { id: 10, code: "PROJECT_RETURNED_SMALL_BOARD", statusName: "Returned by Small Board" },
+    { id: 11, code: "PROJECT_REJECTED_SMALL_BOARD", statusName: "Rejected by Small Board" },
+    { id: 12, code: "PROJECT_PENDING_BIG_BOARD", statusName: "Pending Big Board" },
+    { id: 13, code: "PROJECT_RETURNED_BIG_BOARD", statusName: "Returned by Big Board" },
+    { id: 14, code: "PROJECT_REJECTED_BIG_BOARD", statusName: "Rejected by Big Board" },
+    { id: 15, code: "PROJECT_APPROVED", statusName: "Approved" },
   ],
 
   projectAttachmentTypes: PROJECT_ATTACHMENT_TYPES,

@@ -56,8 +56,9 @@ import {
 } from "./project-workflow";
 import { basename, join } from "node:path";
 import { unlink } from "node:fs/promises";
+import { appEnv } from "@/config/app-env";
 
-const UPLOAD_STORAGE_DIR = process.env.UPLOAD_STORAGE_DIR ?? join(process.cwd(), "uploads");
+const UPLOAD_STORAGE_DIR = appEnv.UPLOAD_STORAGE_DIR;
 
 async function assertUserExists(userId: string) {
   const [user] = await db

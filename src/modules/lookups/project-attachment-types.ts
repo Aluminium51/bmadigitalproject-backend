@@ -1,16 +1,16 @@
 export const PROJECT_ATTACHMENT_TYPES = [
-  { id: 1, docTypeName: "system_diagram" },
-  { id: 2, docTypeName: "network_diagram" },
-  { id: 3, docTypeName: "use_case_diagram" },
-  { id: 4, docTypeName: "security_diagram" },
-  { id: 5, docTypeName: "presentation" },
-  { id: 6, docTypeName: "report" },
-  { id: 7, docTypeName: "ใบเบิกเงิน" },
-  { id: 8, docTypeName: "other" },
-  { id: 9, docTypeName: "quotation" },
-  { id: 10, docTypeName: "one_page_summary" },
-  { id: 11, docTypeName: "approval_document" },
-  { id: 12, docTypeName: "bma_dc_usage" },
+  { id: 1, code: "SYSTEM_DIAGRAM", docTypeName: "system_diagram" },
+  { id: 2, code: "NETWORK_DIAGRAM", docTypeName: "network_diagram" },
+  { id: 3, code: "USE_CASE_DIAGRAM", docTypeName: "use_case_diagram" },
+  { id: 4, code: "SECURITY_DIAGRAM", docTypeName: "security_diagram" },
+  { id: 5, code: "PRESENTATION", docTypeName: "presentation" },
+  { id: 6, code: "REPORT", docTypeName: "report" },
+  { id: 7, code: "EXPENSE_DOCUMENT", docTypeName: "ใบเบิกเงิน" },
+  { id: 8, code: "OTHER", docTypeName: "other" },
+  { id: 9, code: "QUOTATION", docTypeName: "quotation" },
+  { id: 10, code: "ONE_PAGE_SUMMARY", docTypeName: "one_page_summary" },
+  { id: 11, code: "APPROVAL_DOCUMENT", docTypeName: "approval_document" },
+  { id: 12, code: "BMA_DC_USAGE", docTypeName: "bma_dc_usage" },
 ] as const;
 
 export const PROJECT_ATTACHMENT_TYPE_LABELS = {

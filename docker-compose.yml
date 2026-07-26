@@ -1,3 +1,5 @@
+# DEPRECATED: temporary rollback/transition path only.
+# Use ../infrastructure/compose.*.yml for the canonical separated deployment.
 services:
   postgres:
     image: postgres:15-alpine

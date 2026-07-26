@@ -7,16 +7,19 @@ import { relations } from "drizzle-orm";
 // ---------------------------------------------------------------------------
 export const projectStatuses = pgTable("project_statuses", {
   id: serial("project_status_id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   statusName: varchar("project_status_name", { length: 255 }).unique().notNull(),
 });
 
 export const projectTypes = pgTable("project_types", {
   id: serial("project_type_id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   typeName: varchar("project_type_name", { length: 255 }).unique().notNull(),
 });
 
 export const projectAttachmentTypes = pgTable("project_attachment_types", {
   id: serial("doc_type_id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   docTypeName: varchar("doc_type_name", { length: 255 }).unique().notNull(), // ex. 'system_diagram', 'network_diagram', 'use_case_diagram', 'security_diagram', 'presentation', 'report', 'ใบเบิกเงิน', 'other'
 });
 

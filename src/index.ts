@@ -13,6 +13,7 @@ import lookupRoutes from './modules/lookups/lookup.routes';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { startCronJobs } from './utils/cron';
+import { appEnv, corsOrigins } from './config/app-env';
 
 const app = new OpenAPIHono();
 
@@ -27,7 +28,7 @@ app.onError((err, c) => {
 
 // cors middleware เพื่อให้ frontend ที่รันบน localhost:3000 สามารถเรียก API ได้
 app.use('/*', cors({
-  origin: 'http://localhost:3000',
+  origin: (origin) => corsOrigins.includes(origin) ? origin : undefined,
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));
@@ -57,7 +58,7 @@ app.get('/docs/', swaggerUI({ url: '/openapi-v1.json' }));
 
 
 // start Server
-const port = process.env.PORT ? parseInt(process.env.PORT) : 8081;
+const port = appEnv.PORT;
 console.log(`🚀 Backend is running on http://localhost:${port}`);
 console.log(`📚 Swagger UI is at http://localhost:${port}/docs/`);
 
@@ -66,5 +67,6 @@ startCronJobs();
 
 export default {
   port,
+  hostname: '0.0.0.0',
   fetch: app.fetch,
 };

@@ -10,11 +10,12 @@ import type { UserContext } from "../../utils/permission.helper";
 import { join, basename } from "node:path";
 import { mkdir, unlink } from "node:fs/promises";
 import { v7 as uuidv7 } from "uuid";
+import { appEnv } from "@/config/app-env";
 
 export const MAX_PDF_UPLOAD_BYTES = 20 * 1024 * 1024;
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_DOCUMENT_UPLOAD_BYTES = 25 * 1024 * 1024;
-export const UPLOAD_STORAGE_DIR = process.env.UPLOAD_STORAGE_DIR ?? join(process.cwd(), "uploads");
+export const UPLOAD_STORAGE_DIR = appEnv.UPLOAD_STORAGE_DIR;
 
 export class UploadValidationError extends Error {
   status = 413 as const;
@@ -252,7 +253,7 @@ export class UploadService {
     await mkdir(UPLOAD_STORAGE_DIR, { recursive: true });
     const storagePath = join(UPLOAD_STORAGE_DIR, storedFileName);
     await Bun.write(storagePath, finalBuffer);
-    const publicApiBase = process.env.PUBLIC_API_URL ?? `http://localhost:${process.env.PORT ?? 8081}/api/v1`;
+    const publicApiBase = appEnv.PUBLIC_API_URL;
 
     return {
       fileName: file.name,

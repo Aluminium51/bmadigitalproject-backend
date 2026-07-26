@@ -20,6 +20,7 @@ import { deleteCookie } from "hono/cookie";
 import type { UserContext } from "@/utils/permission.helper";
 import { HTTPException } from "hono/http-exception";
 import { consumeRateLimit, getClientIp } from "@/utils/rate-limit";
+import { appEnv } from "@/config/app-env";
 
 type LoginBody = z.infer<typeof LoginRequestSchema>;
 type RecoveryEmailBody = z.infer<typeof RecoveryEmailRequestSchema>;
@@ -34,11 +35,6 @@ async function issueUserToken(user: any) {
           .map((roleName: string) => roleName.toLowerCase())
       : ["user"];
 
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("JWT_SECRET is not defined in environment variables");
-  }
-
   return sign(
     {
       userId: user.userId,
@@ -48,7 +44,7 @@ async function issueUserToken(user: any) {
       departmentId: user.division?.departmentId || 0,
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
     },
-    secret,
+    appEnv.JWT_SECRET,
   );
 }
 
@@ -354,10 +350,11 @@ export const logout = async (c: Context) => {
     // ลบคุกกี้ด้วยค่า Configuration มาตรฐานเพื่อความปลอดภัย
     deleteCookie(c, "token", {
       path: "/",
-      secure: process.env.NODE_ENV === "production",
+      secure: appEnv.COOKIE_SECURE,
       httpOnly: true,
       // sameSite: "Strict",
-      sameSite: "lax",
+      sameSite: appEnv.COOKIE_SAME_SITE,
+      ...(appEnv.COOKIE_DOMAIN ? { domain: appEnv.COOKIE_DOMAIN } : {}),
     });
 
     return c.json({ message: "ออกจากระบบสำเร็จ" }, 200);

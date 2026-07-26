@@ -5,6 +5,7 @@ import type { Context, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { UserContext } from '../utils/permission.helper';
 import type { Role } from '../config/permissions.config';
+import { appEnv } from "@/config/app-env";
 
 export const authMiddleware = async (c: Context, next: Next) => {
   const authHeader = c.req.header('Authorization');
@@ -19,14 +20,8 @@ export const authMiddleware = async (c: Context, next: Next) => {
     throw new HTTPException(401, { message: 'Unauthorized: ไม่พบ Token ยืนยันตัวตน' });
   }
 
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    console.error("❌ CRITICAL: process.env.JWT_SECRET is not defined!");
-    throw new HTTPException(500, { message: 'Internal Server Error: ตรวจพบปัญหาการตั้งค่าระบบ' });
-  }
-
   try {
-    const decodedPayload = await verify(token, secret, 'HS256') as any;
+    const decodedPayload = await verify(token, appEnv.JWT_SECRET, 'HS256') as any;
 
     // ตรวจสอบและจัดรูปแบบข้อมูลผู้ใช้งานจาก Payload ของ JWT
     let userRoles: Role[] = [];

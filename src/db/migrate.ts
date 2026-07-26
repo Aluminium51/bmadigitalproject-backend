@@ -2,15 +2,17 @@
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-
-const connectionString = process.env.DATABASE_URL!;
+import { databaseEnv } from "@/config/database-env";
 
 async function runMigration() {
   console.log("⏳ Starting Database Migration...");
 
   // สำหรับการรัน Migrate แนะนำให้ใช้ { max: 1 } 
   // เพื่อเปิด Connection เพียงอันเดียวในการเข้าไปอัปเดตตาราง ป้องกันปัญหา Connection ซ้อนกัน
-  const migrationClient = postgres(connectionString, { max: 1 });
+  const migrationClient = postgres(databaseEnv.DATABASE_URL, {
+    max: 1,
+    connect_timeout: 10,
+  });
   const db = drizzle(migrationClient);
 
   try {
