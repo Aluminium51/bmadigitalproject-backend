@@ -98,6 +98,32 @@ async function assertOwnerCanEditProject(projectId: string, userId: string) {
   return project;
 }
 
+async function getProposalProjectAccess(projectId: string, user: UserContext) {
+  const [project] = await db
+    .select({
+      id: projects.id,
+      analystId: projects.analystId,
+      statusId: projects.projectStatusId,
+    })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+    .limit(1);
+
+  if (!project) throw new HTTPException(404, { message: "Project not found" });
+
+  const roles = user.roles.map((role) => String(role).toLowerCase());
+  const isGlobalProjectManager = roles.some((role) =>
+    ["admin", "super_admin", "secretary"].includes(role),
+  );
+  if (roles.includes("analyst") && !isGlobalProjectManager && project.analystId !== user.userId) {
+    throw new HTTPException(403, {
+      message: "This project is not assigned to the authenticated Analyst",
+    });
+  }
+
+  return { project, roles };
+}
+
 const submittedProposalScalarColumns = {
   projectName: proposals.projectName,
   agencyName: proposals.agencyName,
@@ -329,6 +355,7 @@ export const proposalService = {
 
   async getProposalByProjectId(projectId: string, user: UserContext) {
     checkPermission(user, "read", "proposal_form");
+    await getProposalProjectAccess(projectId, user);
     try {
       const proposal = await db.query.proposals.findFirst({
         where: eq(proposals.projectId, projectId),
@@ -380,9 +407,17 @@ export const proposalService = {
     user: UserContext,
     payload: Record<string, any>,
   ) {
-    if (!user.roles.includes("secretary")) {
+    const { project, roles } = await getProposalProjectAccess(projectId, user);
+    const isSecretary = roles.includes("secretary");
+    const isAssignedAnalyst = roles.includes("analyst") && project.analystId === user.userId;
+    if (!isSecretary && !isAssignedAnalyst) {
       throw new HTTPException(403, {
-        message: "Only Secretaries can update submitted proposals",
+        message: "Only a Secretary or the assigned Analyst can update submitted proposals",
+      });
+    }
+    if (isAssignedAnalyst && project.statusId !== PROJECT_STATUS.IN_ANALYSIS) {
+      throw new HTTPException(403, {
+        message: "Analysts may update submitted proposals only while the project is in analysis",
       });
     }
     checkPermission(user, "update", "proposal_form");

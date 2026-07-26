@@ -5,7 +5,7 @@ import { divisions, projectAttachmentTypes } from "../../db/schema/lookups";
 import { users } from "../../db/schema/users";
 import { and, eq, isNull, like } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
-import { OWNER_EDITABLE_STATUS_IDS } from "../projects/project-workflow";
+import { PROJECT_STATUS, OWNER_EDITABLE_STATUS_IDS } from "../projects/project-workflow";
 import type { UserContext } from "../../utils/permission.helper";
 import { join, basename } from "node:path";
 import { mkdir, unlink } from "node:fs/promises";
@@ -93,25 +93,27 @@ function assertDocumentTypeMatchesFile(file: File, docTypeName: string) {
 export class UploadService {
   private static assertAttachmentPermission(
     user: UserContext,
-    project: { ownerId: string; statusId: number; ownerDepartmentId: number | null },
+    project: { ownerId: string; analystId?: string | null; statusId: number; ownerDepartmentId: number | null },
   ) {
-    const isSuperAdmin = user.roles.includes("super_admin");
-    const isSecretary = user.roles.includes("secretary");
+    const roles = user.roles.map((role) => String(role).toLowerCase());
+    const isSuperAdmin = roles.includes("super_admin");
+    const isSecretary = roles.includes("secretary");
+    const isAssignedAnalyst = roles.includes("analyst") && project.analystId === user.userId;
     const isOwner = project.ownerId === user.userId;
     const isSameDepartment = project.ownerDepartmentId !== null && project.ownerDepartmentId === user.departmentId;
-    const hasAttachmentRole = user.roles.some((role) => ["secretary", "admin", "super_admin"].includes(role));
+    const hasAttachmentRole = roles.some((role) => ["secretary", "admin", "super_admin"].includes(role));
 
-    if (!isSecretary && !OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number]) && !isSuperAdmin) {
+    if (!isSecretary && !isSuperAdmin && !(isAssignedAnalyst && project.statusId === PROJECT_STATUS.IN_ANALYSIS) && !OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number])) {
       throw new HTTPException(409, { message: "Project attachments are read-only at the current project stage" });
     }
-    if (!isSuperAdmin && !isOwner && !isSameDepartment && !hasAttachmentRole) {
+    if (!isSecretary && !isSuperAdmin && !isAssignedAnalyst && !isOwner && !isSameDepartment && !hasAttachmentRole) {
       throw new HTTPException(403, { message: "You do not have permission to manage attachments for this project" });
     }
   }
 
   static async uploadDocument(file: File, projectId: string, user: UserContext, docTypeName: string, description?: string) {
     const [project] = await db
-      .select({ ownerId: projects.userId, statusId: projects.projectStatusId, ownerDepartmentId: divisions.departmentId })
+      .select({ ownerId: projects.userId, analystId: projects.analystId, statusId: projects.projectStatusId, ownerDepartmentId: divisions.departmentId })
       .from(projects)
       .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId))
       .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
@@ -161,7 +163,8 @@ export class UploadService {
       ...result,
       canDelete:
         documentType.name !== "approval_document" ||
-        user.roles.some((role) => ["admin", "super_admin"].includes(role)),
+        (!user.roles.map((role) => String(role).toLowerCase()).includes("analyst") &&
+          user.roles.some((role) => ["admin", "super_admin"].includes(String(role).toLowerCase()))),
       uploader: uploader ?? null,
     };
   }
@@ -175,6 +178,7 @@ export class UploadService {
         docTypeId: projectAttachments.docTypeId,
         docTypeName: projectAttachmentTypes.docTypeName,
         ownerId: projects.userId,
+        analystId: projects.analystId,
         statusId: projects.projectStatusId,
         ownerDepartmentId: divisions.departmentId,
       })
@@ -196,6 +200,12 @@ export class UploadService {
     }
 
     if (attachment.docTypeName !== "approval_document") {
+      const normalizedRoles = user.roles.map((role) => String(role).toLowerCase());
+      if (normalizedRoles.includes("analyst") && !normalizedRoles.some((role) => ["admin", "super_admin"].includes(role))) {
+        throw new HTTPException(403, {
+          message: "Analysts can upload attachments but cannot delete them",
+        });
+      }
       this.assertAttachmentPermission(user, attachment);
     }
     await db.delete(projectAttachments).where(eq(projectAttachments.id, fileId));

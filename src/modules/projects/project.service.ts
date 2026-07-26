@@ -30,6 +30,9 @@ import type {
   SecretaryReviewDTO,
   AssignmentProjectQueryDTO,
   BulkAssignProjectDTO,
+  AnalystAssignedProjectQueryDTO,
+  AnalystReassignmentDTO,
+  AnalystReviewDTO,
 } from "./project.schema";
 import {
   divisions,
@@ -164,6 +167,41 @@ const assertProjectAssignmentAdmin = (user: UserContext) => {
   }
 };
 
+const normalizedUserRoles = (user: UserContext) =>
+  user.roles.map((role) => String(role).toLowerCase());
+
+const hasRole = (user: UserContext, role: string) =>
+  normalizedUserRoles(user).includes(role);
+
+const assertAnalyst = (user: UserContext) => {
+  if (!hasRole(user, "analyst")) {
+    throw new HTTPException(403, {
+      message: "Only users with the analyst role can perform this action",
+    });
+  }
+};
+
+export const assertAssignedAnalyst = (
+  user: UserContext,
+  project: { analystId: string | null },
+) => {
+  assertAnalyst(user);
+  if (project.analystId !== user.userId) {
+    throw new HTTPException(403, {
+      message: "This project is not assigned to the authenticated Analyst",
+    });
+  }
+};
+
+const ANALYST_VISIBLE_STATUS_IDS = [
+  PROJECT_STATUS.IN_ANALYSIS,
+  PROJECT_STATUS.RETURNED_ANALYST,
+  PROJECT_STATUS.PENDING_SMALL_BOARD,
+  PROJECT_STATUS.RETURNED_SMALL_BOARD,
+  PROJECT_STATUS.PENDING_BIG_BOARD,
+  PROJECT_STATUS.RETURNED_BIG_BOARD,
+] as const;
+
 const getAnalystForAssignment = async (executor: any, analystId: string) => {
   const [analyst] = await executor
     .select({
@@ -201,6 +239,22 @@ const mapAssignmentProject = (row: any) => {
     division: project.division,
     owner: project.owner,
     projectStatusId: project.projectStatusId,
+    createdAt: project.createdAt,
+    analystId: project.analystId,
+  };
+};
+
+const mapAnalystAssignedProject = (row: any) => {
+  const project = mapJoinedProject(row);
+  return {
+    id: project.id,
+    projectCode: project.projectCode,
+    projectName: project.projectName,
+    projectType: project.projectType,
+    division: project.division,
+    owner: project.owner,
+    projectStatusId: project.projectStatusId,
+    assignedAt: project.assignedAt,
     createdAt: project.createdAt,
     analystId: project.analystId,
   };
@@ -315,6 +369,15 @@ export const findProjectById = async (id: string, user: UserContext) => {
   checkPermission(user, "read", "project", {
     departmentId: project.division?.departmentId,
   });
+  const rolesForAccess = normalizedUserRoles(user);
+  const isGlobalProjectManager = rolesForAccess.some((role) =>
+    ["admin", "super_admin", "secretary"].includes(role),
+  );
+  if (rolesForAccess.includes("analyst") && !isGlobalProjectManager && project.analystId !== user.userId) {
+    throw new HTTPException(403, {
+      message: "This project is not assigned to the authenticated Analyst",
+    });
+  }
   const attachments = await db
     .select({
       id: projectAttachments.id,
@@ -368,23 +431,23 @@ export const findProjectById = async (id: string, user: UserContext) => {
     .orderBy(desc(projectStatusLogs.createdAt))
     .limit(1);
 
-  const isSuperAdmin = user.roles.includes("super_admin");
-  const isAdmin = user.roles.includes("admin") || isSuperAdmin;
-  const isSecretary = user.roles.includes("secretary");
+  const isSuperAdmin = rolesForAccess.includes("super_admin");
+  const isAdmin = rolesForAccess.includes("admin") || isSuperAdmin;
+  const isSecretary = rolesForAccess.includes("secretary");
   const isOwner = project.userId === user.userId;
   const isSameDepartment = project.division?.departmentId === user.departmentId;
-  const hasAttachmentRole = user.roles.some((role) => ["secretary", "admin", "super_admin"].includes(role));
+  const isAssignedAnalyst = rolesForAccess.includes("analyst") && project.analystId === user.userId;
+  const isAnalystEditableStage = isAssignedAnalyst && project.projectStatusId === PROJECT_STATUS.IN_ANALYSIS;
+  const hasAttachmentRole = rolesForAccess.some((role) => ["secretary", "admin", "super_admin"].includes(role));
   const isOwnerEditableStage = OWNER_EDITABLE_STATUS_IDS.includes(
     project.projectStatusId as typeof OWNER_EDITABLE_STATUS_IDS[number],
   );
 
-  const canUpdateProject = user.roles.some((role) =>
-    ["secretary", "admin", "super_admin", "analyst"].includes(role),
-  );
-  const canEditProposal = isSecretary || (isOwner && isOwnerEditableStage);
+  const canUpdateProject = isSecretary || isSuperAdmin || isAnalystEditableStage;
+  const canEditProposal = isSecretary || isAnalystEditableStage || (isOwner && isOwnerEditableStage);
   const canSubmitProposal =
     !isSecretaryOnlyUser(user) && isOwner && isOwnerEditableStage;
-  const canManageAttachments = isSecretary || isSuperAdmin || (
+  const canManageAttachments = isSecretary || isSuperAdmin || isAnalystEditableStage || (
     isOwnerEditableStage && (isOwner || isSameDepartment || hasAttachmentRole)
   );
 
@@ -393,7 +456,7 @@ export const findProjectById = async (id: string, user: UserContext) => {
     canDelete:
       attachment.docTypeName === "approval_document"
         ? isAdmin
-        : canManageAttachments,
+        : canManageAttachments && !isAssignedAnalyst,
   }));
 
   const reviewerRoleByStatus: Record<number, string> = {
@@ -521,6 +584,153 @@ export const getPendingAssignmentProjects = async (
       limit: Number(limit),
       totalPages: Math.ceil(Number(count) / Number(limit)),
     },
+  };
+};
+
+export const getAnalystAssignedProjects = async (
+  queryParams: AnalystAssignedProjectQueryDTO,
+  user: UserContext,
+) => {
+  assertAnalyst(user);
+
+  const { page, limit, search } = queryParams;
+  const offset = (page - 1) * limit;
+  const conditions: SQL[] = [
+    eq(projects.analystId, user.userId),
+    inArray(projects.projectStatusId, [...ANALYST_VISIBLE_STATUS_IDS]),
+    isNull(projects.deletedAt),
+  ];
+
+  if (search?.trim()) {
+    const pattern = `%${search.trim()}%`;
+    conditions.push(or(
+      ilike(projects.projectCode, pattern),
+      ilike(projects.projectName, pattern),
+      ilike(users.firstName, pattern),
+      ilike(users.lastName, pattern),
+    )!);
+  }
+
+  const query = getBaseProjectQuery().where(and(...conditions));
+  const countQuery = db
+    .select({ count: sql<number>`count(distinct ${projects.id})` })
+    .from(projects)
+    .leftJoin(users, eq(projects.userId, users.userId))
+    .where(and(...conditions));
+
+  const [rows, [{ count }]] = await Promise.all([
+    query.orderBy(desc(projects.createdAt)).limit(limit).offset(offset),
+    countQuery,
+  ]);
+
+  return {
+    data: rows.map(mapAnalystAssignedProject),
+    pagination: {
+      total: Number(count),
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(Number(count) / Number(limit)),
+    },
+  };
+};
+
+export const requestAnalystReassignment = async (
+  id: string,
+  data: AnalystReassignmentDTO,
+  user: UserContext,
+) => {
+  const project = await findProjectById(id, user);
+  assertAssignedAnalyst(user, project);
+  if (project.projectStatusId !== PROJECT_STATUS.IN_ANALYSIS) {
+    throw new HTTPException(409, {
+      message: "Reassignment can only be requested while the project is in analysis",
+    });
+  }
+
+  const reason = data.reason.trim();
+  await db.transaction(async (tx) => {
+    const released = await tx
+      .update(projects)
+      .set({
+        analystId: null,
+        assignedBy: null,
+        assignedAt: null,
+        updatedBy: user.userId,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(projects.id, id),
+        eq(projects.analystId, user.userId),
+        eq(projects.projectStatusId, PROJECT_STATUS.IN_ANALYSIS),
+        isNull(projects.deletedAt),
+      ))
+      .returning({ id: projects.id });
+
+    if (released.length === 0) {
+      throw new HTTPException(409, { message: "Project assignment changed before the request completed" });
+    }
+
+    await applyProjectStatusTransition(tx, {
+      projectId: id,
+      userId: user.userId,
+      oldStatusId: PROJECT_STATUS.IN_ANALYSIS,
+      newStatusId: PROJECT_STATUS.PENDING_ASSIGNMENT,
+      remark: reason,
+    });
+  });
+
+  return {
+    message: "Reassignment request submitted successfully",
+    project: {
+      ...project,
+      analystId: null,
+      assignedBy: null,
+      assignedAt: null,
+      projectStatusId: PROJECT_STATUS.PENDING_ASSIGNMENT,
+      permissions: {
+        canDelete: false,
+        canManageAttachments: false,
+        canUpdateProject: false,
+        canEditProposal: false,
+        canSubmitProposal: false,
+      },
+    },
+  };
+};
+
+export const reviewAnalystProject = async (
+  id: string,
+  data: AnalystReviewDTO,
+  user: UserContext,
+) => {
+  const project = await findProjectById(id, user);
+  assertAssignedAnalyst(user, project);
+  if (project.projectStatusId !== PROJECT_STATUS.IN_ANALYSIS) {
+    throw new HTTPException(409, {
+      message: "This project is no longer waiting for Analyst review",
+    });
+  }
+
+  const newStatusId = data.decision === "approve"
+    ? PROJECT_STATUS.PENDING_SMALL_BOARD
+    : data.decision === "return"
+      ? PROJECT_STATUS.RETURNED_ANALYST
+      : PROJECT_STATUS.REJECTED_ANALYST;
+  const remark = data.remark.trim();
+
+  await db.transaction(async (tx) => {
+    await applyProjectStatusTransition(tx, {
+      projectId: id,
+      userId: user.userId,
+      oldStatusId: PROJECT_STATUS.IN_ANALYSIS,
+      newStatusId,
+      remark,
+    });
+  });
+
+  return {
+    message: "Analyst review completed successfully",
+    project: await findProjectById(id, user),
   };
 };
 
@@ -667,6 +877,15 @@ export const updateProject = async (
   await assertUserExists(user.userId);
   const project = await findProjectById(id, user);
 
+  if (hasRole(user, "analyst") && !hasRole(user, "admin") && !hasRole(user, "super_admin") && !hasRole(user, "secretary")) {
+    assertAssignedAnalyst(user, project);
+    if (project.projectStatusId !== PROJECT_STATUS.IN_ANALYSIS) {
+      throw new HTTPException(403, {
+        message: "Analysts may edit project details only while the project is in analysis",
+      });
+    }
+  }
+
   if (Object.prototype.hasOwnProperty.call(data as Record<string, unknown>, "projectStatusId")) {
     throw new HTTPException(400, {
       message: "Project status must be changed through the workflow endpoint",
@@ -696,6 +915,12 @@ export const updateProjectType = async (
   user: UserContext,
 ) => {
   const project = await findProjectById(id, user);
+  if (hasRole(user, "analyst") && !hasRole(user, "admin") && !hasRole(user, "super_admin") && !hasRole(user, "secretary")) {
+    assertAssignedAnalyst(user, project);
+    if (project.projectStatusId !== PROJECT_STATUS.IN_ANALYSIS) {
+      throw new HTTPException(403, { message: "Analysts may edit project details only while the project is in analysis" });
+    }
+  }
   checkPermission(user, "update", "project", {
     departmentId: project.division?.departmentId,
   });
@@ -719,7 +944,14 @@ export const updateProjectStatus = async (
 ) => {
   const project = await findProjectById(id, user);
 
-  const isPrivileged = user.roles.some((role) => ["admin", "super_admin"].includes(role));
+  const normalizedRoles = normalizedUserRoles(user);
+  const isPrivileged = normalizedRoles.some((role) => ["admin", "super_admin"].includes(role));
+  if (normalizedRoles.includes("analyst") && !isPrivileged) {
+    throw new HTTPException(403, {
+      message: "Analysts must use the dedicated Analyst review or reassignment action",
+    });
+  }
+
   const isSecretaryApproval =
     project.projectStatusId === PROJECT_STATUS.PENDING_SECRETARY &&
     data.projectStatusId === PROJECT_STATUS.PENDING_ASSIGNMENT;

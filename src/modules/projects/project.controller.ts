@@ -12,6 +12,9 @@ import type {
   UpdateProjectDTO,
   UpdateProjectStatusDTO,
   UpdateProjectTypeDTO,
+  AnalystAssignedProjectQueryDTO,
+  AnalystReassignmentDTO,
+  AnalystReviewDTO,
 } from "./project.schema";
 
 export const getProjects = async (c: Context, query: any) => {
@@ -41,6 +44,15 @@ export const getPendingAssignmentProjects = async (
 ) => {
   const user = getUserContext(c);
   const result = await projectService.getPendingAssignmentProjects(query, user);
+  return c.json(result, 200);
+};
+
+export const getAnalystAssignedProjects = async (
+  c: Context,
+  query: AnalystAssignedProjectQueryDTO,
+) => {
+  const user = getUserContext(c);
+  const result = await projectService.getAnalystAssignedProjects(query, user);
   return c.json(result, 200);
 };
 
@@ -94,6 +106,26 @@ export const assignProject = async (c: Context, id: string, body: AssignProjectD
 export const bulkAssignProjects = async (c: Context, body: BulkAssignProjectDTO) => {
   const user = getUserContext(c);
   const result = await projectService.bulkAssignProjects(body, user);
+  return c.json(result, 200);
+};
+
+export const requestAnalystReassignment = async (
+  c: Context,
+  id: string,
+  body: AnalystReassignmentDTO,
+) => {
+  const user = getUserContext(c);
+  const result = await projectService.requestAnalystReassignment(id, body, user);
+  return c.json(result, 200);
+};
+
+export const reviewAnalystProject = async (
+  c: Context,
+  id: string,
+  body: AnalystReviewDTO,
+) => {
+  const user = getUserContext(c);
+  const result = await projectService.reviewAnalystProject(id, body, user);
   return c.json(result, 200);
 };
 

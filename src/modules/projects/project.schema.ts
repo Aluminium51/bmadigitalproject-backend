@@ -189,6 +189,49 @@ export const BulkAssignProjectResponseSchema = z.object({
   projects: z.array(AssignedProjectResultSchema),
 }).openapi('BulkAssignProjectResponse');
 
+export const AnalystAssignedProjectQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  search: z.string().trim().max(100).optional(),
+}).openapi('AnalystAssignedProjectQueryParams');
+
+export const AnalystAssignedProjectSchema = z.object({
+  id: z.string().uuid(),
+  projectCode: z.string().nullable(),
+  projectName: z.string().nullable(),
+  projectType: CompactLookupSchema.nullable(),
+  division: DivisionLookupSchema.nullable(),
+  owner: CompactUserSchema.nullable(),
+  projectStatusId: z.number().int(),
+  assignedAt: z.union([z.string(), z.date()]).nullable(),
+  createdAt: z.union([z.string(), z.date()]),
+  analystId: z.string().uuid(),
+}).openapi('AnalystAssignedProject');
+
+export const PaginatedAnalystAssignedProjectResponseSchema = z.object({
+  data: z.array(AnalystAssignedProjectSchema),
+  pagination: z.object({
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+    totalPages: z.number(),
+  }),
+}).openapi('PaginatedAnalystAssignedProjectResponse');
+
+export const AnalystReassignmentRequestSchema = z.object({
+  reason: z.string().trim().min(1),
+}).openapi('AnalystReassignmentRequest');
+
+export const AnalystReviewRequestSchema = z.object({
+  decision: z.enum(['approve', 'return', 'reject']),
+  remark: z.string().trim().min(1),
+}).openapi('AnalystReviewRequest');
+
+export const AnalystWorkflowResponseSchema = z.object({
+  message: z.string(),
+  project: ProjectSchema,
+}).openapi('AnalystWorkflowResponse');
+
 // Schema สำหรับอัปเดต
 export const UpdateProjectSchema = CreateProjectSchema.partial().openapi('UpdateProjectRequest');
 
@@ -226,3 +269,6 @@ export type AssignmentProjectQueryDTO = z.infer<typeof AssignmentProjectQuerySch
 export type BulkAssignProjectDTO = z.infer<typeof BulkAssignProjectSchema>;
 export type SecretaryPendingProjectQueryDTO = z.infer<typeof SecretaryPendingProjectQuerySchema>;
 export type SecretaryReviewDTO = z.infer<typeof SecretaryReviewRequestSchema>;
+export type AnalystAssignedProjectQueryDTO = z.infer<typeof AnalystAssignedProjectQuerySchema>;
+export type AnalystReassignmentDTO = z.infer<typeof AnalystReassignmentRequestSchema>;
+export type AnalystReviewDTO = z.infer<typeof AnalystReviewRequestSchema>;

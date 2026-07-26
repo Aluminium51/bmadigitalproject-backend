@@ -18,6 +18,11 @@ import {
   PaginatedAssignmentProjectResponseSchema,
   BulkAssignProjectSchema,
   BulkAssignProjectResponseSchema,
+  AnalystAssignedProjectQuerySchema,
+  PaginatedAnalystAssignedProjectResponseSchema,
+  AnalystReassignmentRequestSchema,
+  AnalystReviewRequestSchema,
+  AnalystWorkflowResponseSchema,
 } from './project.schema';
 import * as projectController from './project.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -119,6 +124,21 @@ const bulkAssignProjectsRoute = createRoute({
 });
 app.openapi(bulkAssignProjectsRoute, (c) =>
   projectController.bulkAssignProjects(c, c.req.valid('json')),
+);
+
+const getAnalystAssignedProjectsRoute = createRoute({
+  method: 'get',
+  path: '/analyst/assigned',
+  tags: ['Projects', 'Analyst Review'],
+  summary: 'Get projects assigned to the authenticated Analyst',
+  request: { query: AnalystAssignedProjectQuerySchema },
+  responses: {
+    200: { content: { 'application/json': { schema: PaginatedAnalystAssignedProjectResponseSchema } }, description: 'Assigned Analyst projects' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Only Analysts may access this queue' },
+  },
+});
+app.openapi(getAnalystAssignedProjectsRoute, (c) =>
+  projectController.getAnalystAssignedProjects(c, c.req.valid('query')),
 );
 
 // --- 3. Get Project By ID ---
@@ -241,6 +261,47 @@ app.openapi(createRoute({
 }), (c) => {
   return projectController.updateProjectStatus(c, c.req.valid('param').id, c.req.valid('json'));
 });
+
+app.openapi(createRoute({
+  method: 'post',
+  path: '/{id}/analyst-reassignment',
+  tags: ['Projects', 'Analyst Review'],
+  summary: 'Request Analyst reassignment',
+  request: {
+    params: ProjectIdParamsSchema,
+    body: { content: { 'application/json': { schema: AnalystReassignmentRequestSchema } } },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: AnalystWorkflowResponseSchema } }, description: 'Reassignment requested' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
+    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Stale project state' },
+  },
+}), (c) => projectController.requestAnalystReassignment(
+  c,
+  c.req.valid('param').id,
+  c.req.valid('json'),
+));
+
+app.openapi(createRoute({
+  method: 'post',
+  path: '/{id}/analyst-review',
+  tags: ['Projects', 'Analyst Review'],
+  summary: 'Complete Analyst project review',
+  request: {
+    params: ProjectIdParamsSchema,
+    body: { content: { 'application/json': { schema: AnalystReviewRequestSchema } } },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: AnalystWorkflowResponseSchema } }, description: 'Analyst review completed' },
+    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Invalid review' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
+    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Stale project state' },
+  },
+}), (c) => projectController.reviewAnalystProject(
+  c,
+  c.req.valid('param').id,
+  c.req.valid('json'),
+));
 
 // --- 7. Secretary Review ---
 app.openapi(createRoute({
