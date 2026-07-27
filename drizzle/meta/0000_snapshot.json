@@ -1,5 +1,5 @@
 {
-  "id": "8aee1653-2574-44ec-98f5-21063e221de4",
+  "id": "60088d24-0ea3-461f-9c85-ccbc86b68e7b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -282,6 +282,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "doc_type_name": {
           "name": "doc_type_name",
           "type": "varchar(255)",
@@ -293,6 +299,13 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "project_attachment_types_code_unique": {
+          "name": "project_attachment_types_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        },
         "project_attachment_types_doc_type_name_unique": {
           "name": "project_attachment_types_doc_type_name_unique",
           "nullsNotDistinct": false,
@@ -315,6 +328,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "project_status_name": {
           "name": "project_status_name",
           "type": "varchar(255)",
@@ -326,6 +345,13 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "project_statuses_code_unique": {
+          "name": "project_statuses_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        },
         "project_statuses_project_status_name_unique": {
           "name": "project_statuses_project_status_name_unique",
           "nullsNotDistinct": false,
@@ -348,6 +374,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "project_type_name": {
           "name": "project_type_name",
           "type": "varchar(255)",
@@ -359,6 +391,13 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "project_types_code_unique": {
+          "name": "project_types_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        },
         "project_types_project_type_name_unique": {
           "name": "project_types_project_type_name_unique",
           "nullsNotDistinct": false,
@@ -500,6 +539,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "code": {
+          "name": "code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "role_name": {
           "name": "role_name",
           "type": "varchar(50)",
@@ -517,6 +562,13 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "roles_code_unique": {
+          "name": "roles_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
+        },
         "roles_role_name_unique": {
           "name": "roles_role_name_unique",
           "nullsNotDistinct": false,
@@ -819,6 +871,12 @@
           "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
+        },
+        "file_size": {
+          "name": "file_size",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
         },
         "description": {
           "name": "description",
@@ -2716,6 +2774,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "agenda_type_id": {
           "name": "agenda_type_id",
           "type": "integer",
@@ -2749,7 +2813,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "agendas_meeting_sort_order_idx": {
+          "name": "agendas_meeting_sort_order_idx",
+          "columns": [
+            {
+              "expression": "meeting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "agendas_meeting_id_meetings_id_fk": {
           "name": "agendas_meeting_id_meetings_id_fk",
@@ -2869,7 +2955,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "meeting_attachments_agenda_id_agendas_id_fk": {
@@ -2882,7 +2968,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "meeting_attachments_meeting_doc_type_id_meeting_attachment_types_id_fk": {

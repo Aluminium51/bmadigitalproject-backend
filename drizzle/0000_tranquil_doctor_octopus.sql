@@ -54,19 +54,25 @@ CREATE TABLE "meeting_types" (
 --> statement-breakpoint
 CREATE TABLE "project_attachment_types" (
 	"doc_type_id" serial PRIMARY KEY NOT NULL,
+	"code" varchar(64),
 	"doc_type_name" varchar(255) NOT NULL,
+	CONSTRAINT "project_attachment_types_code_unique" UNIQUE("code"),
 	CONSTRAINT "project_attachment_types_doc_type_name_unique" UNIQUE("doc_type_name")
 );
 --> statement-breakpoint
 CREATE TABLE "project_statuses" (
 	"project_status_id" serial PRIMARY KEY NOT NULL,
+	"code" varchar(64),
 	"project_status_name" varchar(255) NOT NULL,
+	CONSTRAINT "project_statuses_code_unique" UNIQUE("code"),
 	CONSTRAINT "project_statuses_project_status_name_unique" UNIQUE("project_status_name")
 );
 --> statement-breakpoint
 CREATE TABLE "project_types" (
 	"project_type_id" serial PRIMARY KEY NOT NULL,
+	"code" varchar(64),
 	"project_type_name" varchar(255) NOT NULL,
+	CONSTRAINT "project_types_code_unique" UNIQUE("code"),
 	CONSTRAINT "project_types_project_type_name_unique" UNIQUE("project_type_name")
 );
 --> statement-breakpoint
@@ -86,8 +92,10 @@ CREATE TABLE "role_user" (
 --> statement-breakpoint
 CREATE TABLE "roles" (
 	"role_id" serial PRIMARY KEY NOT NULL,
+	"code" varchar(64),
 	"role_name" varchar(50) NOT NULL,
 	"description" varchar(255),
+	CONSTRAINT "roles_code_unique" UNIQUE("code"),
 	CONSTRAINT "roles_role_name_unique" UNIQUE("role_name")
 );
 --> statement-breakpoint
@@ -135,6 +143,7 @@ CREATE TABLE "project_attachments" (
 	"file_name" varchar(500) NOT NULL,
 	"file_url" varchar(1000) NOT NULL,
 	"file_type" varchar(100) NOT NULL,
+	"file_size" bigint,
 	"description" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -395,6 +404,7 @@ CREATE TABLE "agendas" (
 	"meeting_id" uuid NOT NULL,
 	"project_id" uuid,
 	"agenda_number" varchar(50) NOT NULL,
+	"sort_order" integer NOT NULL,
 	"agenda_type_id" integer NOT NULL,
 	"title" varchar(500) NOT NULL,
 	"description" text,
@@ -487,8 +497,8 @@ ALTER TABLE "proposals" ADD CONSTRAINT "proposals_updated_by_users_user_id_fk" F
 ALTER TABLE "agendas" ADD CONSTRAINT "agendas_meeting_id_meetings_id_fk" FOREIGN KEY ("meeting_id") REFERENCES "public"."meetings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agendas" ADD CONSTRAINT "agendas_project_id_projects_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("project_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agendas" ADD CONSTRAINT "agendas_agenda_type_id_agenda_types_id_fk" FOREIGN KEY ("agenda_type_id") REFERENCES "public"."agenda_types"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meeting_attachments" ADD CONSTRAINT "meeting_attachments_meeting_id_meetings_id_fk" FOREIGN KEY ("meeting_id") REFERENCES "public"."meetings"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "meeting_attachments" ADD CONSTRAINT "meeting_attachments_agenda_id_agendas_id_fk" FOREIGN KEY ("agenda_id") REFERENCES "public"."agendas"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "meeting_attachments" ADD CONSTRAINT "meeting_attachments_meeting_id_meetings_id_fk" FOREIGN KEY ("meeting_id") REFERENCES "public"."meetings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "meeting_attachments" ADD CONSTRAINT "meeting_attachments_agenda_id_agendas_id_fk" FOREIGN KEY ("agenda_id") REFERENCES "public"."agendas"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meeting_attachments" ADD CONSTRAINT "meeting_attachments_meeting_doc_type_id_meeting_attachment_types_id_fk" FOREIGN KEY ("meeting_doc_type_id") REFERENCES "public"."meeting_attachment_types"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meeting_attachments" ADD CONSTRAINT "meeting_attachments_uploaded_by_users_user_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "meetings" ADD CONSTRAINT "meetings_meeting_type_id_meeting_types_id_fk" FOREIGN KEY ("meeting_type_id") REFERENCES "public"."meeting_types"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -501,4 +511,5 @@ ALTER TABLE "resolutions" ADD CONSTRAINT "resolutions_recorded_by_users_user_id_
 ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_project_id_projects_project_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("project_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_old_status_id_project_statuses_project_status_id_fk" FOREIGN KEY ("old_status_id") REFERENCES "public"."project_statuses"("project_status_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_new_status_id_project_statuses_project_status_id_fk" FOREIGN KEY ("new_status_id") REFERENCES "public"."project_statuses"("project_status_id") ON DELETE no action ON UPDATE no action;
+ALTER TABLE "project_status_logs" ADD CONSTRAINT "project_status_logs_new_status_id_project_statuses_project_status_id_fk" FOREIGN KEY ("new_status_id") REFERENCES "public"."project_statuses"("project_status_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "agendas_meeting_sort_order_idx" ON "agendas" USING btree ("meeting_id","sort_order");
