@@ -1,6 +1,6 @@
 // src/modules/proposals/proposal.service.ts
 import { db } from "../../db";
-import { and, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import {
   proposals,
   proposalBudgets,
@@ -35,6 +35,7 @@ import {
   applyProjectStatusTransition,
 } from "../projects/project-workflow";
 import { syncProposalCollections } from "./proposal.persistence";
+import { sumProposalBudgets } from "./proposal-budget.util";
 
 // ============================================================================
 // Helper Function: สำหรับจัดการ Update, Insert, Delete ด้วย Promise.all
@@ -125,7 +126,6 @@ async function getProposalProjectAccess(projectId: string, user: UserContext) {
 }
 
 const submittedProposalScalarColumns = {
-  projectName: proposals.projectName,
   agencyName: proposals.agencyName,
   headOfAgency: proposals.headOfAgency,
   dcioName: proposals.dcioName,
@@ -336,17 +336,38 @@ export const proposalService = {
     };
 
     // ใช้ Upsert ประหยัด Query และกันชน
-    const [upsertedDraft] = await db.insert(proposalDrafts).values({
+    const budgetRows = formData.budgetsByYear ?? formData.budgets;
+    const hasBudgetRows = Array.isArray(budgetRows);
+
+    return await db.transaction(async (tx) => {
+      const [upsertedDraft] = await tx.insert(proposalDrafts).values({
       id: uuidv7(),
       projectId,
       userId,
       ...summaryData,
-    }).onConflictDoUpdate({
+      }).onConflictDoUpdate({
       target: proposalDrafts.projectId,
       set: summaryData
-    }).returning();
+      }).returning();
 
-    return upsertedDraft;
+      const projectUpdate: Record<string, unknown> = {
+        updatedBy: userId,
+        updatedAt: new Date(),
+      };
+      if (typeof formData.projectName === "string" && formData.projectName.trim()) {
+        projectUpdate.projectName = formData.projectName.trim();
+      }
+      if (hasBudgetRows) {
+        projectUpdate.latestApprovedBudget = sumProposalBudgets(budgetRows);
+      }
+      await tx.update(projects).set(projectUpdate as any).where(and(
+        eq(projects.id, projectId),
+        eq(projects.userId, userId),
+        isNull(projects.deletedAt),
+      ));
+
+      return upsertedDraft;
+    });
   },
 
   // ============================================================================
@@ -420,6 +441,11 @@ export const proposalService = {
         message: "Analysts may update submitted proposals only while the project is in analysis",
       });
     }
+    if (hasOwn(payload, "projectName")) {
+      throw new HTTPException(403, {
+        message: "Project name can only be changed by the project owner during an editable stage",
+      });
+    }
     checkPermission(user, "update", "proposal_form");
 
     const [existing] = await db
@@ -454,6 +480,17 @@ export const proposalService = {
       }
 
       await syncProposalCollections(tx, existing.id, payload);
+
+      const budgetRows = hasOwn(payload, "budgetsByYear")
+        ? payload.budgetsByYear
+        : hasOwn(payload, "budgets")
+          ? payload.budgets
+          : await tx.select().from(proposalBudgets).where(eq(proposalBudgets.proposalId, existing.id));
+      await tx.update(projects).set({
+        latestApprovedBudget: sumProposalBudgets(Array.isArray(budgetRows) ? budgetRows : []),
+        updatedBy: user.userId,
+        updatedAt: new Date(),
+      }).where(and(eq(projects.id, projectId), isNull(projects.deletedAt)));
     });
 
     return await this.getProposalByProjectId(projectId, user);
@@ -472,6 +509,12 @@ export const proposalService = {
     const targetStatus = project.statusId === PROJECT_STATUS.DRAFT || project.statusId === PROJECT_STATUS.RETURNED_SECRETARY
       ? PROJECT_STATUS.PENDING_SECRETARY
       : PROJECT_STATUS.IN_ANALYSIS;
+    const budgetRows = Array.isArray(data.budgetsByYear)
+      ? data.budgetsByYear
+      : Array.isArray(data.budgets)
+        ? data.budgets
+        : [];
+    const budgetTotal = sumProposalBudgets(budgetRows);
 
     return await db.transaction(async (tx) => {
       // 1. จัดการตารางแม่ (Proposals) ด้วย Upsert -> ตัดปัญหา Race Condition 
@@ -547,6 +590,18 @@ export const proposalService = {
         ...data,
         budgetsByYear: data.budgetsByYear ?? data.budgets ?? [],
       });
+
+      await tx.update(projects).set({
+        projectName: data.projectName,
+        latestApprovedBudget: budgetTotal,
+        initialRequestedBudget: sql`coalesce(${projects.initialRequestedBudget}, ${budgetTotal})`,
+        updatedBy: user.userId,
+        updatedAt: new Date(),
+      }).where(and(
+        eq(projects.id, data.projectId),
+        eq(projects.userId, user.userId),
+        isNull(projects.deletedAt),
+      ));
 
       await applyProjectStatusTransition(tx, {
         projectId: data.projectId,

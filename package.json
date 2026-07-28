@@ -7,6 +7,7 @@
     "db:migrate": "bun run src/db/migrate.ts",
     "db:reset-attachment-types": "bun run src/db/reset-attachment-types.ts",
     "db:backfill-attachment-sizes": "bun run src/db/backfill-attachment-sizes.ts",
+    "db:backfill-project-snapshots": "bun run src/db/backfill-project-snapshots.ts",
     "db:seed": "bun run db:seed:required",
     "db:seed:required": "bun run src/db/seed-required.ts",
     "db:seed:demo": "bun run src/db/seed-demo.ts",

@@ -23,6 +23,9 @@ import {
   AnalystReassignmentRequestSchema,
   AnalystReviewRequestSchema,
   AnalystWorkflowResponseSchema,
+  CancelSubmitResponseSchema,
+  UpdateProjectVisibilitySchema,
+  ProjectVisibilityResponseSchema,
 } from './project.schema';
 import * as projectController from './project.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -68,11 +71,11 @@ const getPendingSecretaryProjectsRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: PaginatedProjectResponseSchema } },
-      description: 'Projects pending Secretary review',
+      description: 'โครงการที่รอการตรวจสอบจากเลขานุการ',
     },
     403: {
       content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Only Secretaries may access this queue',
+      description: 'เฉพาะเลขานุการเท่านั้นที่เข้าถึงรายการนี้ได้',
     },
   },
 });
@@ -87,16 +90,16 @@ const getPendingAssignmentProjectsRoute = createRoute({
   method: 'get',
   path: '/assignment/pending',
   tags: ['Projects', 'Assignment'],
-  summary: 'Get projects waiting for Analyst assignment',
+  summary: 'ดึงรายชื่อโครงการที่รอมอบหมายผู้วิเคราะห์',
   request: { query: AssignmentProjectQuerySchema },
   responses: {
     200: {
       content: { 'application/json': { schema: PaginatedAssignmentProjectResponseSchema } },
-      description: 'Projects waiting for assignment',
+      description: 'โครงการที่รอมอบหมายผู้วิเคราะห์',
     },
     403: {
       content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Only Admin users may access the assignment queue',
+      description: 'เฉพาะผู้ดูแลระบบเท่านั้นที่เข้าถึงรายการมอบหมายงานได้',
     },
   },
 });
@@ -108,18 +111,18 @@ const bulkAssignProjectsRoute = createRoute({
   method: 'post',
   path: '/assignment/bulk',
   tags: ['Projects', 'Assignment'],
-  summary: 'Assign multiple projects to an Analyst',
+  summary: 'มอบหมายโครงการหลายรายการให้ผู้วิเคราะห์',
   request: {
     body: { content: { 'application/json': { schema: BulkAssignProjectSchema } } },
   },
   responses: {
     200: {
       content: { 'application/json': { schema: BulkAssignProjectResponseSchema } },
-      description: 'Projects assigned successfully',
+      description: 'มอบหมายโครงการสำเร็จ',
     },
-    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Invalid Analyst' },
-    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
-    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'A project is no longer pending assignment' },
+    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ผู้วิเคราะห์ไม่ถูกต้อง' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ไม่ได้รับอนุญาต' },
+    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'โครงการไม่อยู่ในสถานะรอมอบหมายแล้ว' },
   },
 });
 app.openapi(bulkAssignProjectsRoute, (c) =>
@@ -130,11 +133,11 @@ const getAnalystAssignedProjectsRoute = createRoute({
   method: 'get',
   path: '/analyst/assigned',
   tags: ['Projects', 'Analyst Review'],
-  summary: 'Get projects assigned to the authenticated Analyst',
+  summary: 'ดึงโครงการที่มอบหมายให้ผู้วิเคราะห์ที่เข้าสู่ระบบ',
   request: { query: AnalystAssignedProjectQuerySchema },
   responses: {
-    200: { content: { 'application/json': { schema: PaginatedAnalystAssignedProjectResponseSchema } }, description: 'Assigned Analyst projects' },
-    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Only Analysts may access this queue' },
+    200: { content: { 'application/json': { schema: PaginatedAnalystAssignedProjectResponseSchema } }, description: 'โครงการที่มอบหมายให้ผู้วิเคราะห์' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'เฉพาะผู้วิเคราะห์เท่านั้นที่เข้าถึงรายการนี้ได้' },
   },
 });
 app.openapi(getAnalystAssignedProjectsRoute, (c) =>
@@ -188,7 +191,7 @@ const createProjectRoute = createRoute({
     },
     401: {
       content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Unauthorized',
+      description: 'ไม่ได้รับอนุญาต',
     },
   },
 });
@@ -264,17 +267,31 @@ app.openapi(createRoute({
 
 app.openapi(createRoute({
   method: 'post',
+  path: '/{id}/cancel-submit',
+  tags: ['Projects'],
+  summary: 'ยกเลิกการส่งโครงการก่อนเลขานุการตรวจสอบ',
+  request: { params: ProjectIdParamsSchema },
+  responses: {
+    200: { content: { 'application/json': { schema: CancelSubmitResponseSchema } }, description: 'ยกเลิกการส่งและคืนแบบร่างสำเร็จ' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'เฉพาะเจ้าของโครงการเท่านั้น' },
+    404: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ไม่พบโครงการ' },
+    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'สถานะโครงการเปลี่ยนระหว่างดำเนินการ' },
+  },
+}), (c) => projectController.cancelSubmitProject(c, c.req.valid('param').id));
+
+app.openapi(createRoute({
+  method: 'post',
   path: '/{id}/analyst-reassignment',
   tags: ['Projects', 'Analyst Review'],
-  summary: 'Request Analyst reassignment',
+  summary: 'ขอเปลี่ยนผู้วิเคราะห์ที่รับผิดชอบ',
   request: {
     params: ProjectIdParamsSchema,
     body: { content: { 'application/json': { schema: AnalystReassignmentRequestSchema } } },
   },
   responses: {
-    200: { content: { 'application/json': { schema: AnalystWorkflowResponseSchema } }, description: 'Reassignment requested' },
-    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
-    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Stale project state' },
+    200: { content: { 'application/json': { schema: AnalystWorkflowResponseSchema } }, description: 'ส่งคำขอเปลี่ยนผู้รับผิดชอบแล้ว' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ไม่ได้รับอนุญาต' },
+    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'สถานะโครงการไม่เป็นปัจจุบัน' },
   },
 }), (c) => projectController.requestAnalystReassignment(
   c,
@@ -286,16 +303,16 @@ app.openapi(createRoute({
   method: 'post',
   path: '/{id}/analyst-review',
   tags: ['Projects', 'Analyst Review'],
-  summary: 'Complete Analyst project review',
+  summary: 'บันทึกผลการวิเคราะห์โครงการ',
   request: {
     params: ProjectIdParamsSchema,
     body: { content: { 'application/json': { schema: AnalystReviewRequestSchema } } },
   },
   responses: {
-    200: { content: { 'application/json': { schema: AnalystWorkflowResponseSchema } }, description: 'Analyst review completed' },
-    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Invalid review' },
-    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Forbidden' },
-    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'Stale project state' },
+    200: { content: { 'application/json': { schema: AnalystWorkflowResponseSchema } }, description: 'บันทึกผลการวิเคราะห์เรียบร้อยแล้ว' },
+    400: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ผลการวิเคราะห์ไม่ถูกต้อง' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ไม่ได้รับอนุญาต' },
+    409: { content: { 'application/json': { schema: ErrorSchema } }, description: 'สถานะโครงการไม่เป็นปัจจุบัน' },
   },
 }), (c) => projectController.reviewAnalystProject(
   c,
@@ -308,7 +325,7 @@ app.openapi(createRoute({
   method: 'post',
   path: '/{id}/secretary-review',
   tags: ['Projects', 'Secretary Review'],
-  summary: 'Review a project waiting for Secretary verification',
+  summary: 'ตรวจสอบโครงการที่รอเลขานุการพิจารณา',
   request: {
     params: ProjectIdParamsSchema,
     body: {
@@ -318,23 +335,23 @@ app.openapi(createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: SecretaryReviewResponseSchema } },
-      description: 'Secretary review completed',
+      description: 'บันทึกผลการตรวจสอบโดยเลขานุการเรียบร้อยแล้ว',
     },
     400: {
       content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Invalid decision or missing required data',
+      description: 'ผลการพิจารณาไม่ถูกต้องหรือข้อมูลที่จำเป็นไม่ครบถ้วน',
     },
     403: {
       content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Only Secretaries may review projects',
+      description: 'เฉพาะเลขานุการเท่านั้นที่ตรวจสอบโครงการได้',
     },
     404: {
       content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Project not found',
+      description: 'ไม่พบโครงการ',
     },
     409: {
       content: { 'application/json': { schema: ErrorSchema } },
-      description: 'Project is no longer pending Secretary review',
+      description: 'โครงการไม่อยู่ในสถานะรอเลขานุการตรวจสอบแล้ว',
     },
   },
 }), (c) => {
@@ -344,6 +361,26 @@ app.openapi(createRoute({
     c.req.valid('json'),
   );
 });
+
+app.openapi(createRoute({
+  method: 'patch',
+  path: '/{id}/visibility',
+  tags: ['Projects'],
+  summary: 'เปลี่ยนสถานะการเผยแพร่โครงการ',
+  request: {
+    params: ProjectIdParamsSchema,
+    body: { content: { 'application/json': { schema: UpdateProjectVisibilitySchema } } },
+  },
+  responses: {
+    200: { content: { 'application/json': { schema: ProjectVisibilityResponseSchema } }, description: 'เปลี่ยนสถานะการเผยแพร่สำเร็จ' },
+    403: { content: { 'application/json': { schema: ErrorSchema } }, description: 'เฉพาะผู้ดูแลระบบเท่านั้น' },
+    404: { content: { 'application/json': { schema: ErrorSchema } }, description: 'ไม่พบโครงการ' },
+  },
+}), (c) => projectController.updateProjectVisibility(
+  c,
+  c.req.valid('param').id,
+  c.req.valid('json'),
+));
 
 // --- 8. Update Project Type ---
 app.openapi(createRoute({

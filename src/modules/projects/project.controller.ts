@@ -2,6 +2,7 @@
 import type { Context } from "hono";
 import { getUserContext } from "../../utils/controller-helper";
 import * as projectService from "./project.service";
+import { cancelProjectSubmit } from "./project-cancel.service";
 import type {
   AssignProjectDTO,
   CreateProjectDTO,
@@ -15,6 +16,7 @@ import type {
   AnalystAssignedProjectQueryDTO,
   AnalystReassignmentDTO,
   AnalystReviewDTO,
+  UpdateProjectVisibilityDTO,
 } from "./project.schema";
 
 export const getProjects = async (c: Context, query: any) => {
@@ -101,6 +103,37 @@ export const assignProject = async (c: Context, id: string, body: AssignProjectD
   const user = getUserContext(c);
   const updatedProject = await projectService.assignProject(id, body, user);
   return c.json({ message: "มอบหมายโครงการสำเร็จ", project: updatedProject }, 200); 
+};
+
+export const cancelSubmitProject = async (c: Context, id: string) => {
+  const user = getUserContext(c);
+  await cancelProjectSubmit(id, user);
+  const project = await projectService.findProjectById(id, user);
+  return c.json({
+    message: "ยกเลิกการส่งโครงการสำเร็จ และคืนข้อมูลเป็นแบบร่างแล้ว",
+    projectId: id,
+    project,
+  }, 200);
+};
+
+export const updateProjectVisibility = async (
+  c: Context,
+  id: string,
+  body: UpdateProjectVisibilityDTO,
+) => {
+  const user = getUserContext(c);
+  const result = await projectService.updateProjectVisibility(id, body, user);
+  return c.json(result, 200);
+};
+
+export const getPublicProjects = async (c: Context, query: any) => {
+  const result = await projectService.getPublicProjects(query);
+  return c.json(result, 200);
+};
+
+export const getPublicProjectById = async (c: Context, id: string) => {
+  const project = await projectService.getPublicProjectById(id);
+  return c.json(project, 200);
 };
 
 export const bulkAssignProjects = async (c: Context, body: BulkAssignProjectDTO) => {

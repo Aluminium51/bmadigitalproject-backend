@@ -34,6 +34,8 @@ import type {
   AnalystReassignmentDTO,
   AnalystReviewDTO,
   ProjectQueryDTO,
+  UpdateProjectVisibilityDTO,
+  PublicProjectQueryDTO,
 } from "./project.schema";
 import {
   divisions,
@@ -153,7 +155,7 @@ const mapJoinedProject = (row: any) => {
 };
 
 const assertSecretary = (user: UserContext) => {
-  if (!user.roles.includes("secretary")) {
+  if (!normalizedUserRoles(user).includes("secretary")) {
     throw new HTTPException(403, {
       message: "Only users with the secretary role can perform this action",
     });
@@ -362,6 +364,7 @@ export const findAllProjects = async (user: UserContext, queryParams: ProjectQue
     conditions.push(
       or(
         ilike(projects.projectName, `%${search}%`),
+        ilike(projects.projectNameOriginal, `%${search}%`),
         ilike(projects.projectCode, `%${search}%`),
         ilike(users.firstName, `%${search}%`),
         ilike(users.lastName, `%${search}%`),
@@ -475,10 +478,12 @@ export const findProjectById = async (id: string, user: UserContext) => {
     project.projectStatusId as typeof OWNER_EDITABLE_STATUS_IDS[number],
   );
 
-  const canUpdateProject = isSecretary || isSuperAdmin || isAnalystEditableStage;
+  const canUpdateProject = isSecretary || isSuperAdmin || isAnalystEditableStage || (isOwner && isOwnerEditableStage);
   const canEditProposal = isSecretary || isAnalystEditableStage || (isOwner && isOwnerEditableStage);
   const canSubmitProposal =
     !isSecretaryOnlyUser(user) && isOwner && isOwnerEditableStage;
+  const canCancelSubmit = isOwner && project.projectStatusId === PROJECT_STATUS.PENDING_SECRETARY;
+  const canChangeVisibility = isAdmin;
   const canManageAttachments = isSecretary || isSuperAdmin || isAnalystEditableStage || (
     isOwnerEditableStage && (isOwner || isSameDepartment || hasAttachmentRole)
   );
@@ -507,6 +512,8 @@ export const findProjectById = async (id: string, user: UserContext) => {
       canUpdateProject,
       canEditProposal,
       canSubmitProposal,
+      canCancelSubmit,
+      canChangeVisibility,
     },
     latestReturnFeedback: latestReturnLog
       ? {
@@ -542,6 +549,7 @@ export const getPendingSecretaryProjects = async (
       or(
         ilike(projects.projectCode, pattern),
         ilike(projects.projectName, pattern),
+        ilike(projects.projectNameOriginal, pattern),
         ilike(users.firstName, pattern),
         ilike(users.lastName, pattern),
       )!,
@@ -590,6 +598,7 @@ export const getPendingAssignmentProjects = async (
       or(
         ilike(projects.projectCode, pattern),
         ilike(projects.projectName, pattern),
+        ilike(projects.projectNameOriginal, pattern),
         ilike(users.firstName, pattern),
         ilike(users.lastName, pattern),
       )!,
@@ -638,6 +647,7 @@ export const getAnalystAssignedProjects = async (
     conditions.push(or(
       ilike(projects.projectCode, pattern),
       ilike(projects.projectName, pattern),
+      ilike(projects.projectNameOriginal, pattern),
       ilike(users.firstName, pattern),
       ilike(users.lastName, pattern),
     )!);
@@ -894,6 +904,8 @@ export const createProject = async (
     id: newId,
     projectCode: newProjectCode,
     ...data,
+    projectNameOriginal: data.projectName,
+    isPublic: false,
     userId: user.userId,
     divisionId: user.divisionId, // บังคับใช้ Division ID จาก User's Token
   });
@@ -908,6 +920,12 @@ export const updateProject = async (
 ) => {
   await assertUserExists(user.userId);
   const project = await findProjectById(id, user);
+  const isAnalystEditableStage = hasRole(user, "analyst") &&
+    project.analystId === user.userId &&
+    project.projectStatusId === PROJECT_STATUS.IN_ANALYSIS;
+  const isOwnerEditableStage = OWNER_EDITABLE_STATUS_IDS.includes(
+    project.projectStatusId as typeof OWNER_EDITABLE_STATUS_IDS[number],
+  );
 
   if (hasRole(user, "analyst") && !hasRole(user, "admin") && !hasRole(user, "super_admin") && !hasRole(user, "secretary")) {
     assertAssignedAnalyst(user, project);
@@ -922,6 +940,21 @@ export const updateProject = async (
     throw new HTTPException(400, {
       message: "Project status must be changed through the workflow endpoint",
     });
+  }
+
+  const isOwner = project.userId === user.userId;
+  const isCentralReviewer = hasRole(user, "secretary") || hasRole(user, "super_admin");
+  if (isOwner && !isCentralReviewer && !isAnalystEditableStage && !isOwnerEditableStage) {
+    throw new HTTPException(403, {
+      message: "Project details can only be edited during an owner-editable stage",
+    });
+  }
+  if (!isOwner && !isCentralReviewer && !isAnalystEditableStage) {
+    throw new HTTPException(403, { message: "Only the project owner or assigned reviewer can edit this project" });
+  }
+  if (Object.prototype.hasOwnProperty.call(data as Record<string, unknown>, "projectName") &&
+      !isOwner && !isOwnerEditableStage) {
+    throw new HTTPException(403, { message: "The project name is locked during review" });
   }
 
   // เช็คสิทธิ์การแก้ไข (ป้องกันการยิง API มาแก้โปรเจกต์แผนกอื่น)
@@ -988,7 +1021,7 @@ export const updateProjectStatus = async (
     project.projectStatusId === PROJECT_STATUS.PENDING_SECRETARY &&
     data.projectStatusId === PROJECT_STATUS.PENDING_ASSIGNMENT;
 
-  if (user.roles.includes("secretary") && !isPrivileged) {
+  if (normalizedRoles.includes("secretary") && !isPrivileged) {
     if (project.projectStatusId !== PROJECT_STATUS.PENDING_SECRETARY) {
       throw new HTTPException(403, {
         message: "Secretary status actions are only available during Secretary review",
@@ -1026,13 +1059,13 @@ export const updateProjectStatus = async (
     });
   }
 
-  if (!isPrivileged && !user.roles.includes("secretary") && !user.roles.includes("analyst")) {
+  if (!isPrivileged && !normalizedRoles.includes("secretary") && !normalizedRoles.includes("analyst")) {
     throw new HTTPException(403, { message: "You do not have permission to change project status" });
   }
-  if (!isPrivileged && user.roles.includes("secretary") && !isSecretaryApproval && project.projectStatusId !== PROJECT_STATUS.PENDING_SECRETARY) {
+  if (!isPrivileged && normalizedRoles.includes("secretary") && !isSecretaryApproval && project.projectStatusId !== PROJECT_STATUS.PENDING_SECRETARY) {
     throw new HTTPException(403, { message: "Secretary status actions are only available during Secretary review" });
   }
-  if (!isPrivileged && user.roles.includes("analyst") && project.projectStatusId !== PROJECT_STATUS.IN_ANALYSIS) {
+  if (!isPrivileged && normalizedRoles.includes("analyst") && project.projectStatusId !== PROJECT_STATUS.IN_ANALYSIS) {
     throw new HTTPException(403, { message: "Analyst status actions are only available during analysis" });
   }
   if (isSecretaryApproval && data.projectTypeId !== 1 && data.projectTypeId !== 2) {
@@ -1248,4 +1281,124 @@ export const removeProject = async (id: string, user: UserContext) => {
     updatedAt: new Date(),
   }).where(and(eq(projects.id, id), isNull(projects.deletedAt)));
   return { mode: "soft" as const };
+};
+
+export const updateProjectVisibility = async (
+  id: string,
+  data: UpdateProjectVisibilityDTO,
+  user: UserContext,
+) => {
+  const roles = normalizedUserRoles(user);
+  if (!roles.includes("admin") && !roles.includes("super_admin")) {
+    throw new HTTPException(403, { message: "Only Admin users can change project visibility" });
+  }
+
+  const [updated] = await db
+    .update(projects)
+    .set({
+      isPublic: data.isPublic,
+      updatedBy: user.userId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(projects.id, id), isNull(projects.deletedAt)))
+    .returning({ id: projects.id, isPublic: projects.isPublic });
+
+  if (!updated) throw new HTTPException(404, { message: "Project not found" });
+
+  return {
+    message: data.isPublic ? "Project published successfully" : "Project unpublished successfully",
+    projectId: updated.id,
+    isPublic: updated.isPublic,
+  };
+};
+
+const mapPublicProject = (row: any) => ({
+  id: row.project.id,
+  projectCode: row.project.projectCode,
+  projectName: row.project.projectName,
+  projectNameOriginal: row.project.projectNameOriginal,
+  projectStatus: row.status?.id ? row.status : null,
+  projectType: row.projectType?.id ? row.projectType : null,
+  createdAt: row.project.createdAt,
+  updatedAt: row.project.updatedAt,
+});
+
+export const getPublicProjects = async (queryParams: PublicProjectQueryDTO) => {
+  const { page, limit, search } = queryParams;
+  const offset = (page - 1) * limit;
+  const conditions: SQL[] = [eq(projects.isPublic, true), isNull(projects.deletedAt)];
+
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(or(
+      ilike(projects.projectCode, pattern),
+      ilike(projects.projectName, pattern),
+      ilike(projects.projectNameOriginal, pattern),
+    )!);
+  }
+
+  const query = db
+    .select({
+      project: {
+        id: projects.id,
+        projectCode: projects.projectCode,
+        projectName: projects.projectName,
+        projectNameOriginal: projects.projectNameOriginal,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+      },
+      status: { id: projectStatuses.id, name: projectStatuses.statusName },
+      projectType: { id: projectTypes.id, name: projectTypes.typeName },
+    })
+    .from(projects)
+    .leftJoin(projectStatuses, eq(projects.projectStatusId, projectStatuses.id))
+    .leftJoin(projectTypes, eq(projects.projectTypeId, projectTypes.id))
+    .where(and(...conditions));
+  const countQuery = db
+    .select({ count: sql<number>`count(*)` })
+    .from(projects)
+    .where(and(...conditions));
+
+  const [rows, [{ count }]] = await Promise.all([
+    query.orderBy(desc(projects.updatedAt), desc(projects.id)).limit(limit).offset(offset),
+    countQuery,
+  ]);
+
+  return {
+    data: rows.map(mapPublicProject),
+    pagination: {
+      total: Number(count),
+      page,
+      limit,
+      totalPages: Math.ceil(Number(count) / limit),
+    },
+  };
+};
+
+export const getPublicProjectById = async (id: string) => {
+  const [row] = await db
+    .select({
+      project: {
+        id: projects.id,
+        projectCode: projects.projectCode,
+        projectName: projects.projectName,
+        projectNameOriginal: projects.projectNameOriginal,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+      },
+      status: { id: projectStatuses.id, name: projectStatuses.statusName },
+      projectType: { id: projectTypes.id, name: projectTypes.typeName },
+    })
+    .from(projects)
+    .leftJoin(projectStatuses, eq(projects.projectStatusId, projectStatuses.id))
+    .leftJoin(projectTypes, eq(projects.projectTypeId, projectTypes.id))
+    .where(and(
+      eq(projects.id, id),
+      eq(projects.isPublic, true),
+      isNull(projects.deletedAt),
+    ))
+    .limit(1);
+
+  if (!row) throw new HTTPException(404, { message: "Public project not found" });
+  return mapPublicProject(row);
 };

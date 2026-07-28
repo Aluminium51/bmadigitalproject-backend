@@ -86,6 +86,8 @@ export const ProjectSchema = z.object({
     canUpdateProject: z.boolean(),
     canEditProposal: z.boolean(),
     canSubmitProposal: z.boolean(),
+    canCancelSubmit: z.boolean(),
+    canChangeVisibility: z.boolean(),
   }).optional(),
   latestReturnFeedback: ReturnFeedbackSchema.default(null),
 }).openapi('Project');
@@ -94,7 +96,6 @@ export const ProjectSchema = z.object({
 export const CreateProjectSchema = z.object({
   projectName: z.string().min(1, "กรุณาระบุชื่อโครงการ").max(600, "ชื่อโครงการยาวเกินไป").openapi({ example: 'โครงการพัฒนาระบบให้บริการประชาชน' }),
   projectTypeId: z.number().int().optional().openapi({ example: 2 }),
-  isPublic: z.boolean().default(false).openapi({ example: false }),
   fourQuadrantsId: z.coerce.number().int().openapi({ example: 1 }),
   deputyGovernorId: z.coerce.number().int().openapi({ example: 3 }),
 }).openapi('CreateProjectRequest');
@@ -135,6 +136,22 @@ export const SecretaryReviewResponseSchema = z.object({
   decision: z.enum(['approve', 'return', 'reject']),
   project: ProjectSchema,
 }).openapi('SecretaryReviewResponse');
+
+export const CancelSubmitResponseSchema = z.object({
+  message: z.string(),
+  projectId: z.string().uuid(),
+  project: ProjectSchema,
+}).openapi('CancelSubmitResponse');
+
+export const UpdateProjectVisibilitySchema = z.object({
+  isPublic: z.boolean(),
+}).strict().openapi('UpdateProjectVisibilityRequest');
+
+export const ProjectVisibilityResponseSchema = z.object({
+  message: z.string(),
+  projectId: z.string().uuid(),
+  isPublic: z.boolean(),
+}).openapi('ProjectVisibilityResponse');
 
 export const AssignProjectSchema = z.object({
   analystId: z.string().uuid().openapi({ description: 'UUID ของนักวิเคราะห์' }),
@@ -233,7 +250,7 @@ export const AnalystWorkflowResponseSchema = z.object({
 }).openapi('AnalystWorkflowResponse');
 
 // Schema สำหรับอัปเดต
-export const UpdateProjectSchema = CreateProjectSchema.partial().openapi('UpdateProjectRequest');
+export const UpdateProjectSchema = CreateProjectSchema.partial().strict().openapi('UpdateProjectRequest');
 
 // Schema สำหรับรับ Parameter จาก URL
 export const ProjectIdParamsSchema = z.object({
@@ -270,6 +287,33 @@ export const PaginatedProjectResponseSchema = z.object({
   })
 }).openapi('PaginatedProjectResponse');
 
+export const PublicProjectSchema = z.object({
+  id: z.string().uuid(),
+  projectCode: z.string().nullable(),
+  projectName: z.string().nullable(),
+  projectNameOriginal: z.string().nullable(),
+  projectStatus: CompactLookupSchema.nullable(),
+  projectType: CompactLookupSchema.nullable(),
+  createdAt: z.union([z.string(), z.date()]),
+  updatedAt: z.union([z.string(), z.date()]),
+}).openapi('PublicProject');
+
+export const PublicProjectQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(12),
+  search: z.string().trim().max(200).optional(),
+}).openapi('PublicProjectQueryParams');
+
+export const PaginatedPublicProjectResponseSchema = z.object({
+  data: z.array(PublicProjectSchema),
+  pagination: z.object({
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+    totalPages: z.number(),
+  }),
+}).openapi('PaginatedPublicProjectResponse');
+
 export type CreateProjectDTO = z.infer<typeof CreateProjectSchema>;
 export type UpdateProjectDTO = z.infer<typeof UpdateProjectSchema>;
 export type UpdateProjectStatusDTO = z.infer<typeof UpdateProjectStatusSchema>;
@@ -279,6 +323,8 @@ export type AssignmentProjectQueryDTO = z.infer<typeof AssignmentProjectQuerySch
 export type BulkAssignProjectDTO = z.infer<typeof BulkAssignProjectSchema>;
 export type SecretaryPendingProjectQueryDTO = z.infer<typeof SecretaryPendingProjectQuerySchema>;
 export type SecretaryReviewDTO = z.infer<typeof SecretaryReviewRequestSchema>;
+export type UpdateProjectVisibilityDTO = z.infer<typeof UpdateProjectVisibilitySchema>;
+export type PublicProjectQueryDTO = z.infer<typeof PublicProjectQuerySchema>;
 export type AnalystAssignedProjectQueryDTO = z.infer<typeof AnalystAssignedProjectQuerySchema>;
 export type AnalystReassignmentDTO = z.infer<typeof AnalystReassignmentRequestSchema>;
 export type AnalystReviewDTO = z.infer<typeof AnalystReviewRequestSchema>;
