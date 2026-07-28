@@ -1,23 +1,9 @@
 // src/modules/proposals/proposal.service.ts
 import { db } from "../../db";
-import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import {
   proposals,
   proposalBudgets,
-  proposalRelatedProjects,
-  proposalManpower,
-  proposalExistingEquipments,
-  proposalHardwareCosts,
-  proposalSoftwareCosts,
-  proposalPersonnelCosts,
-  proposalPersonnelResponsibilities,
-  proposalTrainings,
-  proposalTrainingSpeakerCosts,
-  proposalTrainingFoodCosts,
-  proposalOtherCosts,
-  proposalIctPersonnel,
-  proposalCloudRequests,
-  proposalCloudVms,
 } from "../../db/schema/proposals";
 import { proposalDrafts } from "../../db/schema/proposal_drafts";
 import { projects } from "../../db/schema/projects";
@@ -36,45 +22,6 @@ import {
 } from "../projects/project-workflow";
 import { syncProposalCollections } from "./proposal.persistence";
 import { sumProposalBudgets } from "./proposal-budget.util";
-
-// ============================================================================
-// Helper Function: สำหรับจัดการ Update, Insert, Delete ด้วย Promise.all
-// ============================================================================
-async function syncSubTable(
-  tx: any,
-  table: any,
-  parentIdColumn: any,
-  parentIdValue: string,
-  idColumn: any,
-  payloadArray: any[] = [],
-  mapInsert: (item: any) => any,
-  mapUpdate: (item: any) => any
-) {
-  const existingRecords = await tx.select({ id: idColumn }).from(table).where(eq(parentIdColumn, parentIdValue));
-  const existingIds = new Set(existingRecords.map((r: any) => r.id));
-
-  const payloadIds = new Set(payloadArray.filter(i => i.id).map(i => i.id));
-  
-  const toDelete = [...existingIds].filter(id => !payloadIds.has(id));
-  const toInsert = payloadArray.filter(i => !i.id);
-  const toUpdate = payloadArray.filter(i => i.id && existingIds.has(i.id));
-
-  // ใช้ Promise.all เพื่อยิง Query ลบ/เพิ่ม/แก้ พร้อมกัน (Concurrent)
-  const dbOperations: Promise<any>[] = [];
-
-  if (toDelete.length > 0) {
-    dbOperations.push(tx.delete(table).where(inArray(idColumn, toDelete)));
-  }
-  if (toInsert.length > 0) {
-    dbOperations.push(tx.insert(table).values(toInsert.map(mapInsert)));
-  }
-  if (toUpdate.length > 0) {
-    // แตก Update ทีละแถวให้เป็น Promise แล้วยัดเข้า Array ให้ทำงานพร้อมกัน
-    dbOperations.push(...toUpdate.map(item => tx.update(table).set(mapUpdate(item)).where(eq(idColumn, item.id))));
-  }
-
-  await Promise.all(dbOperations);
-}
 
 async function assertUserExists(userId: string) {
   const [user] = await db.select({ userId: users.userId }).from(users).where(eq(users.userId, userId)).limit(1);
@@ -160,105 +107,6 @@ const submittedProposalScalarColumns = {
 
 const hasOwn = (payload: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(payload, key);
-
-async function syncSubmittedProposalCollections(
-  tx: any,
-  proposalId: string,
-  payload: Record<string, any>,
-) {
-  const syncIfProvided = (
-    key: string,
-    table: any,
-    payloadRows: any[],
-    mapInsert: (row: any) => any,
-    mapUpdate: (row: any) => any,
-  ) => {
-    if (!hasOwn(payload, key)) return Promise.resolve();
-    return syncSubTable(
-      tx,
-      table,
-      table.proposalId,
-      proposalId,
-      table.id,
-      Array.isArray(payloadRows) ? payloadRows : [],
-      mapInsert,
-      mapUpdate,
-    );
-  };
-
-  await Promise.all([
-    syncIfProvided(
-      "budgetsByYear",
-      proposalBudgets,
-      payload.budgetsByYear ?? payload.budgets,
-      (row) => ({ id: uuidv7(), proposalId, year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
-      (row) => ({ year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
-    ),
-    syncIfProvided(
-      "budgets",
-      proposalBudgets,
-      payload.budgets,
-      (row) => ({ id: uuidv7(), proposalId, year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
-      (row) => ({ year: row.year, amount: String(row.amount), budgetType: row.budgetType }),
-    ),
-    syncIfProvided(
-      "relatedProjects",
-      proposalRelatedProjects,
-      payload.relatedProjects,
-      (row) => ({ id: uuidv7(), proposalId, projectName: row.projectName, agency: row.agency, fiscalYear: row.fiscalYear, relationType: row.relationType, remark: row.remark }),
-      (row) => ({ projectName: row.projectName, agency: row.agency, fiscalYear: row.fiscalYear, relationType: row.relationType, remark: row.remark }),
-    ),
-    syncIfProvided(
-      "manpower",
-      proposalManpower,
-      payload.manpower,
-      (row) => ({ id: uuidv7(), proposalId, agencyPart: row.agencyPart, positionLimit: row.positionLimit, occupied: row.occupied, vacant: row.vacant }),
-      (row) => ({ agencyPart: row.agencyPart, positionLimit: row.positionLimit, occupied: row.occupied, vacant: row.vacant }),
-    ),
-    syncIfProvided(
-      "existingEquipment",
-      proposalExistingEquipments,
-      payload.existingEquipment ?? payload.existingEquipments,
-      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, ageYears: String(row.ageYears), quantity: row.quantity, user: row.user, location: row.location, remark: row.remark }),
-      (row) => ({ itemName: row.itemName, ageYears: String(row.ageYears), quantity: row.quantity, user: row.user, location: row.location, remark: row.remark }),
-    ),
-    syncIfProvided(
-      "hardwareCosts",
-      proposalHardwareCosts,
-      payload.hardwareCosts,
-      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
-      (row) => ({ itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
-    ),
-    syncIfProvided(
-      "softwareCosts",
-      proposalSoftwareCosts,
-      payload.softwareCosts,
-      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
-      (row) => ({ itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), referenceType: row.referenceType, mdesMonth: row.mdesMonth, mdesYear: row.mdesYear, mdesItemNo: row.mdesItemNo, marketCount: row.marketCount, marketCompany: row.marketCompany, prevProject: row.prevProject, prevYear: row.prevYear, otherDetail: row.otherDetail }),
-    ),
-    syncIfProvided(
-      "personnelResponsibilities",
-      proposalPersonnelResponsibilities,
-      payload.personnelResponsibilities,
-      (row) => ({ id: uuidv7(), proposalId, position: row.position, responsibility: row.responsibility }),
-      (row) => ({ position: row.position, responsibility: row.responsibility }),
-    ),
-    syncIfProvided(
-      "otherCosts",
-      proposalOtherCosts,
-      payload.otherCosts,
-      (row) => ({ id: uuidv7(), proposalId, itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), remark: row.remark, costType: row.costType }),
-      (row) => ({ itemName: row.itemName, quantity: row.quantity, unitPrice: String(row.unitPrice), remark: row.remark, costType: row.costType }),
-    ),
-    syncIfProvided(
-      "ictPersonnel",
-      proposalIctPersonnel,
-      payload.ictPersonnel,
-      (row) => ({ id: uuidv7(), proposalId, position: row.position, level: row.level, count: row.count }),
-      (row) => ({ position: row.position, level: row.level, count: row.count }),
-    ),
-  ]);
-}
 
 export const proposalService = {
 
@@ -514,7 +362,9 @@ export const proposalService = {
       : Array.isArray(data.budgets)
         ? data.budgets
         : [];
-    const budgetTotal = sumProposalBudgets(budgetRows);
+    const budgetTotal = budgetRows.length > 0
+      ? sumProposalBudgets(budgetRows)
+      : Number(data.totalBudget);
 
     return await db.transaction(async (tx) => {
       // 1. จัดการตารางแม่ (Proposals) ด้วย Upsert -> ตัดปัญหา Race Condition 
@@ -526,7 +376,7 @@ export const proposalService = {
         headOfAgency: data.headOfAgency,
         dcioName: data.dcioName,
         projectManager: data.projectManager,
-        totalBudget: data.totalBudget ? String(data.totalBudget) : null,
+        totalBudget: Number.isFinite(budgetTotal) ? String(budgetTotal) : null,
         background: data.background,
         objective: data.objective,
         target: data.target,
@@ -588,12 +438,13 @@ export const proposalService = {
 
       await syncProposalCollections(tx, proposalId, {
         ...data,
+        totalBudget: budgetTotal,
         budgetsByYear: data.budgetsByYear ?? data.budgets ?? [],
       });
 
       await tx.update(projects).set({
         projectName: data.projectName,
-        latestApprovedBudget: budgetTotal,
+        latestApprovedBudget: String(budgetTotal),
         initialRequestedBudget: sql`coalesce(${projects.initialRequestedBudget}, ${budgetTotal})`,
         updatedBy: user.userId,
         updatedAt: new Date(),

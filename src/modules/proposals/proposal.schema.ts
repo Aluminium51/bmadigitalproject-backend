@@ -105,6 +105,8 @@ const personnelCostSchema = z.object({
   durationMonths: z.coerce.number().min(1),
 });
 
+const groupedPersonnelCostSchema = personnelCostSchema.omit({ personnelType: true });
+
 const personnelResponsibilitySchema = z.object({
   id: z.string().uuid().optional(),
   position: z.string(),
@@ -159,11 +161,21 @@ const vmRequirementSchema = z.object({
   price: z.coerce.number().min(0),
 });
 
+const dateOnlySchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must use YYYY-MM-DD format")
+  .refine((value) => {
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year &&
+      date.getUTCMonth() === month - 1 &&
+      date.getUTCDate() === day;
+  }, "Date is invalid");
+
 const cloudRequestSchema = z.object({
   id: z.string().uuid().optional(),
   systemName: z.string().min(1),
-  requestedServiceDate: z.coerce.date(),
-  recordedRequestDate: z.coerce.date(),
+  requestedServiceDate: dateOnlySchema,
+  recordedRequestDate: dateOnlySchema,
   vms: z.array(vmRequirementSchema).default([]),
 });
 
@@ -213,9 +225,9 @@ export const submitProposalSchema = z.object({
   // Step 4: งบประมาณ
   hardwareCosts: z.array(hardwareCostSchema).default([]),
   softwareCosts: z.array(softwareCostSchema).default([]),
-  personnelCoreCosts: z.array(personnelCostSchema).default([]),
-  personnelAsstCosts: z.array(personnelCostSchema).default([]),
-  personnelSuppCosts: z.array(personnelCostSchema).default([]),
+  personnelCoreCosts: z.array(groupedPersonnelCostSchema).default([]),
+  personnelAsstCosts: z.array(groupedPersonnelCostSchema).default([]),
+  personnelSuppCosts: z.array(groupedPersonnelCostSchema).default([]),
   personnelResponsibilities: z.array(personnelResponsibilitySchema).default([]),
   trainingCourses: z.array(trainingCourseSchema).default([]),
   otherCosts: z.array(otherCostSchema).default([]),
@@ -224,6 +236,8 @@ export const submitProposalSchema = z.object({
   durationDays: z.coerce.number().min(1),
   ictPersonnel: z.array(ictPersonnelSchema).default([]),
   cloudRequests: z.array(cloudRequestSchema).default([]),
+  isReady: z.boolean().default(false),
+  readinessDetails: z.string().optional(),
   otherReadiness: z.string().optional(),
   expectedBenefits: z.string().min(1),
   isInRoadmap: z.boolean(),

@@ -47,7 +47,9 @@ async function syncSubTable(
   const payloadIds = new Set(payloadArray.filter((row) => row.id).map((row) => row.id));
 
   const toDelete = [...existingIds].filter((id) => !payloadIds.has(id));
-  const toInsert = payloadArray.filter((row) => !row.id);
+  // A restored draft may contain UUIDs from the deleted submitted proposal.
+  // Treat unknown IDs as new rows instead of silently dropping them.
+  const toInsert = payloadArray.filter((row) => !row.id || !existingIds.has(row.id));
   const toUpdate = payloadArray.filter(
     (row) => row.id && existingIds.has(row.id),
   );

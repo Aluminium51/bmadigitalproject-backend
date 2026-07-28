@@ -25,6 +25,7 @@ import {
 import { projectStatusLogs } from "../../db/schema/project_status_logs";
 import { PROJECT_STATUS } from "./project-workflow";
 import type { UserContext } from "../../utils/permission.helper";
+import { mapSubmittedProposalToDraftPayload } from "../proposals/proposal-restore";
 
 type Executor = any;
 
@@ -86,64 +87,24 @@ async function buildDraftPayload(tx: Executor, proposalId: string) {
       : Promise.resolve([]),
   ]);
 
-  const scalarPayload = {
-    projectName: proposal.projectName,
-    agencyName: proposal.agencyName,
-    headOfAgency: proposal.headOfAgency,
-    dcioName: proposal.dcioName,
-    projectManager: proposal.projectManager,
-    totalBudget: proposal.totalBudget,
-    background: proposal.background,
-    objective: proposal.objective,
-    target: proposal.target,
-    scope: proposal.scope,
-    projectType: proposal.projectType,
-    currentSystemStatus: proposal.currentSystemStatus,
-    currentProblems: proposal.currentProblems,
-    isBmaPlan: proposal.isBmaPlan,
-    isAgencyPlan: proposal.isAgencyPlan,
-    agencyStrategy: proposal.agencyStrategy,
-    agencyIssue: proposal.agencyIssue,
-    agencyKpi: proposal.agencyKpi,
-    isGovernorPolicy: proposal.isGovernorPolicy,
-    governorPolicyCode: proposal.governorPolicyCode,
-    governorPolicyName: proposal.governorPolicyName,
-    obstacleLaws: proposal.obstacleLaws,
-    appArchitecture: proposal.appArchitecture,
-    dataOwner: proposal.dataOwner,
-    dataExchangePlan: proposal.dataExchangePlan,
-    isReady: proposal.isReady,
-    readinessDetails: proposal.readinessDetails,
-    durationDays: proposal.durationDays,
-    otherReadiness: proposal.otherReadiness,
-    expectedBenefits: proposal.expectedBenefits,
-    isInRoadmap: proposal.isInRoadmap,
-  };
-
-  return {
-    ...scalarPayload,
-    budgetsByYear: budgets,
+  return mapSubmittedProposalToDraftPayload({
+    proposal,
+    budgets,
     relatedProjects,
     manpower,
-    existingEquipment: existingEquipments,
+    existingEquipments,
     hardwareCosts,
     softwareCosts,
-    personnelCoreCosts: personnelCosts.filter((row: any) => row.personnelType === "CORE"),
-    personnelAsstCosts: personnelCosts.filter((row: any) => row.personnelType === "ASST"),
-    personnelSuppCosts: personnelCosts.filter((row: any) => row.personnelType === "SUPP"),
+    personnelCosts,
     personnelResponsibilities,
-    trainingCourses: trainings.map((training: any) => ({
-      ...training,
-      speakerCosts: nestedSpeakerCosts.filter((row: any) => row.trainingId === training.id),
-      foodCosts: nestedFoodCosts.filter((row: any) => row.trainingId === training.id),
-    })),
+    trainings,
+    trainingSpeakerCosts: nestedSpeakerCosts,
+    trainingFoodCosts: nestedFoodCosts,
     otherCosts,
     ictPersonnel,
-    cloudRequests: cloudRequests.map((request: any) => ({
-      ...request,
-      vms: nestedCloudVms.filter((row: any) => row.cloudRequestId === request.id),
-    })),
-  };
+    cloudRequests,
+    cloudVms: nestedCloudVms,
+  });
 }
 
 export async function cancelProjectSubmit(projectId: string, user: UserContext) {
