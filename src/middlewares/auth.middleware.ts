@@ -3,7 +3,7 @@ import { verify } from 'hono/jwt';
 import { getCookie } from 'hono/cookie';
 import type { Context, Next } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import type { UserContext } from '../utils/permission.helper';
+import type { UserContext } from '../shared/auth/permission.helper';
 import type { Role } from '../config/permissions.config';
 import { appEnv } from "@/config/app-env";
 

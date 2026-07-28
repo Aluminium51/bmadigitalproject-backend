@@ -1,6 +1,10 @@
-// src/db/seed-data.ts
+// src/db/seeds/seed-data.ts
 
-import { PROJECT_ATTACHMENT_TYPES } from "../modules/lookups/project-attachment-types";
+import { PROJECT_ATTACHMENT_TYPES } from "../../modules/lookups/project-attachment-types";
+import {
+  deputyGovernorSeedData,
+  fourQuadrantSeedData,
+} from "./data/organization-lookup-data";
 
 export const agendaTypeSeedData = [
   { id: 1, name: "Chairman's Announcements" },
@@ -11,16 +15,6 @@ export const agendaTypeSeedData = [
 ];
 
 export const seedData = {
-  departments: [
-    { departmentId: 1, departmentName: "สำนักดิจิทัล" },
-    { departmentId: 2, departmentName: "สำนักยุทธศาสตร์และประเมินผล" }
-  ],
-
-  divisions: [
-    { divisionId: 1, divisionName: "กองยุทธศาสตร์ดิจิทัล", departmentId: 1 },
-    { divisionId: 2, divisionName: "กองพัฒนาระบบคอมพิวเตอร์", departmentId: 1 }
-  ],
-
   roles: [
     { roleId: 1, code: "USER", roleName: "USER" },
     { roleId: 2, code: "ANALYST", roleName: "ANALYST" },
@@ -34,19 +28,9 @@ export const seedData = {
     { id: 2, code: "SOFTWARE", typeName: "Software" },
   ],
 
-  fourQuadrants: [
-    { id: 1, name: "Q1: เพิ่มประสิทธิภาพ" },
-    { id: 2, name: "Q2: งานประจำที่บริการประชาชน" },
-    { id: 3, name: "Q3: งานหลังบ้านที่เป็นงานใหม่" },
-    { id: 4, name: "Q4: ยุทธศาสตร์ / งานอนาคต" }
-  ],
+  fourQuadrants: fourQuadrantSeedData,
 
-  deputyGovernors: [
-    { id: 1, name: "รองผู้ว่าฯ 1" },
-    { id: 2, name: "รองผู้ว่าฯ 2" },
-    { id: 3, name: "รองผู้ว่าฯ 3" },
-    { id: 4, name: "รองผู้ว่าฯ 4" }
-  ],
+  deputyGovernors: deputyGovernorSeedData,
 
 mockUsers: [
     {
@@ -56,8 +40,8 @@ mockUsers: [
       email: "user@system.com",
       rawPassword: "password123",
       roleId: 1, // USER
-      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
-      departmentId: 1 // สำนักดิจิทัล
+      divisionCode: "26020000", // กองยุทธศาสตร์ดิจิทัล
+      departmentCode: "26000000" // สำนักดิจิทัลกรุงเทพมหานคร
     },
     {
       username: "test_analyst",
@@ -66,8 +50,8 @@ mockUsers: [
       email: "analyst@system.com",
       rawPassword: "password123",
       roleId: 2, // ANALYST
-      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
-      departmentId: 1 // สำนักดิจิทัล
+      divisionCode: "26020000",
+      departmentCode: "26000000"
     },
     {
       username: "test_secretary",
@@ -76,8 +60,8 @@ mockUsers: [
       email: "secretary@system.com",
       rawPassword: "password123",
       roleId: 3, // SECRETARY
-      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
-      departmentId: 1 // สำนักดิจิทัล
+      divisionCode: "26020000",
+      departmentCode: "26000000"
     },
     {
       username: "test_admin",
@@ -86,8 +70,8 @@ mockUsers: [
       email: "admin@system.com",
       rawPassword: "password123",
       roleId: 4, // ADMIN
-      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
-      departmentId: 1 // สำนักดิจิทัล
+      divisionCode: "26020000",
+      departmentCode: "26000000"
     },
     {
       username: "test_super_admin",
@@ -96,8 +80,8 @@ mockUsers: [
       email: "superadmin@system.com",
       rawPassword: "password123",
       roleId: 5, // SUPER_ADMIN
-      divisionId: 1, // กองยุทธศาสตร์ดิจิทัล
-      departmentId: 1 // สำนักดิจิทัล
+      divisionCode: "26020000",
+      departmentCode: "26000000"
     }
   ],
 

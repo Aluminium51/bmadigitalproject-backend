@@ -16,7 +16,7 @@ import * as userController from './user.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { HTTPException } from 'hono/http-exception';
 import type { Context, Next } from 'hono';
-import { checkPermission, type UserContext } from '../../utils/permission.helper';
+import { checkPermission, type UserContext } from '../../shared/auth/permission.helper';
 import type { Action, Resource } from '../../config/permissions.config';
 
 const app = new OpenAPIHono();

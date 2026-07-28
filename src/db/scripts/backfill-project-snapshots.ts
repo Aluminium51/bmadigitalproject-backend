@@ -1,8 +1,8 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { db } from "./index";
-import { projects } from "./schema/projects";
-import { proposals, proposalBudgets } from "./schema/proposals";
-import { sumProposalBudgets } from "../modules/proposals/proposal-budget.util";
+import { db } from "../index";
+import { projects } from "../schema/projects";
+import { proposals, proposalBudgets } from "../schema/proposals";
+import { sumProposalBudgets } from "../../modules/proposals/proposal-budget.util";
 
 /**
  * Non-destructive, rerunnable compatibility backfill for project snapshots.

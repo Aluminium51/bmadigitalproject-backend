@@ -20,8 +20,10 @@ const CompactUserSchema = z.object({
 
 const DivisionLookupSchema = z.object({
   id: z.number(),
+  code: z.string().length(8),
   name: z.string(),
   departmentId: z.number().nullable(),
+  departmentCode: z.string().length(8).nullable(),
   departmentName: z.string().nullable(),
 });
 

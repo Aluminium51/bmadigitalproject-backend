@@ -1,9 +1,7 @@
-import { eq } from "drizzle-orm";
-import { db } from "./index";
+import { eq, sql } from "drizzle-orm";
+import { db } from "../index";
 import {
   agendaTypes,
-  departments,
-  divisions,
   deputyGovernors,
   fourQuadrants,
   meetingAttachmentTypes,
@@ -13,37 +11,197 @@ import {
   projectStatuses,
   projectTypes,
   resolutionStatuses,
-} from "./schema/lookups";
+} from "../schema/lookups";
 import { agendaTypeSeedData, seedData } from "./seed-data";
-import { roles } from "./schema/users";
+import { roles } from "../schema/users";
+import {
+  departmentSeedData,
+  derivedDepartmentSeedData,
+  divisionSeedData,
+  legacyDepartmentMappings,
+  legacyDivisionMappings,
+} from "./data/organization-lookup-data";
+import { departments, divisions } from "../schema/lookups";
+
+async function seedOrganizationLookups() {
+  await db.transaction(async (tx) => {
+    // Existing databases may have serial sequences left behind by explicit
+    // legacy/demo inserts. Align them before any generated ID is requested.
+    await tx.execute(sql`
+      SELECT setval(
+        pg_get_serial_sequence('departments', 'department_id'),
+        COALESCE((SELECT MAX(department_id) FROM departments), 1),
+        (SELECT COUNT(*) > 0 FROM departments)
+      )
+    `);
+    await tx.execute(sql`
+      SELECT setval(
+        pg_get_serial_sequence('divisions', 'division_id'),
+        COALESCE((SELECT MAX(division_id) FROM divisions), 1),
+        (SELECT COUNT(*) > 0 FROM divisions)
+      )
+    `);
+
+    // Apply only explicit legacy mappings. A row is mapped only when its
+    // current name identifies the previous mock seed; all other legacy rows
+    // remain untouched and keep their generated legacy code.
+    for (const mapping of legacyDepartmentMappings) {
+      const existing = (await tx
+        .select()
+        .from(departments)
+        .where(eq(departments.departmentId, mapping.departmentId)))[0];
+      const owner = (await tx
+        .select()
+        .from(departments)
+        .where(eq(departments.departmentCode, mapping.departmentCode)))[0];
+
+      if (
+        existing &&
+        existing.departmentName === mapping.fromDepartmentName &&
+        (!owner || owner.departmentId === existing.departmentId)
+      ) {
+        await tx
+          .update(departments)
+          .set({
+            departmentCode: mapping.departmentCode,
+            departmentName: mapping.departmentName,
+          })
+          .where(eq(departments.departmentId, existing.departmentId));
+      }
+    }
+
+    for (const item of [...departmentSeedData, ...derivedDepartmentSeedData]) {
+      const existing = (await tx
+        .select()
+        .from(departments)
+        .where(eq(departments.departmentCode, item.code)))[0];
+
+      if (!existing) {
+        await tx.insert(departments).values({
+          departmentCode: item.code,
+          departmentName: item.name,
+        });
+      } else if (existing.departmentName !== item.name) {
+        await tx
+          .update(departments)
+          .set({ departmentName: item.name })
+          .where(eq(departments.departmentId, existing.departmentId));
+      }
+    }
+
+    const departmentRows = await tx
+      .select({ id: departments.departmentId, code: departments.departmentCode })
+      .from(departments);
+    const departmentIdByCode = new Map(
+      departmentRows.map((item) => [item.code, item.id]),
+    );
+
+    for (const mapping of legacyDivisionMappings) {
+      const existing = (await tx
+        .select()
+        .from(divisions)
+        .where(eq(divisions.divisionId, mapping.divisionId)))[0];
+      const owner = (await tx
+        .select()
+        .from(divisions)
+        .where(eq(divisions.divisionCode, mapping.divisionCode)))[0];
+      const departmentId = departmentIdByCode.get(mapping.departmentCode);
+
+      if (!departmentId) {
+        throw new Error(
+          `ไม่พบ Department สำหรับ legacy division mapping: ${mapping.departmentCode}`,
+        );
+      }
+
+      if (
+        existing &&
+        existing.divisionName === mapping.fromDivisionName &&
+        (!owner || owner.divisionId === existing.divisionId)
+      ) {
+        await tx
+          .update(divisions)
+          .set({
+            divisionCode: mapping.divisionCode,
+            divisionName: mapping.divisionName,
+            departmentId,
+          })
+          .where(eq(divisions.divisionId, existing.divisionId));
+      }
+    }
+
+    const preserveSourceIds = process.env.NODE_ENV === "development";
+
+    for (const item of divisionSeedData) {
+      const departmentId = departmentIdByCode.get(item.departmentCode);
+      if (!departmentId) {
+        throw new Error(
+          `ไม่พบ Department code ${item.departmentCode} สำหรับ Division ${item.code}`,
+        );
+      }
+
+      const existingByCode = (await tx
+        .select()
+        .from(divisions)
+        .where(eq(divisions.divisionCode, item.code)))[0];
+
+      if (existingByCode) {
+        if (
+          existingByCode.divisionName !== item.name ||
+          existingByCode.departmentId !== departmentId
+        ) {
+          await tx
+            .update(divisions)
+            .set({ divisionName: item.name, departmentId })
+            .where(eq(divisions.divisionId, existingByCode.divisionId));
+        }
+        continue;
+      }
+
+      const existingBySourceId = preserveSourceIds
+        ? (await tx
+            .select()
+            .from(divisions)
+            .where(eq(divisions.divisionId, item.sourceId)))[0]
+        : undefined;
+
+      await tx.insert(divisions).values(
+        preserveSourceIds && !existingBySourceId
+          ? {
+              divisionId: item.sourceId,
+              divisionCode: item.code,
+              divisionName: item.name,
+              departmentId,
+            }
+          : {
+              divisionCode: item.code,
+              divisionName: item.name,
+              departmentId,
+            },
+      );
+    }
+
+    if (preserveSourceIds) {
+      await tx.execute(sql`
+        SELECT setval(
+          pg_get_serial_sequence('divisions', 'division_id'),
+          GREATEST(COALESCE((SELECT MAX(division_id) FROM divisions), 1), 1),
+          true
+        )
+      `);
+    }
+
+    await tx.execute(sql`
+      SELECT setval(
+        pg_get_serial_sequence('departments', 'department_id'),
+        GREATEST(COALESCE((SELECT MAX(department_id) FROM departments), 1), 1),
+        true
+      )
+    `);
+  });
+}
 
 async function seedRequiredData() {
-  for (const item of seedData.departments) {
-    const existing = await db.query.departments.findFirst({
-      where: eq(departments.departmentId, item.departmentId),
-    });
-    if (!existing) await db.insert(departments).values(item);
-    else if (existing.departmentName !== item.departmentName) {
-      await db.update(departments)
-        .set({ departmentName: item.departmentName })
-        .where(eq(departments.departmentId, item.departmentId));
-    }
-  }
-
-  for (const item of seedData.divisions) {
-    const existing = await db.query.divisions.findFirst({
-      where: eq(divisions.divisionId, item.divisionId),
-    });
-    if (!existing) await db.insert(divisions).values(item);
-    else if (
-      existing.divisionName !== item.divisionName ||
-      existing.departmentId !== item.departmentId
-    ) {
-      await db.update(divisions)
-        .set({ divisionName: item.divisionName, departmentId: item.departmentId })
-        .where(eq(divisions.divisionId, item.divisionId));
-    }
-  }
+  await seedOrganizationLookups();
 
   for (const item of seedData.roles) {
     const existingByCode = await db.query.roles.findFirst({

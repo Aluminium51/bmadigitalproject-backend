@@ -49,7 +49,7 @@ import {
   checkPermission,
   isSecretaryOnlyUser,
   UserContext,
-} from "@/utils/permission.helper";
+} from "@/shared/auth/permission.helper";
 import {
   PROJECT_STATUS,
   OWNER_EDITABLE_STATUS_IDS,
@@ -103,8 +103,10 @@ const getBaseProjectQuery = () => {
       project: projects,
       division: {
         id: divisions.divisionId,
+        code: divisions.divisionCode,
         name: divisions.divisionName,
         departmentId: divisions.departmentId,
+        departmentCode: departments.departmentCode,
         departmentName: departments.departmentName,
       },
       status: {
@@ -142,8 +144,10 @@ const mapJoinedProject = (row: any) => {
     division: row.division?.id
       ? {
           id: row.division.id,
+          code: row.division.code,
           name: row.division.name,
           departmentId: row.division.departmentId,
+          departmentCode: row.division.departmentCode,
           departmentName: row.division.departmentName,
         }
       : null,

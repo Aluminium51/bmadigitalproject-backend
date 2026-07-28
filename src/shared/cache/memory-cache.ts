@@ -1,4 +1,4 @@
-// src/utils/memory-cache.ts
+// src/shared/cache/memory-cache.ts
 
 type CacheItem<T> = {
   data: T;

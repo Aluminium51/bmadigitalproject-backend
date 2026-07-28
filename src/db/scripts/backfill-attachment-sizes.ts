@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { basename, join } from "node:path";
-import { db } from "./index";
-import { projectAttachments } from "./schema/projects";
+import { db } from "../index";
+import { projectAttachments } from "../schema/projects";
 
 const uploadStorageDir =
   process.env.UPLOAD_STORAGE_DIR ?? join(process.cwd(), "uploads");

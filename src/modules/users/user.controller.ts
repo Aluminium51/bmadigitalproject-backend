@@ -2,11 +2,11 @@
 import { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import * as userService from "./user.service";
-import { sendVerificationEmail } from "@/utils/email.service";
-import { handleRegisterError } from "@/utils/error-handler";
+import { sendVerificationEmail } from "@/infrastructure/email/email.service";
+import { handleRegisterError } from "@/shared/http/error-handler";
 import type { UserListQuery } from "./user.service";
-import { checkPermission } from "@/utils/permission.helper";
-import { getUserContext } from "@/utils/controller-helper";
+import { checkPermission } from "@/shared/auth/permission.helper";
+import { getUserContext } from "@/shared/http/controller-helper";
 
 export const getUsers = async (c: Context, query: UserListQuery) => {
   const result = await userService.getUsersPage(query);

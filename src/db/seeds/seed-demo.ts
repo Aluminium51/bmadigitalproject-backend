@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
-import { db } from "./index";
-import { roleUsers, users } from "./schema/users";
+import { db } from "../index";
+import { roleUsers, users } from "../schema/users";
+import { departments, divisions } from "../schema/lookups";
 import { seedData } from "./seed-data";
 import { seedMockProjects } from "./seed-projects";
 import { seedRequiredData } from "./seed-required";
@@ -14,6 +15,26 @@ async function seedDemoData() {
   await seedRequiredData();
 
   for (const userData of seedData.mockUsers) {
+    const department = (await db
+      .select()
+      .from(departments)
+      .where(eq(departments.departmentCode, userData.departmentCode)))[0];
+    const division = (await db
+      .select()
+      .from(divisions)
+      .where(eq(divisions.divisionCode, userData.divisionCode)))[0];
+
+    if (!department || !division) {
+      throw new Error(
+        `ไม่พบข้อมูลหน่วยงานสำหรับผู้ใช้ ${userData.username}: ${userData.departmentCode}/${userData.divisionCode}`,
+      );
+    }
+    if (division.departmentId !== department.departmentId) {
+      throw new Error(
+        `Division ${userData.divisionCode} ไม่ได้อยู่ภายใต้ Department ${userData.departmentCode}`,
+      );
+    }
+
     const existingUser = await db.query.users.findFirst({
       where: eq(users.username, userData.username),
     });
@@ -29,9 +50,14 @@ async function seedDemoData() {
         lastName: userData.lastName,
         email: userData.email,
         password,
-        divisionId: userData.divisionId,
+        divisionId: division.divisionId,
         isVerified: true,
       });
+    } else if (existingUser.divisionId !== division.divisionId) {
+      await db
+        .update(users)
+        .set({ divisionId: division.divisionId })
+        .where(eq(users.userId, existingUser.userId));
     }
 
     await db.insert(roleUsers)

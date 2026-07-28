@@ -12,8 +12,10 @@ const RoleSchema = z.object({
 // Schema สำหรับข้อมูลหน่วยงาน
 const DivisionSchema = z.object({
   divisionId: z.number().openapi({ example: 1 }),
+  divisionCode: z.string().length(8).openapi({ example: "26020000" }),
   divisionName: z.string().openapi({ example: "กองยุทธศาสตร์ดิจิทัล" }),
   departmentId: z.number().openapi({ example: 1 }),
+  departmentCode: z.string().length(8).openapi({ example: "26000000" }),
   departmentName: z.string().openapi({ example: "สำนักดิจิทัล" })
 });
 

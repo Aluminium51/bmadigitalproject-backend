@@ -42,8 +42,10 @@ const mapUserToResponse = (user: any) => {
     // จัดรูปแบบข้อมูลแผนก (Division & Department)
     division: user.division ? {
       divisionId: user.division.divisionId,
+      divisionCode: user.division.divisionCode,
       divisionName: user.division.divisionName,
       departmentId: user.division.department?.departmentId,
+      departmentCode: user.division.department?.departmentCode,
       departmentName: user.division.department?.departmentName
     } : null,
 

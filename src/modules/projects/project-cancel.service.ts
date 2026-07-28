@@ -24,7 +24,7 @@ import {
 } from "../../db/schema/proposals";
 import { projectStatusLogs } from "../../db/schema/project_status_logs";
 import { PROJECT_STATUS } from "./project-workflow";
-import type { UserContext } from "../../utils/permission.helper";
+import type { UserContext } from "../../shared/auth/permission.helper";
 import { mapSubmittedProposalToDraftPayload } from "../proposals/proposal-restore";
 
 type Executor = any;

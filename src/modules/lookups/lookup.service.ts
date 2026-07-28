@@ -2,7 +2,7 @@
 import { db } from "../../db";
 import { divisions, fourQuadrants, deputyGovernors, projectStatuses, projectTypes, projectAttachmentTypes, departments, roles } from "../../db/schema";
 import { asc } from "drizzle-orm";
-import { appCache } from "../../utils/memory-cache";
+import { appCache } from "../../shared/cache/memory-cache";
 import { getProjectAttachmentTypeLabel } from "./project-attachment-types";
 
 // ตั้งเวลาให้ Cache จำข้อมูล Lookup นาน 24 ชั่วโมง (86400 วินาที)
@@ -19,6 +19,7 @@ export const getDivisionsLookup = async (departmentId?: number) => {
       // แปลง Key เป็น id และ name เพื่อให้ FormCombobox ใน Frontend เอาไปใช้ได้ทันที
       return result.map(div => ({
         id: div.divisionId,
+        code: div.divisionCode,
         name: div.divisionName,
         departmentId: div.departmentId
       }));
@@ -46,6 +47,7 @@ export const getDepartmentsLookup = async () => {
       // และตรงกับที่ Frontend (FormCombobox) คาดหวังว่าจะได้รับ
       return result.map(dept => ({
         id: dept.departmentId,
+        code: dept.departmentCode,
         name: dept.departmentName
       }));
     },

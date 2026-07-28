@@ -1,6 +1,6 @@
 // Compatibility entrypoint. Required bootstrap data is the default seed.
 // Demo data must be requested explicitly with db:seed:demo.
-import { seedRequiredData } from "./seed-required";
+import { seedRequiredData } from "./seeds/seed-required";
 
 if (import.meta.main) {
   try {

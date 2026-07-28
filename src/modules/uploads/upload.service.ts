@@ -1,4 +1,4 @@
-import { compressPdf } from "../../utils/pdf-compressor";
+import { compressPdf } from "../../infrastructure/files/pdf-compressor";
 import { db } from "../../db";
 import { projectAttachments, projects } from "../../db/schema/projects";
 import { divisions, projectAttachmentTypes } from "../../db/schema/lookups";
@@ -6,7 +6,7 @@ import { users } from "../../db/schema/users";
 import { and, eq, isNull, like } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { PROJECT_STATUS, OWNER_EDITABLE_STATUS_IDS } from "../projects/project-workflow";
-import type { UserContext } from "../../utils/permission.helper";
+import type { UserContext } from "../../shared/auth/permission.helper";
 import { join, basename } from "node:path";
 import { mkdir, unlink } from "node:fs/promises";
 import { v7 as uuidv7 } from "uuid";

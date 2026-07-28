@@ -1,6 +1,6 @@
 // src/modules/projects/project.controller.ts
 import type { Context } from "hono";
-import { getUserContext } from "../../utils/controller-helper";
+import { getUserContext } from "../../shared/http/controller-helper";
 import * as projectService from "./project.service";
 import { cancelProjectSubmit } from "./project-cancel.service";
 import type {

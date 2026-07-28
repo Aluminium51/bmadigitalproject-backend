@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute } from "@hono/zod-openapi";
 import { lookupController } from "./lookup.controller";
 import {
   LookupResponseSchema,
+  DepartmentResponseSchema,
   DivisionResponseSchema,
   ProjectStatusResponseSchema,
   DivisionQuerySchema,
@@ -43,7 +44,7 @@ const getDepartmentsRoute = createRoute({
   responses: {
     200: {
       description: "รายการ Departments",
-      content: { "application/json": { schema: LookupResponseSchema } },
+      content: { "application/json": { schema: DepartmentResponseSchema } },
     }, // ใช้ Schema ที่คุณสร้างไว้
   },
 });

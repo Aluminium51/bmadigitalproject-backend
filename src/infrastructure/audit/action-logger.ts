@@ -1,4 +1,4 @@
-// src/utils/action-logger.ts
+// src/infrastructure/audit/action-logger.ts
 import { db } from "@/db";
 // import { auditLogs, notifications } from "@/db/schema";
 

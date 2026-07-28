@@ -6,7 +6,7 @@ import type {
   SubmitProposalDTO,
   SubmittedProposalPatchDTO,
 } from "./proposal.schema";
-import { getUserContext, getUserId } from "../../utils/controller-helper";
+import { getUserContext, getUserId } from "../../shared/http/controller-helper";
 
 export const getProposal = async (c: Context, projectId: string) => {
   const user = getUserContext(c);

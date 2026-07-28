@@ -1,4 +1,4 @@
-// src/utils/cron.ts
+// src/jobs/cron.ts
 // Simple cron-like scheduler using setInterval
 import { proposalService } from "../modules/proposals/proposal.service";
 

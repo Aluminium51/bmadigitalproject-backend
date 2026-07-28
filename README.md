@@ -40,6 +40,9 @@ This is backend project for BMA digital project. It is a full-stack web applicat
     Once the database container is running, generate the Drizzle ORM types, sync the schema, and seed the initial master data:
     ```bash
     bun run db:generate
+    bun run db:migrate
+    bun run db:seed:required
+    bun run db:seed:demo # เฉพาะ Development
     ```
 6. **Verify Backend:**
    The backend server should now be running and accessible at `http://localhost:8081`. You can access the API documentation at `http://localhost:8081/docs/`. You can also test the health check endpoint at `http://localhost:8081/health`.
@@ -50,22 +53,34 @@ This is backend project for BMA digital project. It is a full-stack web applicat
 
 ```text
 src/
-├── config/             # settings and constants (ex. role.ts for RBAC)
-├── db/                 # Database และ Schema
-│   ├── index.ts        # Setup การเชื่อมต่อ Drizzle กับ PostgreSQL
-│   └── schema.ts       # "Full" Drizzle Schema of "All" Tables
-├── modules/            # Main Modules that handle specific features
-│   ├── auth/           # Login, Register
-│   ├── users/          
-│   ├── uploads/        
-│   └── health/         # A simple health check endpoint for monitoring the service
-├── utils/              # Utility functions and services (used across multiple modules)
-│   ├── action-logger.ts  # Audit log system
-│   ├── email.service.ts  # Email sending system
-│   ├── error-handler.ts  # Standard error and response handling
-│   └── pdf-compressor.ts # 
-└── index.ts            # Entry Point (configure Hono, register routes, and global plugins)
+├── config/                 # environment, permissions and application configuration
+├── db/
+│   ├── index.ts            # Drizzle/PostgreSQL connection
+│   ├── schema/             # Drizzle table definitions and relations
+│   ├── seeds/              # required/demo seed runners
+│   │   └── data/           # versioned lookup and seed datasets
+│   ├── scripts/            # migrations and one-off/backfill operations
+│   └── seed.ts             # compatibility entrypoint for required seed
+├── infrastructure/        # external/system integrations
+│   ├── audit/              # audit/event logging adapters
+│   ├── email/              # email provider integration
+│   └── files/              # file/PDF processing
+├── jobs/                   # scheduled and standalone background jobs
+├── middlewares/            # Hono request middleware
+├── modules/                # feature modules: routes, controllers, schemas, services
+├── shared/                 # cross-cutting application helpers
+│   ├── auth/               # authorization and permission helpers
+│   ├── cache/              # shared cache utilities
+│   ├── http/               # controller and error-response helpers
+│   └── security/           # rate limiting and security helpers
+└── index.ts                # API composition and server entrypoint
 ```
+
+Database commands are grouped by purpose: `db:seed:*` runs files under
+`src/db/seeds`, while migration/backfill commands run files under
+`src/db/scripts`. Feature code should import shared helpers through the
+`@/shared/*` and `@/infrastructure/*` aliases instead of a miscellaneous
+`utils` folder.
 
 ---
 

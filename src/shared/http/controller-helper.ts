@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { UserContext } from "./permission.helper";
+import { UserContext } from "../auth/permission.helper";
 
 export const getUserContext = (c: Context): UserContext => {
   const user = c.get("user") as UserContext | undefined;

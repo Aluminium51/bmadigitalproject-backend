@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { getUserContext } from "../../utils/controller-helper";
+import { getUserContext } from "../../shared/http/controller-helper";
 import {
   UploadService,
   UploadTypeValidationError,

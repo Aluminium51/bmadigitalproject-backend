@@ -13,7 +13,7 @@ import internalRoutes from "./modules/internal/internal.routes";
 import lookupRoutes from './modules/lookups/lookup.routes';
 import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
-import { startCronJobs } from './utils/cron';
+import { startCronJobs } from './jobs/cron';
 import { appEnv, corsOrigins } from './config/app-env';
 
 const app = new OpenAPIHono();

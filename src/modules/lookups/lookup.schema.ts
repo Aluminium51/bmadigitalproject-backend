@@ -17,6 +17,16 @@ export const LookupResponseSchema = z.object({
   data: z.array(LookupItemSchema)
 }).openapi('LookupResponse');
 
+export const DepartmentItemSchema = z.object({
+  id: z.number().int(),
+  code: z.string().length(8),
+  name: z.string().max(255),
+}).openapi('DepartmentItem');
+
+export const DepartmentResponseSchema = z.object({
+  data: z.array(DepartmentItemSchema),
+}).openapi('DepartmentResponse');
+
 export const ProjectAttachmentTypeLookupItemSchema = z.object({
   id: z.number().int(),
   name: z.string().max(255),
@@ -30,6 +40,7 @@ export const ProjectAttachmentTypeLookupResponseSchema = z.object({
 // --- Division Schemas ---
 export const DivisionItemSchema = z.object({
   id: z.number().int(),
+  code: z.string().length(8),
   departmentId: z.number().int(),
   name: z.string().max(255),
 }).openapi('DivisionItem');

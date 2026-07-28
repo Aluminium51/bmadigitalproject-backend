@@ -1,5 +1,5 @@
 // src/db/schema/lookups.ts
-import { pgTable, serial, varchar, integer } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, serial, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
@@ -28,17 +28,24 @@ export const projectAttachmentTypes = pgTable("project_attachment_types", {
 // ---------------------------------------------------------------------------
 export const departments = pgTable("departments", {
   departmentId: serial("department_id").primaryKey(),
+  departmentCode: varchar("department_code", { length: 8 }).unique().notNull(),
   departmentName: varchar("department_name", { length: 255 }).unique().notNull(),
-});
+}, (table) => ({
+  departmentCodeIdx: index("departments_department_code_idx").on(table.departmentCode),
+}));
 
 // เล็กกว่า departments เพราะ divisions เป็นส่วนย่อยของ departments
 export const divisions = pgTable("divisions", {
   divisionId: serial("division_id").primaryKey(),
+  divisionCode: varchar("division_code", { length: 8 }).unique().notNull(),
   departmentId: integer("department_id")
     .references(() => departments.departmentId)
     .notNull(),
-  divisionName: varchar("division_name", { length: 255 }).unique().notNull(),
-});
+  divisionName: varchar("division_name", { length: 255 }).notNull(),
+}, (table) => ({
+  divisionCodeIdx: index("divisions_division_code_idx").on(table.divisionCode),
+  departmentIdIdx: index("divisions_department_id_idx").on(table.departmentId),
+}));
 
 // กำหนด Relations เพื่อให้ Drizzle Query แบบ Join ได้ง่ายขึ้น
 export const departmentRelations = relations(departments, ({ many }) => ({

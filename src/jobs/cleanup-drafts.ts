@@ -1,6 +1,6 @@
-// src/utils/cleanup-drafts.ts
+// src/jobs/cleanup-drafts.ts
 // สคริปต์สำหรับลบ Draft ที่ไม่มีการอัปเดตเกิน 30 วัน
-// ใช้งาน: bun run src/utils/cleanup-drafts.ts
+// ใช้งาน: bun run src/jobs/cleanup-drafts.ts
 // สามารถตั้ง Cron Job ให้รันเป็นประจำทุกสัปดาห์ได้
 import { proposalService } from "../modules/proposals/proposal.service";
 

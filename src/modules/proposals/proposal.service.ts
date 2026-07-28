@@ -10,11 +10,11 @@ import { projects } from "../../db/schema/projects";
 import { users } from "../../db/schema/users";
 import { HTTPException } from "hono/http-exception";
 import { v7 as uuidv7 } from "uuid";
-import type { UserContext } from "../../utils/permission.helper";
+import type { UserContext } from "../../shared/auth/permission.helper";
 import {
   checkPermission,
   isSecretaryOnlyUser,
-} from "../../utils/permission.helper";
+} from "../../shared/auth/permission.helper";
 import {
   PROJECT_STATUS,
   OWNER_EDITABLE_STATUS_IDS,

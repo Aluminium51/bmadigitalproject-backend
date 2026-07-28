@@ -4,7 +4,7 @@ import {
   sendPasswordResetEmail,
   sendUsernameRecoveryEmail,
   sendVerificationEmail,
-} from "@/utils/email.service";
+} from "@/infrastructure/email/email.service";
 import { Context } from "hono";
 import { db } from "@/db";
 import { and, eq, gt, or } from "drizzle-orm";
@@ -17,9 +17,9 @@ import {
 import { z } from "@hono/zod-openapi";
 import { sign } from "hono/jwt";
 import { deleteCookie } from "hono/cookie";
-import type { UserContext } from "@/utils/permission.helper";
+import type { UserContext } from "@/shared/auth/permission.helper";
 import { HTTPException } from "hono/http-exception";
-import { consumeRateLimit, getClientIp } from "@/utils/rate-limit";
+import { consumeRateLimit, getClientIp } from "@/shared/security/rate-limit";
 import { appEnv } from "@/config/app-env";
 
 type LoginBody = z.infer<typeof LoginRequestSchema>;

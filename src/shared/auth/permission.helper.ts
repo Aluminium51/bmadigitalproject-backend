@@ -1,6 +1,6 @@
-// src/utils/permission.helper.ts
+// src/shared/auth/permission.helper.ts
 import { HTTPException } from "hono/http-exception";
-import { permissionMatrix, Role, Resource, Action } from "../config/permissions.config";
+import { permissionMatrix, Role, Resource, Action } from "../../config/permissions.config";
 
 export interface UserContext {
   userId: string;

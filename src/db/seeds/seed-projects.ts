@@ -1,9 +1,9 @@
-// src/db/seed-projects.ts
-import { db } from "./index";
-import { projects, projectSequences } from "./schema/projects";
+// src/db/seeds/seed-projects.ts
+import { db } from "../index";
+import { projects, projectSequences } from "../schema/projects";
 import { v7 as uuidv7 } from "uuid";
 import { eq, sql } from "drizzle-orm";
-import { users } from "./schema/users";
+import { users } from "../schema/users";
 
 export const mockProjectsData = [
   {
@@ -81,6 +81,9 @@ export async function seedMockProjects() {
       console.error("❌ ไม่พบผู้ใช้งาน 'test_user' กรุณารัน Seed Data หลักก่อน");
       return;
     }
+    if (!testUser.divisionId) {
+      throw new Error("ผู้ใช้ทดสอบไม่มี Division ID ที่เป็นตัวเลข");
+    }
 
     const testAnalyst = await db.query.users.findFirst({
       where: eq(users.username, "test_analyst")
@@ -98,7 +101,7 @@ export async function seedMockProjects() {
           ...project,
           projectNameOriginal: project.projectName,
           userId: testUser.userId,
-          divisionId: testUser.divisionId ?? 1,
+          divisionId: testUser.divisionId,
           analystId: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(project.projectStatusId) && testAnalyst ? testAnalyst.userId : null,
           assignedBy: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(project.projectStatusId) && testAnalyst ? testUser.userId : null,
           assignedAt: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15].includes(project.projectStatusId) ? new Date() : null,

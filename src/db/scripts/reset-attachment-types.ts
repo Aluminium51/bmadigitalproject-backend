@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import { db } from "./index";
-import { projectAttachments, projectAttachmentTypes } from "./schema";
-import { seedData } from "./seed-data";
+import { db } from "../index";
+import { projectAttachments, projectAttachmentTypes } from "../schema";
+import { seedData } from "../seeds/seed-data";
 
 function assertDevelopmentResetIsAllowed() {
   if (process.env.NODE_ENV !== "development") {
