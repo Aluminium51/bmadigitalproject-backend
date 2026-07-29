@@ -215,6 +215,10 @@ export function mapSubmittedProposalToDraftPayload(input: {
   cloudVms: ProposalRow[];
 }) {
   const { proposal } = input;
+  const budgetsByYear = input.budgets.map(mapBudget);
+  const calculatedBudget = budgetsByYear.length > 0
+    ? budgetsByYear.reduce((total, row) => total + row.amount, 0)
+    : numberValue(proposal.totalBudget);
 
   return {
     projectName: stringValue(proposal.projectName),
@@ -222,8 +226,8 @@ export function mapSubmittedProposalToDraftPayload(input: {
     headOfAgency: stringValue(proposal.headOfAgency),
     dcioName: stringValue(proposal.dcioName),
     projectManager: stringValue(proposal.projectManager),
-    totalBudget: numberValue(proposal.totalBudget),
-    budgetsByYear: input.budgets.map(mapBudget),
+    totalBudget: calculatedBudget,
+    budgetsByYear,
 
     background: stringValue(proposal.background),
     objective: stringValue(proposal.objective),

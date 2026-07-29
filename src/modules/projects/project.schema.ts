@@ -296,8 +296,6 @@ export const PublicProjectSchema = z.object({
   projectNameOriginal: z.string().nullable(),
   projectStatus: CompactLookupSchema.nullable(),
   projectType: CompactLookupSchema.nullable(),
-  createdAt: z.union([z.string(), z.date()]),
-  updatedAt: z.union([z.string(), z.date()]),
 }).openapi('PublicProject');
 
 export const PublicProjectQuerySchema = z.object({

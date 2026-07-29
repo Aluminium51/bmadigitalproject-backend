@@ -26,6 +26,7 @@ import { projectStatusLogs } from "../../db/schema/project_status_logs";
 import { PROJECT_STATUS } from "./project-workflow";
 import type { UserContext } from "../../shared/auth/permission.helper";
 import { mapSubmittedProposalToDraftPayload } from "../proposals/proposal-restore";
+import { submitProposalSchema } from "../proposals/proposal.schema";
 
 type Executor = any;
 
@@ -39,6 +40,7 @@ async function buildDraftPayload(tx: Executor, proposalId: string) {
     .select()
     .from(proposals)
     .where(eq(proposals.id, proposalId))
+    .for("update")
     .limit(1);
 
   if (!proposal) {
@@ -59,18 +61,18 @@ async function buildDraftPayload(tx: Executor, proposalId: string) {
     ictPersonnel,
     cloudRequests,
   ] = await Promise.all([
-    tx.select().from(proposalBudgets).where(eq(proposalBudgets.proposalId, proposalId)),
-    tx.select().from(proposalRelatedProjects).where(eq(proposalRelatedProjects.proposalId, proposalId)),
-    tx.select().from(proposalManpower).where(eq(proposalManpower.proposalId, proposalId)),
-    tx.select().from(proposalExistingEquipments).where(eq(proposalExistingEquipments.proposalId, proposalId)),
-    tx.select().from(proposalHardwareCosts).where(eq(proposalHardwareCosts.proposalId, proposalId)),
-    tx.select().from(proposalSoftwareCosts).where(eq(proposalSoftwareCosts.proposalId, proposalId)),
-    tx.select().from(proposalPersonnelCosts).where(eq(proposalPersonnelCosts.proposalId, proposalId)),
-    tx.select().from(proposalPersonnelResponsibilities).where(eq(proposalPersonnelResponsibilities.proposalId, proposalId)),
-    tx.select().from(proposalTrainings).where(eq(proposalTrainings.proposalId, proposalId)),
-    tx.select().from(proposalOtherCosts).where(eq(proposalOtherCosts.proposalId, proposalId)),
-    tx.select().from(proposalIctPersonnel).where(eq(proposalIctPersonnel.proposalId, proposalId)),
-    tx.select().from(proposalCloudRequests).where(eq(proposalCloudRequests.proposalId, proposalId)),
+    tx.select().from(proposalBudgets).where(eq(proposalBudgets.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalRelatedProjects).where(eq(proposalRelatedProjects.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalManpower).where(eq(proposalManpower.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalExistingEquipments).where(eq(proposalExistingEquipments.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalHardwareCosts).where(eq(proposalHardwareCosts.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalSoftwareCosts).where(eq(proposalSoftwareCosts.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalPersonnelCosts).where(eq(proposalPersonnelCosts.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalPersonnelResponsibilities).where(eq(proposalPersonnelResponsibilities.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalTrainings).where(eq(proposalTrainings.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalOtherCosts).where(eq(proposalOtherCosts.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalIctPersonnel).where(eq(proposalIctPersonnel.proposalId, proposalId)).for("update"),
+    tx.select().from(proposalCloudRequests).where(eq(proposalCloudRequests.proposalId, proposalId)).for("update"),
   ]);
 
   const trainingIds = trainings.map((training: any) => training.id);
@@ -78,12 +80,13 @@ async function buildDraftPayload(tx: Executor, proposalId: string) {
   const [nestedSpeakerCosts, nestedFoodCosts, nestedCloudVms] = await Promise.all([
     trainingIds.length
       ? tx.select().from(proposalTrainingSpeakerCosts).where(inArray(proposalTrainingSpeakerCosts.trainingId, trainingIds))
+          .for("update")
       : Promise.resolve([]),
     trainingIds.length
-      ? tx.select().from(proposalTrainingFoodCosts).where(inArray(proposalTrainingFoodCosts.trainingId, trainingIds))
+      ? tx.select().from(proposalTrainingFoodCosts).where(inArray(proposalTrainingFoodCosts.trainingId, trainingIds)).for("update")
       : Promise.resolve([]),
     cloudRequestIds.length
-      ? tx.select().from(proposalCloudVms).where(inArray(proposalCloudVms.cloudRequestId, cloudRequestIds))
+      ? tx.select().from(proposalCloudVms).where(inArray(proposalCloudVms.cloudRequestId, cloudRequestIds)).for("update")
       : Promise.resolve([]),
   ]);
 
@@ -108,22 +111,6 @@ async function buildDraftPayload(tx: Executor, proposalId: string) {
 }
 
 export async function cancelProjectSubmit(projectId: string, user: UserContext) {
-  const [project] = await db
-    .select({ id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId })
-    .from(projects)
-    .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
-    .limit(1);
-
-  if (!project) throw new HTTPException(404, { message: "Project not found" });
-  if (project.ownerId !== user.userId) {
-    throw new HTTPException(403, { message: "Only the project owner can cancel submission" });
-  }
-  if (project.statusId !== PROJECT_STATUS.PENDING_SECRETARY) {
-    throw new HTTPException(409, {
-      message: "This project can only be cancelled before Secretary review begins",
-    });
-  }
-
   await db.transaction(async (tx) => {
     const [current] = await tx
       .select({ id: projects.id, statusId: projects.projectStatusId, projectName: projects.projectName })
@@ -134,9 +121,19 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
         eq(projects.projectStatusId, PROJECT_STATUS.PENDING_SECRETARY),
         isNull(projects.deletedAt),
       ))
+      .for("update")
       .limit(1);
 
     if (!current) {
+      const [existing] = await tx
+        .select({ ownerId: projects.userId, statusId: projects.projectStatusId })
+        .from(projects)
+        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+        .limit(1);
+      if (!existing) throw new HTTPException(404, { message: "Project not found" });
+      if (existing.ownerId !== user.userId) {
+        throw new HTTPException(403, { message: "Only the project owner can cancel submission" });
+      }
       throw new HTTPException(409, {
         message: "Project status changed before cancellation completed",
       });
@@ -146,6 +143,7 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
       .select({ id: proposals.id })
       .from(proposals)
       .where(eq(proposals.projectId, projectId))
+      .for("update")
       .limit(1);
 
     if (!submitted) {
@@ -157,12 +155,18 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
       ...submittedPayload,
       projectName: current.projectName ?? submittedPayload.projectName,
     };
+    const validatedDraft = submitProposalSchema.safeParse(draftPayload);
+    if (!validatedDraft.success) {
+      throw new HTTPException(409, {
+        message: "Submitted proposal cannot be restored as an editable draft",
+      });
+    }
     const now = new Date();
 
     // Create the complete editable draft first. If any nested read or insert
     // fails, the submitted proposal remains intact because the transaction
     // rolls back.
-    await tx.insert(proposalDrafts).values({
+    const [persistedDraft] = await tx.insert(proposalDrafts).values({
       id: uuidv7(),
       projectId,
       userId: user.userId,
@@ -172,7 +176,7 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
         ? null
         : String(draftPayload.totalBudget),
       currentStep: 1,
-      draftPayload,
+      draftPayload: validatedDraft.data,
       updatedBy: user.userId,
       updatedAt: now,
     }).onConflictDoUpdate({
@@ -185,11 +189,20 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
           ? null
           : String(draftPayload.totalBudget),
         currentStep: 1,
-        draftPayload,
+        draftPayload: validatedDraft.data,
         updatedBy: user.userId,
         updatedAt: now,
       },
-    });
+    }).returning({ id: proposalDrafts.id, draftPayload: proposalDrafts.draftPayload });
+
+    if (!persistedDraft || !persistedDraft.draftPayload) {
+      throw new HTTPException(409, { message: "Restored proposal draft could not be verified" });
+    }
+
+    const verifiedDraft = submitProposalSchema.safeParse(persistedDraft.draftPayload);
+    if (!verifiedDraft.success) {
+      throw new HTTPException(409, { message: "Restored proposal draft failed verification" });
+    }
 
     await tx.delete(proposals).where(and(
       eq(proposals.id, submitted.id),

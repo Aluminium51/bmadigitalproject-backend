@@ -22,6 +22,7 @@ import {
 } from "../projects/project-workflow";
 import { syncProposalCollections } from "./proposal.persistence";
 import { sumProposalBudgets } from "./proposal-budget.util";
+import { submitProposalSchema } from "./proposal.schema";
 
 async function assertUserExists(userId: string) {
   const [user] = await db.select({ userId: users.userId }).from(users).where(eq(users.userId, userId)).limit(1);
@@ -50,6 +51,7 @@ async function getProposalProjectAccess(projectId: string, user: UserContext) {
   const [project] = await db
     .select({
       id: projects.id,
+      ownerId: projects.userId,
       analystId: projects.analystId,
       statusId: projects.projectStatusId,
     })
@@ -63,6 +65,11 @@ async function getProposalProjectAccess(projectId: string, user: UserContext) {
   const isGlobalProjectManager = roles.some((role) =>
     ["admin", "super_admin", "secretary"].includes(role),
   );
+  if (!isGlobalProjectManager && !roles.includes("analyst") && project.ownerId !== user.userId) {
+    throw new HTTPException(403, {
+      message: "Users may access proposal data only for their own projects",
+    });
+  }
   if (roles.includes("analyst") && !isGlobalProjectManager && project.analystId !== user.userId) {
     throw new HTTPException(403, {
       message: "This project is not assigned to the authenticated Analyst",
@@ -136,6 +143,7 @@ export const proposalService = {
 
   async getDraftByProjectId(projectId: string, user: UserContext) {
     checkPermission(user, "read", "proposal_form");
+    await getProposalProjectAccess(projectId, user);
     return await db.query.proposalDrafts.findFirst({
       where: eq(proposalDrafts.projectId, projectId)
     });
@@ -353,20 +361,45 @@ export const proposalService = {
       });
     }
 
-    const project = await assertOwnerCanEditProject(data.projectId, user.userId);
-    const targetStatus = project.statusId === PROJECT_STATUS.DRAFT || project.statusId === PROJECT_STATUS.RETURNED_SECRETARY
-      ? PROJECT_STATUS.PENDING_SECRETARY
-      : PROJECT_STATUS.IN_ANALYSIS;
-    const budgetRows = Array.isArray(data.budgetsByYear)
-      ? data.budgetsByYear
-      : Array.isArray(data.budgets)
-        ? data.budgets
-        : [];
-    const budgetTotal = budgetRows.length > 0
-      ? sumProposalBudgets(budgetRows)
-      : Number(data.totalBudget);
+    const parsedPayload = submitProposalSchema.safeParse(data);
+    if (!parsedPayload.success) {
+      throw new HTTPException(400, {
+        message: `Invalid proposal payload: ${parsedPayload.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join(", ")}`,
+      });
+    }
+    const projectId = typeof data.projectId === "string" ? data.projectId : "";
+    if (!projectId) throw new HTTPException(400, { message: "Project ID is required" });
+    // Use the parsed/defaulted payload for both the root row and every child collection.
+    data = { ...parsedPayload.data, projectId };
 
     return await db.transaction(async (tx) => {
+      const [lockedProject] = await tx
+        .select({ id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId })
+        .from(projects)
+        .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+        .for("update")
+        .limit(1);
+
+      if (!lockedProject) throw new HTTPException(404, { message: "Project not found" });
+      if (lockedProject.ownerId !== user.userId) {
+        throw new HTTPException(403, { message: "Only the project owner can edit this proposal" });
+      }
+      if (!OWNER_EDITABLE_STATUS_IDS.includes(lockedProject.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number])) {
+        throw new HTTPException(409, { message: "This project is currently outside the owner's editing stage" });
+      }
+
+      const targetStatus = lockedProject.statusId === PROJECT_STATUS.DRAFT || lockedProject.statusId === PROJECT_STATUS.RETURNED_SECRETARY
+        ? PROJECT_STATUS.PENDING_SECRETARY
+        : PROJECT_STATUS.IN_ANALYSIS;
+      const budgetRows = data.budgetsByYear;
+      // Keep the exact decimal representation used by the budget utility for
+      // the proposal root, project summary, and every nested persistence path.
+      // Passing the returned string through Number.isFinite previously turned
+      // a valid decimal total into null during resubmission.
+      const budgetTotal = sumProposalBudgets(
+        budgetRows.length > 0 ? budgetRows : [{ amount: data.totalBudget }],
+      );
+
       // 1. จัดการตารางแม่ (Proposals) ด้วย Upsert -> ตัดปัญหา Race Condition 
       const mainProposalData = {
         userId: user.userId,
@@ -376,7 +409,7 @@ export const proposalService = {
         headOfAgency: data.headOfAgency,
         dcioName: data.dcioName,
         projectManager: data.projectManager,
-        totalBudget: Number.isFinite(budgetTotal) ? String(budgetTotal) : null,
+        totalBudget: budgetTotal,
         background: data.background,
         objective: data.objective,
         target: data.target,
@@ -457,7 +490,7 @@ export const proposalService = {
       await applyProjectStatusTransition(tx, {
         projectId: data.projectId,
         userId: user.userId,
-        oldStatusId: project.statusId,
+        oldStatusId: lockedProject.statusId,
         newStatusId: targetStatus,
       });
 

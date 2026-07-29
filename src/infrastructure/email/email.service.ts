@@ -1,5 +1,6 @@
 // src/infrastructure/email/email.service.ts
 import nodemailer from 'nodemailer';
+import type { EmailService } from "../../shared/app/services";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -232,4 +233,10 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
     console.error("Password reset email failed:", error);
     return { success: false, error };
   }
+};
+
+export const productionEmailService: EmailService = {
+  sendVerificationEmail,
+  sendUsernameRecoveryEmail,
+  sendPasswordResetEmail,
 };

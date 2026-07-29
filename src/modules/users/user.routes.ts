@@ -75,7 +75,7 @@ app.openapi(getAnalystWorkloadsRoute, (c) => userController.getAnalystWorkloads(
 
 const getUserProfileRoute = createRoute({
   method: 'get',
-  path: '/profile/:userId', // ตั้ง path รับค่า userId
+  path: '/profile/{userId}', // OpenAPI และเส้นทางจริงใช้พารามิเตอร์เดียวกัน
   tags: ['Users'],
   middleware: [authMiddleware],
   summary: 'ดึงโปรไฟล์ผู้ใช้งานรายบุคคล',
@@ -149,7 +149,7 @@ app.openapi(createUserRoute, (c) => {
 
 const updateUserRolesRoute = createRoute({
   method: 'patch',
-  path: '/:userId/roles',
+  path: '/{userId}/roles',
   tags: ['Users'],
   middleware: [authMiddleware, requirePermission('update', 'rbac')],
   request: {
@@ -169,7 +169,7 @@ app.openapi(updateUserRolesRoute, (c) =>
 
 const updateUserStatusRoute = createRoute({
   method: 'patch',
-  path: '/:userId/status',
+  path: '/{userId}/status',
   tags: ['Users'],
   middleware: [authMiddleware, requirePermission('update', 'user_management')],
   request: {

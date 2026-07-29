@@ -851,6 +851,7 @@ export const reviewSecretaryProject = async (
           isNull(projects.deletedAt),
         ),
       )
+      .for("update")
       .limit(1);
 
     if (current.length === 0) {
@@ -1323,14 +1324,16 @@ const mapPublicProject = (row: any) => ({
   projectNameOriginal: row.project.projectNameOriginal,
   projectStatus: row.status?.id ? row.status : null,
   projectType: row.projectType?.id ? row.projectType : null,
-  createdAt: row.project.createdAt,
-  updatedAt: row.project.updatedAt,
 });
 
 export const getPublicProjects = async (queryParams: PublicProjectQueryDTO) => {
   const { page, limit, search } = queryParams;
   const offset = (page - 1) * limit;
-  const conditions: SQL[] = [eq(projects.isPublic, true), isNull(projects.deletedAt)];
+  const conditions: SQL[] = [
+    eq(projects.isPublic, true),
+    eq(projects.projectStatusId, PROJECT_STATUS.APPROVED),
+    isNull(projects.deletedAt),
+  ];
 
   if (search) {
     const pattern = `%${search}%`;
@@ -1399,6 +1402,7 @@ export const getPublicProjectById = async (id: string) => {
     .where(and(
       eq(projects.id, id),
       eq(projects.isPublic, true),
+      eq(projects.projectStatusId, PROJECT_STATUS.APPROVED),
       isNull(projects.deletedAt),
     ))
     .limit(1);

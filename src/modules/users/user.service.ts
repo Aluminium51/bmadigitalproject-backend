@@ -8,6 +8,8 @@ import { HTTPException } from "hono/http-exception";
 import crypto from "crypto";
 import { v7 as uuidv7 } from "uuid";
 import { PROJECT_STATUS } from "@/modules/projects/project-workflow";
+import type { Clock } from "@/shared/app/services";
+import { systemClock } from "@/shared/app/services";
 
 export type UserListQuery = {
   page: number;
@@ -219,13 +221,16 @@ export const getUserProfile = async (userId: string) => {
 };
 
 // สร้างผู้ใช้งานใหม่
-export const createUser = async (data: any) => {
-  const { password, roleIds = [1], ...restData } = data; // แกะรหัสผ่าน และกลุ่มรหัสสิทธิ์ (Default: 1 ย่อมาจาก USER)
+export const createUser = async (data: any, clock: Clock = systemClock) => {
+  const { password, ...restData } = data;
+  // Public registration always starts with the ordinary USER role. Elevated
+  // roles are assigned through the protected role-management endpoint.
+  const roleIds = [1];
 
   const hashedPassword = await Bun.password.hash(password);
 
   const verificationToken = crypto.randomUUID() + crypto.randomUUID();
-  const expiresAt = new Date();
+  const expiresAt = clock.now();
   expiresAt.setHours(expiresAt.getHours() + 24);
 
   // ใช้ Transaction ควบคุม: ถ้าบันทึก User ผ่าน แต่บันทึกสิทธิ์ Role พัง ระบบจะยกเลิกทั้งหมด (Rollback) เพื่อความปลอดภัย
@@ -315,7 +320,12 @@ export const updateUserRoles = async (
   userId: string,
   roleIds: number[],
   assignedBy: string,
+  actorRoles: string[] = [],
 ) => {
+  if (roleIds.length < 1 || new Set(roleIds).size !== roleIds.length) {
+    throw new HTTPException(400, { message: "At least one unique role is required" });
+  }
+
   await db.transaction(async (tx) => {
     const [targetUser] = await tx
       .select({ userId: users.userId })
@@ -328,12 +338,22 @@ export const updateUserRoles = async (
     }
 
     const existingRoles = await tx
-      .select({ roleId: roles.roleId })
+      .select({ roleId: roles.roleId, roleName: roles.roleName })
       .from(roles)
       .where(inArray(roles.roleId, roleIds));
 
     if (existingRoles.length !== roleIds.length) {
       throw new HTTPException(400, { message: "One or more role IDs are invalid" });
+    }
+
+    const normalizedActorRoles = actorRoles.map((role) => role.toLowerCase());
+    const assignsSuperAdmin = existingRoles.some(
+      (role) => role.roleName.toLowerCase() === "super_admin",
+    );
+    if (assignsSuperAdmin && !normalizedActorRoles.includes("super_admin")) {
+      throw new HTTPException(403, {
+        message: "Only an existing Super Admin can assign the Super Admin role",
+      });
     }
 
     await tx.delete(roleUsers).where(eq(roleUsers.userId, userId));

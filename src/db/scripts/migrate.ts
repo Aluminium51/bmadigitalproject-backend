@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { databaseEnv } from "@/config/database-env";
 
-async function runMigration() {
+export async function runMigration() {
   console.log("⏳ Starting Database Migration...");
 
   // สำหรับการรัน Migrate แนะนำให้ใช้ { max: 1 } 
@@ -21,7 +21,7 @@ async function runMigration() {
     console.log("✅ Database Migration completed successfully!");
   } catch (error) {
     console.error("❌ An error occurred while running the migration:", error);
-    process.exit(1);
+    throw error;
   } finally {
     // Close the migration client to free up resources
     await migrationClient.end();
@@ -29,4 +29,8 @@ async function runMigration() {
 }
 
 // เรียกใช้งานฟังก์ชัน
-runMigration();
+if (import.meta.main) {
+  runMigration().catch(() => {
+    process.exitCode = 1;
+  });
+}

@@ -2,8 +2,8 @@
 import { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import * as userService from "./user.service";
-import { sendVerificationEmail } from "@/infrastructure/email/email.service";
 import { handleRegisterError } from "@/shared/http/error-handler";
+import { getAppServices } from "@/shared/app/services";
 import type { UserListQuery } from "./user.service";
 import { checkPermission } from "@/shared/auth/permission.helper";
 import { getUserContext } from "@/shared/http/controller-helper";
@@ -32,20 +32,27 @@ export const getUserProfile = async (c: Context, userId: string) => {
 
 export const createUser = async (c: Context, body: any) => {
   try {
-    const newUser = await userService.createUser(body);
+    const { emailService, clock } = getAppServices(c);
+    const newUser = await userService.createUser(body, clock);
 
-    await sendVerificationEmail(
+    const emailResult = await emailService.sendVerificationEmail(
       newUser.email,
       newUser.verificationToken!,
       newUser.firstName,
     );
+
+    if (!emailResult.success) {
+      console.error("User verification email was not delivered", emailResult.error);
+    }
+
+    const publicUser = await userService.getUserProfile(newUser.userId);
 
     return c.json(
       {
         message:
           "สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลของท่านเพื่อยืนยันตัวตน",
         requireVerification: true,
-        user: newUser,
+        user: publicUser,
       },
       201,
     );
@@ -62,7 +69,7 @@ export const getAnalystWorkloads = async (c: Context) => {
 export const updateUserRoles = async (c: Context, userId: string, body: { roleIds: number[] }) => {
   const actor = getUserContext(c);
   checkPermission(actor, "update", "rbac");
-  const user = await userService.updateUserRoles(userId, body.roleIds, actor.userId);
+  const user = await userService.updateUserRoles(userId, body.roleIds, actor.userId, actor.roles);
   return c.json(user, 200);
 };
 

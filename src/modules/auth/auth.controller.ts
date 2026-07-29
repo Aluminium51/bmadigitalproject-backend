@@ -1,10 +1,5 @@
 // src/modules/auth/auth.controller.ts
 import crypto from "crypto";
-import {
-  sendPasswordResetEmail,
-  sendUsernameRecoveryEmail,
-  sendVerificationEmail,
-} from "@/infrastructure/email/email.service";
 import { Context } from "hono";
 import { db } from "@/db";
 import { and, eq, gt, or } from "drizzle-orm";
@@ -21,12 +16,13 @@ import type { UserContext } from "@/shared/auth/permission.helper";
 import { HTTPException } from "hono/http-exception";
 import { consumeRateLimit, getClientIp } from "@/shared/security/rate-limit";
 import { appEnv } from "@/config/app-env";
+import { getAppServices } from "@/shared/app/services";
 
 type LoginBody = z.infer<typeof LoginRequestSchema>;
 type RecoveryEmailBody = z.infer<typeof RecoveryEmailRequestSchema>;
 type ResetPasswordBody = z.infer<typeof ResetPasswordRequestSchema>;
 
-async function issueUserToken(user: any) {
+async function issueUserToken(user: any, now = new Date()) {
   const userRoles =
     user.roles && user.roles.length > 0
       ? user.roles
@@ -42,7 +38,7 @@ async function issueUserToken(user: any) {
       roles: userRoles,
       divisionId: user.divisionId,
       departmentId: user.division?.departmentId || 0,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
+      exp: Math.floor(now.getTime() / 1000) + 60 * 60 * 24,
     },
     appEnv.JWT_SECRET,
   );
@@ -73,6 +69,7 @@ function recoveryRateLimitExceeded(c: Context, action: string, email: string) {
 
 export const login = async (c: Context, body: LoginBody) => {
   try {
+    const { clock } = getAppServices(c);
     const { username: identifier, password } = body;
 
     const user = await db.query.users.findFirst({
@@ -127,7 +124,7 @@ export const login = async (c: Context, body: LoginBody) => {
         userAgent,
       });
 
-    const token = await issueUserToken(user);
+    const token = await issueUserToken(user, clock.now());
 
     return c.json(
       {
@@ -174,18 +171,19 @@ export const refreshSession = async (c: Context) => {
     throw new HTTPException(401, { message: "Session is no longer valid" });
   }
 
-  return c.json({ token: await issueUserToken(user) }, 200);
+  return c.json({ token: await issueUserToken(user, getAppServices(c).clock.now()) }, 200);
 };
 
 export const registerUser = async (c: Context) => {
+  const { emailService, clock } = getAppServices(c);
   const body = await c.req.json();
   const verificationToken = crypto.randomUUID() + crypto.randomUUID();
 
-  const expiresAt = new Date();
+  const expiresAt = clock.now();
   expiresAt.setHours(expiresAt.getHours() + 24);
 
   // await db.insert(users).values({ ...body, verificationToken, verificationExpires: expiresAt, isVerified: false })
-  await sendVerificationEmail(body.email, verificationToken, body.firstName);
+  await emailService.sendVerificationEmail(body.email, verificationToken, body.firstName);
 
   return c.json(
     {
@@ -220,7 +218,7 @@ export const verifyEmail = async (c: Context) => {
       );
     }
 
-    if (user.verificationExpires && new Date() > user.verificationExpires) {
+    if (user.verificationExpires && getAppServices(c).clock.now() > user.verificationExpires) {
       return c.json(
         {
           error: "ลิงก์ยืนยันหมดอายุแล้ว กรุณาติดต่อผู้ดูแลระบบหรือสมัครใหม่",
@@ -253,6 +251,7 @@ export const verifyEmail = async (c: Context) => {
 };
 
 export const requestUsernameRecovery = async (c: Context, body: RecoveryEmailBody) => {
+  const { emailService } = getAppServices(c);
   const email = normalizeEmail(body.email);
   const limited = recoveryRateLimitExceeded(c, "username-recovery", email);
   if (limited) return limited;
@@ -264,7 +263,7 @@ export const requestUsernameRecovery = async (c: Context, body: RecoveryEmailBod
     });
 
     if (user) {
-      const result = await sendUsernameRecoveryEmail(user.email, user.username);
+      const result = await emailService.sendUsernameRecoveryEmail(user.email, user.username);
       if (!result.success) {
         console.error("Username recovery email was not delivered", result.error);
       }
@@ -277,6 +276,7 @@ export const requestUsernameRecovery = async (c: Context, body: RecoveryEmailBod
 };
 
 export const requestPasswordReset = async (c: Context, body: RecoveryEmailBody) => {
+  const { emailService, clock } = getAppServices(c);
   const email = normalizeEmail(body.email);
   const limited = recoveryRateLimitExceeded(c, "password-recovery", email);
   if (limited) return limited;
@@ -289,14 +289,14 @@ export const requestPasswordReset = async (c: Context, body: RecoveryEmailBody) 
 
     if (user) {
       const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const expiresAt = new Date(clock.now().getTime() + 30 * 60 * 1000);
 
       await db
         .update(users)
         .set({ resetPasswordToken: token, resetPasswordExpires: expiresAt })
         .where(eq(users.userId, user.userId));
 
-      const result = await sendPasswordResetEmail(user.email, token);
+      const result = await emailService.sendPasswordResetEmail(user.email, token);
       if (!result.success) {
         console.error("Password reset email was not delivered", result.error);
       }
@@ -310,8 +310,9 @@ export const requestPasswordReset = async (c: Context, body: RecoveryEmailBody) 
 
 export const resetPassword = async (c: Context, body: ResetPasswordBody) => {
   try {
+    const { clock } = getAppServices(c);
     const hashedPassword = await Bun.password.hash(body.newPassword);
-    const now = new Date();
+    const now = clock.now();
 
     // The token and expiry are part of the UPDATE predicate so two concurrent
     // requests cannot successfully reuse the same reset link.

@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { getUserContext } from "../../shared/http/controller-helper";
+import { getAppServices } from "../../shared/app/services";
 import {
   UploadService,
   UploadTypeValidationError,
@@ -20,7 +21,14 @@ export const uploadDocument = async (c: Context) => {
   }
 
   try {
-    const result = await UploadService.uploadDocument(file, projectId, user, docTypeName, description);
+    const result = await UploadService.uploadDocument(
+      file,
+      projectId,
+      user,
+      docTypeName,
+      description,
+      getAppServices(c).pdfCompressor,
+    );
     return c.json(
       {
         success: true,

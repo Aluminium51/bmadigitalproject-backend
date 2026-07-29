@@ -1,6 +1,8 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { meetingController } from './meeting.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
+import { checkPermission, type UserContext } from '../../shared/auth/permission.helper';
+import { HTTPException } from 'hono/http-exception';
 import { 
   IdParamSchema, 
   MeetingIdParamSchema, 
@@ -17,6 +19,12 @@ import {
 const meetingsRouter = new OpenAPIHono();
 
 meetingsRouter.use('*', authMiddleware);
+meetingsRouter.use('*', async (c, next) => {
+  const user = (c as any).get('user') as UserContext | undefined;
+  if (!user) throw new HTTPException(401, { message: 'Unauthorized' });
+  checkPermission(user, 'read', 'agenda');
+  await next();
+});
 
 // ==========================================
 // MEETINGS ROUTES

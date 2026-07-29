@@ -6,6 +6,9 @@ import { HTTPException } from 'hono/http-exception';
 import type { UserContext } from '../shared/auth/permission.helper';
 import type { Role } from '../config/permissions.config';
 import { appEnv } from "@/config/app-env";
+import { db } from "@/db";
+import { users } from "@/db/schema/users";
+import { eq } from "drizzle-orm";
 
 export const authMiddleware = async (c: Context, next: Next) => {
   const authHeader = c.req.header('Authorization');
@@ -42,6 +45,16 @@ export const authMiddleware = async (c: Context, next: Next) => {
 
     if (!formattedUser.userId) {
       throw new Error("Invalid payload: Missing User ID");
+    }
+
+    const [currentUser] = await db
+      .select({ isActive: users.isActive })
+      .from(users)
+      .where(eq(users.userId, formattedUser.userId))
+      .limit(1);
+
+    if (!currentUser?.isActive) {
+      throw new HTTPException(401, { message: "Session is no longer valid" });
     }
 
     c.set('user', formattedUser);

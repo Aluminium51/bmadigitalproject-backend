@@ -1,4 +1,5 @@
 import { compressPdf } from "../../infrastructure/files/pdf-compressor";
+import type { PdfCompressor } from "../../shared/app/services";
 import { db } from "../../db";
 import { projectAttachments, projects } from "../../db/schema/projects";
 import { divisions, projectAttachmentTypes } from "../../db/schema/lookups";
@@ -112,7 +113,14 @@ export class UploadService {
     }
   }
 
-  static async uploadDocument(file: File, projectId: string, user: UserContext, docTypeName: string, description?: string) {
+  static async uploadDocument(
+    file: File,
+    projectId: string,
+    user: UserContext,
+    docTypeName: string,
+    description?: string,
+    pdfCompressor: PdfCompressor = { compressPdf },
+  ) {
     const [project] = await db
       .select({ ownerId: projects.userId, analystId: projects.analystId, statusId: projects.projectStatusId, ownerDepartmentId: divisions.departmentId })
       .from(projects)
@@ -132,7 +140,7 @@ export class UploadService {
 
     assertDocumentTypeMatchesFile(file, documentType.name);
 
-    const processed = await this.processAndUploadDocument(file);
+    const processed = await this.processAndUploadDocument(file, pdfCompressor);
     const attachmentId = uuidv7();
     try {
       await db.insert(projectAttachments).values({
@@ -218,7 +226,10 @@ export class UploadService {
     }
   }
 
-  static async processAndUploadDocument(file: File) {
+  static async processAndUploadDocument(
+    file: File,
+    pdfCompressor: PdfCompressor = { compressPdf },
+  ) {
     const contentType = getEffectiveContentType(file);
 
     if (contentType === "application/pdf" && file.size > MAX_PDF_UPLOAD_BYTES) {
@@ -236,7 +247,7 @@ export class UploadService {
 
     if (contentType === "application/pdf") {
       try {
-        const compressedBuffer = await compressPdf(finalBuffer, "/ebook");
+        const compressedBuffer = await pdfCompressor.compressPdf(finalBuffer, "/ebook");
         if (compressedBuffer.byteLength < finalBuffer.byteLength) {
           finalBuffer = compressedBuffer;
           compressionApplied = true;
