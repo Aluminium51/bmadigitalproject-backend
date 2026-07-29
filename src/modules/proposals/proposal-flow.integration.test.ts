@@ -73,7 +73,7 @@ test("submit, cancel, edit, and resubmit preserves the complete proposal", async
       projectName: "ชื่อโครงการล่าสุดก่อนยกเลิก",
       projectNameOriginal: "ชื่อโครงการเดิม",
       initialRequestedBudget: "100000",
-      latestApprovedBudget: "100000",
+      latestRequestedBudget: "100000",
       isPublic: false,
     });
 
@@ -87,7 +87,7 @@ test("submit, cancel, edit, and resubmit preserves the complete proposal", async
       headOfAgency: "หัวหน้าหน่วยงาน",
       dcioName: "ผู้บริหารเทคโนโลยีสารสนเทศ",
       projectManager: "ผู้จัดการโครงการ",
-      totalBudget: "100000",
+      requestedBudgetTotal: "100000",
       background: "ข้อมูลความเป็นมาของโครงการที่มีรายละเอียดครบถ้วน",
       objective: "วัตถุประสงค์ของโครงการที่มีรายละเอียดครบถ้วน",
       target: "กลุ่มเป้าหมายของโครงการที่มีรายละเอียดครบถ้วน",
@@ -137,13 +137,13 @@ test("submit, cancel, edit, and resubmit preserves the complete proposal", async
     const editedPayload = {
       ...restored,
       projectName: "ชื่อโครงการล่าสุดหลังแก้ไข",
-      totalBudget: 150000,
+      requestedBudgetTotal: 150000,
       budgetsByYear: [{ ...restored.budgetsByYear[0], amount: 150000 }],
       projectId,
     };
     await proposalService.upsertDraft(projectId, owner.userId, {
       projectName: editedPayload.projectName,
-      totalBudget: editedPayload.totalBudget,
+      requestedBudgetTotal: editedPayload.requestedBudgetTotal,
       currentStep: 5,
       draftPayload: editedPayload,
     });
@@ -160,7 +160,7 @@ test("submit, cancel, edit, and resubmit preserves the complete proposal", async
     expect(projectAfterResubmit?.projectName).toBe("ชื่อโครงการล่าสุดหลังแก้ไข");
     expect(projectAfterResubmit?.projectNameOriginal).toBe("ชื่อโครงการเดิม");
     expect(String(projectAfterResubmit?.initialRequestedBudget)).toBe("100000.00");
-    expect(String(projectAfterResubmit?.latestApprovedBudget)).toBe("150000.00");
+    expect(String(projectAfterResubmit?.latestRequestedBudget)).toBe("150000.00");
     expect(proposalAfterResubmit?.projectName).toBe("ชื่อโครงการล่าสุดหลังแก้ไข");
     expect(budgetsAfterResubmit).toHaveLength(1);
     expect(trainingsAfterResubmit).toHaveLength(1);

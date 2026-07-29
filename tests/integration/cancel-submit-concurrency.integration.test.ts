@@ -63,8 +63,9 @@ test("Cancel Submit and Secretary Return commit exactly one transition", async (
     expect([PROJECT_STATUS.DRAFT, PROJECT_STATUS.RETURNED_SECRETARY]).toContain(finalProject?.projectStatusId);
     expect(transitionLogs).toHaveLength(1);
     expect(finalProject?.projectStatusId === PROJECT_STATUS.DRAFT).toBe(finalDrafts.length === 1);
-    expect(finalProject?.projectStatusId === PROJECT_STATUS.RETURNED_SECRETARY).toBe(finalProposals.length === 1);
-    expect(finalProposals.length + finalDrafts.length).toBe(1);
+    expect(finalProject?.projectStatusId === PROJECT_STATUS.RETURNED_SECRETARY).toBe(finalDrafts.length === 0);
+    expect(finalProposals.length).toBe(1);
+    expect(finalDrafts.length).toBeLessThanOrEqual(1);
   } finally {
     await cleanupTestRecords(context.db, records);
   }

@@ -60,6 +60,15 @@ export const CreateMeetingSchema = z.object({
 }).strict().openapi("CreateMeeting");
 
 export const UpdateMeetingSchema = CreateMeetingSchema.partial().strict().openapi("UpdateMeeting");
+export const MeetingListQuerySchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  status: MeetingStatusCodeSchema.optional(),
+  meetingTypeId: z.coerce.number().int().min(1).max(2).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  sortBy: z.enum(["meetingDate", "meetingNo", "status"]).default("meetingDate"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+}).openapi("MeetingListQuery");
 export const TransitionMeetingStatusSchema = z.object({
   status: z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED"]),
 }).strict().openapi("TransitionMeetingStatus");
@@ -78,7 +87,7 @@ export const AgendaSchema = z.object({
     id: z.string().uuid(),
     projectCode: z.string().nullable(),
     projectName: z.string().nullable(),
-    latestApprovedBudget: z.string().nullable(),
+    latestRequestedBudget: z.string().nullable(),
     projectStatusId: z.number().int(),
   }).nullable(),
   resolution: z.object({
@@ -159,6 +168,7 @@ export const ReopenRejectedProjectSchema = z.object({ reason: z.string().trim().
 
 export type CreateMeetingDTO = z.infer<typeof CreateMeetingSchema>;
 export type UpdateMeetingDTO = z.infer<typeof UpdateMeetingSchema>;
+export type MeetingListQueryDTO = z.infer<typeof MeetingListQuerySchema>;
 export type TransitionMeetingStatusDTO = z.infer<typeof TransitionMeetingStatusSchema>;
 export type CancelMeetingDTO = z.infer<typeof CancelMeetingSchema>;
 export type CreateAgendaDTO = z.infer<typeof CreateAgendaSchema>;

@@ -9,6 +9,7 @@ import {
   timestamp, 
   uuid,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
@@ -50,7 +51,9 @@ export const proposals = pgTable("proposals", {
   headOfAgency: varchar("head_of_agency", { length: 255 }),
   dcioName: varchar("dcio_name", { length: 255 }),
   projectManager: varchar("project_manager", { length: 255 }),
-  totalBudget: numeric("total_budget", { precision: 15, scale: 2 }), 
+  requestedBudgetTotal: numeric("requested_budget_total", { precision: 15, scale: 2 }),
+  estimatedCostTotal: numeric("estimated_cost_total", { precision: 15, scale: 2 }),
+  submittedAt: timestamp("submitted_at"),
 
   // --- Step 2: สาระสำคัญและขอบเขตโครงการ ---
   background: text("background"),
@@ -87,7 +90,9 @@ export const proposals = pgTable("proposals", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  proposalVersionIdx: index("proposals_project_status_submitted_idx").on(table.projectId, table.status, table.submittedAt, table.id),
+}));
 
 // ---------------------------------------------------------------------------
 // SUB TABLES (Child of Proposals)

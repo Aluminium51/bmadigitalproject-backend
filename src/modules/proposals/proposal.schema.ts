@@ -16,8 +16,9 @@ export const draftProposalSchema = z.object({
   // service (upsertDraft)
   projectName: z.string().optional(),
   objective: z.string().optional(),
-  totalBudget: z.coerce.number().optional(),
-}).partial().openapi('DraftProposalRequest', {
+  requestedBudgetTotal: z.coerce.number().optional(),
+  estimatedCostTotal: z.coerce.number().optional(),
+}).partial().strict().openapi('DraftProposalRequest', {
   description: 'Schema สำหรับข้อมูลแบบร่างโครงการ (Auto-Save)'
 });
 
@@ -193,7 +194,6 @@ export const submitProposalSchema = z.object({
   headOfAgency: z.string().min(2),
   dcioName: z.string().min(2),
   projectManager: z.string().min(2),
-  totalBudget: z.coerce.number().min(1),
   budgetsByYear: z.array(budgetByYearSchema).default([]),
 
   // Step 2: สาระสำคัญและขอบเขตโครงการ
@@ -243,11 +243,9 @@ export const submitProposalSchema = z.object({
   isInRoadmap: z.boolean(),
 }).openapi("SubmitProposalRequest");
 
-export const submittedProposalPatchSchema = submitProposalSchema
-  .partial()
-  .openapi("SubmittedProposalPatchRequest", {
-    description: "Partial update for a submitted proposal by an authorized Secretary",
-  });
+export const submittedProposalPatchSchema = z.object({}).strict().openapi("SubmittedProposalPatchRequest", {
+  description: "Submitted proposal versions are immutable; this request is retained only for compatibility and rejects all fields",
+});
 
 // ---------------------------------------------------------------------------
 // Submitted proposal response
@@ -418,7 +416,10 @@ export const proposalResponseSchema = z.strictObject({
   headOfAgency: responseString,
   dcioName: responseString,
   projectManager: responseString,
-  totalBudget: responseNumber,
+  requestedBudgetTotal: responseNumber,
+  estimatedCostTotal: responseNumber,
+  submittedAt: responseDate.nullable(),
+  totalBudget: responseNumber.optional().openapi({ deprecated: true, description: "Deprecated read-only alias of requestedBudgetTotal" }),
 
   background: responseString,
   objective: responseString,

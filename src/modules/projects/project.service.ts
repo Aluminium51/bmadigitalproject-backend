@@ -64,6 +64,8 @@ import { appEnv } from "@/config/app-env";
 import { buildDraftPayload } from "./project-cancel.service";
 import { submitProposalSchema } from "../proposals/proposal.schema";
 import { sumProposalBudgets } from "../proposals/proposal-budget.util";
+import { calculateEstimatedCostTotal } from "../proposals/proposal-estimated-cost.util";
+import { isSameDepartmentUser } from "./project-access.policy";
 
 const UPLOAD_STORAGE_DIR = appEnv.UPLOAD_STORAGE_DIR;
 
@@ -132,6 +134,14 @@ const getBaseProjectQuery = () => {
         firstName: analysts.firstName,
         lastName: analysts.lastName,
       },
+      latestSubmittedRequestedBudget: sql<string | null>`(
+        select p.requested_budget_total
+        from proposals p
+        where p.project_id = ${projects.id}
+          and p.status = 'submitted'
+        order by p.submitted_at desc nulls last, p.updated_at desc, p.id desc
+        limit 1
+      )`,
     })
     .from(projects)
     .leftJoin(divisions, eq(projects.divisionId, divisions.divisionId))
@@ -146,6 +156,8 @@ const getBaseProjectQuery = () => {
 const mapJoinedProject = (row: any) => {
   return {
     ...row.project,
+    latestSubmittedRequestedBudget: row.latestSubmittedRequestedBudget ?? null,
+    latestApprovedBudget: row.project.latestRequestedBudget ?? null,
     assignedAnalystId: row.project.analystId ?? null,
     division: row.division?.id
       ? {
@@ -480,7 +492,7 @@ export const findProjectById = async (id: string, user: UserContext) => {
   const isAdmin = rolesForAccess.includes("admin") || isSuperAdmin;
   const isSecretary = rolesForAccess.includes("secretary");
   const isOwner = project.userId === user.userId;
-  const isSameDepartment = project.division?.departmentId === user.departmentId;
+  const isSameDepartment = isSameDepartmentUser(user, project.division?.departmentId);
   const isAssignedAnalyst = rolesForAccess.includes("analyst") && project.analystId === user.userId;
   const isAnalystEditableStage = isAssignedAnalyst && project.projectStatusId === PROJECT_STATUS.IN_ANALYSIS;
   const hasAttachmentRole = rolesForAccess.some((role) => ["secretary", "admin", "super_admin"].includes(role));
@@ -488,10 +500,13 @@ export const findProjectById = async (id: string, user: UserContext) => {
     project.projectStatusId as typeof OWNER_EDITABLE_STATUS_IDS[number],
   );
 
-  const canUpdateProject = isSecretary || isSuperAdmin || isAnalystEditableStage || (isOwner && isOwnerEditableStage);
-  const canEditProposal = isSecretary || isAnalystEditableStage || (isOwner && isOwnerEditableStage);
+  const isDepartmentCollaborator = isSameDepartmentUser(user, project.division?.departmentId);
+  const canEditProject = isSecretary || isSuperAdmin || isAnalystEditableStage ||
+    ((isOwner || isDepartmentCollaborator) && isOwnerEditableStage);
+  const canEditProposal = isSecretary || isAnalystEditableStage ||
+    ((isOwner || isDepartmentCollaborator) && isOwnerEditableStage);
   const canSubmitProposal =
-    !isSecretaryOnlyUser(user) && isOwner && isOwnerEditableStage;
+    !isSecretaryOnlyUser(user) && (isOwner || isDepartmentCollaborator) && isOwnerEditableStage;
   const canCancelSubmit = isOwner && project.projectStatusId === PROJECT_STATUS.PENDING_SECRETARY;
   const canChangeVisibility = isAdmin;
   const canManageAttachments = isSecretary || isSuperAdmin || isAnalystEditableStage || (
@@ -519,7 +534,8 @@ export const findProjectById = async (id: string, user: UserContext) => {
     permissions: {
       canDelete: isSuperAdmin || (isOwner && project.projectStatusId === PROJECT_STATUS.DRAFT),
       canManageAttachments,
-      canUpdateProject,
+    canEditProject,
+    canUpdateProject: canEditProject,
       canEditProposal,
       canSubmitProposal,
       canCancelSubmit,
@@ -742,6 +758,7 @@ export const requestAnalystReassignment = async (
       permissions: {
         canDelete: false,
         canManageAttachments: false,
+        canEditProject: false,
         canUpdateProject: false,
         canEditProposal: false,
         canSubmitProposal: false,
@@ -958,14 +975,18 @@ export const updateProject = async (
   }
 
   const isOwner = project.userId === user.userId;
+  const isDepartmentCollaborator = isSameDepartmentUser(user, project.division?.departmentId);
   const isCentralReviewer = hasRole(user, "secretary") || hasRole(user, "super_admin");
   if (isOwner && !isCentralReviewer && !isAnalystEditableStage && !isOwnerEditableStage) {
     throw new HTTPException(403, {
       message: "Project details can only be edited during an owner-editable stage",
     });
   }
-  if (!isOwner && !isCentralReviewer && !isAnalystEditableStage) {
-    throw new HTTPException(403, { message: "Only the project owner or assigned reviewer can edit this project" });
+  if (!isOwner && !isCentralReviewer && !isAnalystEditableStage && !isDepartmentCollaborator) {
+    throw new HTTPException(403, { message: "Only the project owner, assigned reviewer, or same-Department USER can edit this project" });
+  }
+  if (!isOwner && isDepartmentCollaborator && !isOwnerEditableStage) {
+    throw new HTTPException(409, { message: "This project is no longer in an editable state" });
   }
   if (Object.prototype.hasOwnProperty.call(data as Record<string, unknown>, "projectName") &&
       !isOwner && !isOwnerEditableStage) {
@@ -1478,20 +1499,21 @@ export const reopenRejectedProject = async (
     if (!validated.success) {
       throw new HTTPException(409, { message: "Historical proposal cannot be restored as an editable draft" });
     }
-    const budget = sumProposalBudgets(validated.data.budgetsByYear.length
-      ? validated.data.budgetsByYear
-      : [{ amount: validated.data.totalBudget }]);
+    const budget = sumProposalBudgets(validated.data.budgetsByYear);
     const now = new Date();
     const [draft] = await tx.insert(proposalDrafts).values({
       id: uuidv7(), projectId: id, userId: project.ownerId,
       projectName: payload.projectName, objective: payload.objective,
-      totalBudget: budget, currentStep: 1, draftPayload: validated.data,
+      requestedBudgetTotal: budget,
+      estimatedCostTotal: calculateEstimatedCostTotal(validated.data),
+      currentStep: 1, draftPayload: validated.data,
       updatedBy: user.userId, updatedAt: now,
     }).onConflictDoUpdate({
       target: proposalDrafts.projectId,
       set: {
         userId: project.ownerId, projectName: payload.projectName,
-        objective: payload.objective, totalBudget: budget, currentStep: 1,
+        objective: payload.objective, requestedBudgetTotal: budget,
+        estimatedCostTotal: calculateEstimatedCostTotal(validated.data), currentStep: 1,
         draftPayload: validated.data, updatedBy: user.userId, updatedAt: now,
       },
     }).returning({ id: proposalDrafts.id, draftPayload: proposalDrafts.draftPayload });

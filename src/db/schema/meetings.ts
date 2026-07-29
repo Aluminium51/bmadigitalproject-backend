@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { bigint, index, integer, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { projects } from "./projects";
+import { proposals } from "./proposals";
 import {
   meetingTypes,
   meetingStatuses,
@@ -98,6 +99,7 @@ export const resolutions = pgTable("resolutions", {
     .notNull()
     .unique(),
   resolutionStatusId: integer("resolution_status_id").references(() => resolutionStatuses.id).notNull(),
+  governedProposalId: uuid("governed_proposal_id").references(() => proposals.id),
   resolutionType: resolutionTypeEnum("resolution_type"),
   comment: text("comment"),
   remark: text("remark"),
@@ -123,6 +125,10 @@ export const meetingResolutionRevisions = pgTable("meeting_resolution_revisions"
   newProjectStatusId: integer("new_project_status_id").references(() => projectStatuses.id).notNull(),
   previousLatestApprovedBudget: numeric("previous_latest_approved_budget", { precision: 15, scale: 2 }),
   newLatestApprovedBudget: numeric("new_latest_approved_budget", { precision: 15, scale: 2 }),
+  previousFinalApprovedBudget: numeric("previous_final_approved_budget", { precision: 15, scale: 2 }),
+  newFinalApprovedBudget: numeric("new_final_approved_budget", { precision: 15, scale: 2 }),
+  previousFinalEstimatedCost: numeric("previous_final_estimated_cost", { precision: 15, scale: 2 }),
+  newFinalEstimatedCost: numeric("new_final_estimated_cost", { precision: 15, scale: 2 }),
   reason: text("reason"),
   changedBy: uuid("changed_by").references(() => users.userId).notNull(),
   changeMode: varchar("change_mode", { length: 40 }).notNull(),

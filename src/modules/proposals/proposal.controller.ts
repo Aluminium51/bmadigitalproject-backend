@@ -42,8 +42,8 @@ export const getDraftByProjectId = async (c: Context, projectId: string) => {
 };
 
 export const initializeDraft = async (c: Context, projectId: string) => {
-  const userId = getUserId(c);
-  const draft = await proposalService.initializeDraft(projectId, userId);
+  const user = getUserContext(c);
+  const draft = await proposalService.initializeDraft(projectId, user);
   return c.json({ success: true, data: draft }, 201);
 };
 
@@ -52,8 +52,8 @@ export const autoSaveDraft = async (
   projectId: string,
   body: DraftProposalDTO,
 ) => {
-  const userId = getUserId(c);
-  const savedDraft = await proposalService.upsertDraft(projectId, userId, body);
+  const user = getUserContext(c);
+  const savedDraft = await proposalService.upsertDraft(projectId, user, body);
 
   return c.json(
     {

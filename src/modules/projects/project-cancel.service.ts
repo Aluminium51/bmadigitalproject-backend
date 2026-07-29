@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { HTTPException } from "hono/http-exception";
 import { db } from "../../db";
@@ -27,6 +27,8 @@ import { PROJECT_STATUS } from "./project-workflow";
 import type { UserContext } from "../../shared/auth/permission.helper";
 import { mapSubmittedProposalToDraftPayload } from "../proposals/proposal-restore";
 import { submitProposalSchema } from "../proposals/proposal.schema";
+import { sumProposalBudgets } from "../proposals/proposal-budget.util";
+import { calculateEstimatedCostTotal } from "../proposals/proposal-estimated-cost.util";
 
 type Executor = any;
 
@@ -143,6 +145,7 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
       .select({ id: proposals.id })
       .from(proposals)
       .where(eq(proposals.projectId, projectId))
+      .orderBy(desc(proposals.submittedAt), desc(proposals.updatedAt), desc(proposals.id))
       .for("update")
       .limit(1);
 
@@ -172,9 +175,8 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
       userId: user.userId,
       projectName: draftPayload.projectName,
       objective: draftPayload.objective,
-      totalBudget: draftPayload.totalBudget === null || draftPayload.totalBudget === undefined
-        ? null
-        : String(draftPayload.totalBudget),
+      requestedBudgetTotal: sumProposalBudgets(validatedDraft.data.budgetsByYear),
+      estimatedCostTotal: calculateEstimatedCostTotal(validatedDraft.data),
       currentStep: 1,
       draftPayload: validatedDraft.data,
       updatedBy: user.userId,
@@ -185,9 +187,8 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
         userId: user.userId,
         projectName: draftPayload.projectName,
         objective: draftPayload.objective,
-        totalBudget: draftPayload.totalBudget === null || draftPayload.totalBudget === undefined
-          ? null
-          : String(draftPayload.totalBudget),
+        requestedBudgetTotal: sumProposalBudgets(validatedDraft.data.budgetsByYear),
+        estimatedCostTotal: calculateEstimatedCostTotal(validatedDraft.data),
         currentStep: 1,
         draftPayload: validatedDraft.data,
         updatedBy: user.userId,
@@ -204,15 +205,12 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
       throw new HTTPException(409, { message: "Restored proposal draft failed verification" });
     }
 
-    await tx.delete(proposals).where(and(
-      eq(proposals.id, submitted.id),
-      eq(proposals.projectId, projectId),
-    ));
-
     const updated = await tx
       .update(projects)
       .set({
         projectStatusId: PROJECT_STATUS.DRAFT,
+        latestRequestedBudget: sumProposalBudgets(validatedDraft.data.budgetsByYear),
+        latestEstimatedCost: calculateEstimatedCostTotal(validatedDraft.data),
         updatedBy: user.userId,
         updatedAt: now,
       })

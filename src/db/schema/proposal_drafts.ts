@@ -20,7 +20,8 @@ export const proposalDrafts = pgTable("proposal_drafts", {
   // Summary Fields (สำหรับดึงไปโชว์ในหน้าตาราง List อย่างรวดเร็ว โดยไม่ต้อง Parse JSON)
   projectName: text("project_name"),
   objective: text("objective"),
-  totalBudget: numeric("total_budget", { precision: 15, scale: 2 }),
+  requestedBudgetTotal: numeric("requested_budget_total", { precision: 15, scale: 2 }),
+  estimatedCostTotal: numeric("estimated_cost_total", { precision: 15, scale: 2 }),
   
   // บันทึกว่ากรอกฟอร์มค้างไว้ที่ Step ไหน (1-5)
   currentStep: integer("current_step").default(1).notNull(),

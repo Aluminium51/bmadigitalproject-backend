@@ -14,14 +14,15 @@ import type {
   TransitionMeetingStatusDTO,
   UpdateAgendaDTO,
   UpdateMeetingDTO,
+  MeetingListQueryDTO,
 } from "./meeting.schema";
 
 export const meetingController = {
   async createMeeting(c: Context, body: CreateMeetingDTO) {
     return c.json({ data: await meetingService.createMeeting(body, getUserContext(c)) }, 201);
   },
-  async getAllMeetings(c: Context) {
-    return c.json({ data: await meetingService.getAllMeetings(getUserContext(c)) }, 200);
+  async getAllMeetings(c: Context, query: MeetingListQueryDTO) {
+    return c.json(await meetingService.getAllMeetings(getUserContext(c), query), 200);
   },
   async getMeetingById(c: Context, id: string) {
     return c.json({ data: await meetingService.getMeetingById(id, getUserContext(c)) }, 200);

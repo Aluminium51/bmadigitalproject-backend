@@ -121,7 +121,9 @@ export async function applyProjectStatusTransition(
     returnStage?: ProjectReturnStage | null;
     clearReturnStage?: boolean;
     expectedVersion?: number;
-    latestApprovedBudget?: string | null;
+    latestRequestedBudget?: string | null;
+    finalApprovedBudget?: string | null;
+    finalEstimatedCost?: string | null;
   },
 ) {
   const remark = assertValidProjectTransition(input.oldStatusId, input.newStatusId, input.remark);
@@ -132,9 +134,11 @@ export async function applyProjectStatusTransition(
       projectStatusId: input.newStatusId,
       ...(input.returnStage !== undefined ? { returnStage: input.returnStage } : {}),
       ...(input.clearReturnStage ? { returnStage: null } : {}),
-      ...(input.latestApprovedBudget !== undefined
-        ? { latestApprovedBudget: input.latestApprovedBudget }
+      ...(input.latestRequestedBudget !== undefined
+        ? { latestRequestedBudget: input.latestRequestedBudget }
         : {}),
+      ...(input.finalApprovedBudget !== undefined ? { finalApprovedBudget: input.finalApprovedBudget } : {}),
+      ...(input.finalEstimatedCost !== undefined ? { finalEstimatedCost: input.finalEstimatedCost } : {}),
       workflowVersion: sql`${projects.workflowVersion} + 1`,
       updatedBy: input.userId,
       updatedAt: now,
@@ -181,16 +185,20 @@ export async function applyProjectStatusReconciliation(
     agendaId?: string | null;
     resolutionId?: string | null;
     returnStage?: ProjectReturnStage | null;
-    latestApprovedBudget?: string | null;
+    latestRequestedBudget?: string | null;
+    finalApprovedBudget?: string | null;
+    finalEstimatedCost?: string | null;
   },
 ) {
   const now = new Date();
   const [updated] = await tx.update(projects).set({
     projectStatusId: input.newStatusId,
     returnStage: input.returnStage ?? null,
-    ...(input.latestApprovedBudget !== undefined
-      ? { latestApprovedBudget: input.latestApprovedBudget }
+    ...(input.latestRequestedBudget !== undefined
+      ? { latestRequestedBudget: input.latestRequestedBudget }
       : {}),
+    ...(input.finalApprovedBudget !== undefined ? { finalApprovedBudget: input.finalApprovedBudget } : {}),
+    ...(input.finalEstimatedCost !== undefined ? { finalEstimatedCost: input.finalEstimatedCost } : {}),
     workflowVersion: sql`${projects.workflowVersion} + 1`,
     updatedBy: input.userId,
     updatedAt: now,

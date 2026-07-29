@@ -1,6 +1,7 @@
 // src/db/schema/projects.ts
 import {
   pgTable,
+  index,
   serial,
   varchar,
   integer,
@@ -36,8 +37,12 @@ export const projects = pgTable("projects", {
   deputyGovernorId: integer("deputy_governor_id").references(() => deputyGovernors.id).notNull(),
 
   //  --- Budget Summaries ---
-  initialRequestedBudget: numeric("initial_requested_budget", { precision: 15, scale: 2 }), // งบที่ขอตอนแรก
-  latestApprovedBudget: numeric("latest_approved_budget", { precision: 15, scale: 2 }),     // งบที่อนุมัติจริง/ล่าสุด
+  initialRequestedBudget: numeric("initial_requested_budget", { precision: 15, scale: 2 }),
+  latestRequestedBudget: numeric("latest_requested_budget", { precision: 15, scale: 2 }),
+  finalApprovedBudget: numeric("final_approved_budget", { precision: 15, scale: 2 }),
+  initialEstimatedCost: numeric("initial_estimated_cost", { precision: 15, scale: 2 }),
+  latestEstimatedCost: numeric("latest_estimated_cost", { precision: 15, scale: 2 }),
+  finalEstimatedCost: numeric("final_estimated_cost", { precision: 15, scale: 2 }),
 
   externalTaskId: varchar("external_task_id", { length: 255 }).unique(),
 
@@ -59,7 +64,10 @@ export const projects = pgTable("projects", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   updatedBy: uuid("updated_by"),
   deletedAt: timestamp("deleted_at"),
-});
+}, (table) => ({
+  projectStatusBudgetIdx: index("projects_status_budget_idx").on(table.projectStatusId, table.latestRequestedBudget),
+  projectAssignmentIdx: index("projects_analyst_status_idx").on(table.analystId, table.projectStatusId),
+}));
 
 // ---------------------------------------------------------------------------
 // 3. SUB TABLE: Project_Attachment

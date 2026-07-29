@@ -7,6 +7,7 @@ import { users } from "../../db/schema/users";
 import { and, eq, isNull, like } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { PROJECT_STATUS, OWNER_EDITABLE_STATUS_IDS } from "../projects/project-workflow";
+import { isSameDepartmentUser } from "../projects/project-access.policy";
 import type { UserContext } from "../../shared/auth/permission.helper";
 import { join, basename } from "node:path";
 import { mkdir, unlink } from "node:fs/promises";
@@ -102,7 +103,7 @@ export class UploadService {
     const isSecretary = roles.includes("secretary");
     const isAssignedAnalyst = roles.includes("analyst") && project.analystId === user.userId;
     const isOwner = project.ownerId === user.userId;
-    const isSameDepartment = project.ownerDepartmentId !== null && project.ownerDepartmentId === user.departmentId;
+    const isSameDepartment = isSameDepartmentUser(user, project.ownerDepartmentId);
     const hasAttachmentRole = roles.some((role) => ["secretary", "admin", "super_admin"].includes(role));
 
     if (!isSecretary && !isSuperAdmin && !(isAssignedAnalyst && project.statusId === PROJECT_STATUS.IN_ANALYSIS) && !OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number])) {

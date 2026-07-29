@@ -25,6 +25,7 @@ import {
   UpdateAgendaSchema,
   UpdateMeetingSchema,
   MeetingFileSchema,
+  MeetingListQuerySchema,
 } from "./meeting.schema";
 
 const meetingsRouter = new OpenAPIHono();
@@ -44,8 +45,12 @@ meetingsRouter.openapi(createRoute({
 
 meetingsRouter.openapi(createRoute({
   method: "get", path: "/", tags: ["Meetings"], summary: "รายการการประชุมที่มีสิทธิ์เข้าถึง",
-  responses: { 200: { description: "Meetings", content: { "application/json": { schema: z.object({ data: z.array(MeetingSchema) }) } } }, ...errors },
-}), (c) => meetingController.getAllMeetings(c));
+  request: { query: MeetingListQuerySchema },
+  responses: { 200: { description: "Meetings", content: { "application/json": { schema: z.object({
+    data: z.array(MeetingSchema),
+    pagination: z.object({ page: z.number(), limit: z.number(), total: z.number(), totalPages: z.number() }),
+  }) } } }, ...errors },
+}), (c) => meetingController.getAllMeetings(c, c.req.valid("query")));
 
 meetingsRouter.openapi(createRoute({
   method: "get", path: "/{id}", tags: ["Meetings"], request: { params: IdParamSchema },
@@ -73,7 +78,7 @@ meetingsRouter.openapi(createRoute({
     id: z.string().uuid(),
     projectCode: z.string().nullable(),
     projectName: z.string().nullable(),
-    latestApprovedBudget: z.string().nullable(),
+    latestRequestedBudget: z.string().nullable(),
     projectStatusId: z.number().int(),
   })) }) } } }, ...errors },
 }), (c) => meetingController.eligibleProjects(c, c.req.valid("param").id));

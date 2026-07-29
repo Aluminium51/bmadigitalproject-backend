@@ -7,6 +7,7 @@ import {
 } from "../../db/schema/proposals";
 import { proposalDrafts } from "../../db/schema/proposal_drafts";
 import { projects } from "../../db/schema/projects";
+import { divisions } from "../../db/schema/lookups";
 import { users } from "../../db/schema/users";
 import { HTTPException } from "hono/http-exception";
 import { v7 as uuidv7 } from "uuid";
@@ -22,23 +23,38 @@ import {
 } from "../projects/project-workflow";
 import { syncProposalCollections } from "./proposal.persistence";
 import { sumProposalBudgets } from "./proposal-budget.util";
+import { calculateEstimatedCostTotal } from "./proposal-estimated-cost.util";
 import { submitProposalSchema } from "./proposal.schema";
+import { isSameDepartmentUser } from "../projects/project-access.policy";
 
 async function assertUserExists(userId: string) {
   const [user] = await db.select({ userId: users.userId }).from(users).where(eq(users.userId, userId)).limit(1);
   if (!user) throw new HTTPException(401, { message: "Invalid authentication token: user not found" });
 }
 
-async function assertOwnerCanEditProject(projectId: string, userId: string) {
+type ProposalActor = UserContext | string;
+
+function actorId(actor: ProposalActor) {
+  return typeof actor === "string" ? actor : actor.userId;
+}
+
+async function assertOwnerOrDepartmentCanEditProject(projectId: string, actor: ProposalActor) {
   const [project] = await db
-    .select({ id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId })
+    .select({ id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId, departmentId: divisions.departmentId })
     .from(projects)
+    .innerJoin(divisions, eq(projects.divisionId, divisions.divisionId))
     .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
     .limit(1);
 
   if (!project) throw new HTTPException(404, { message: "Project not found" });
-  if (project.ownerId !== userId) {
+  if (typeof actor === "string" && project.ownerId !== actor) {
     throw new HTTPException(403, { message: "Only the project owner can edit this proposal" });
+  }
+  if (typeof actor !== "string" && project.ownerId !== actor.userId) {
+    const roles = actor.roles.map((role) => String(role).toLowerCase());
+    if (!roles.includes("user") || actor.departmentId !== project.departmentId) {
+      throw new HTTPException(403, { message: "Only an eligible user in the same Department can edit this proposal" });
+    }
   }
   if (!OWNER_EDITABLE_STATUS_IDS.includes(project.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number])) {
     throw new HTTPException(409, { message: "This project is currently outside the owner's editing stage" });
@@ -54,8 +70,10 @@ async function getProposalProjectAccess(projectId: string, user: UserContext) {
       ownerId: projects.userId,
       analystId: projects.analystId,
       statusId: projects.projectStatusId,
+      departmentId: divisions.departmentId,
     })
     .from(projects)
+    .innerJoin(divisions, eq(projects.divisionId, divisions.divisionId))
     .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
     .limit(1);
 
@@ -65,7 +83,8 @@ async function getProposalProjectAccess(projectId: string, user: UserContext) {
   const isGlobalProjectManager = roles.some((role) =>
     ["admin", "super_admin", "secretary"].includes(role),
   );
-  if (!isGlobalProjectManager && !roles.includes("analyst") && project.ownerId !== user.userId) {
+  const isSameDepartmentUser = roles.includes("user") && project.departmentId === user.departmentId;
+  if (!isGlobalProjectManager && !roles.includes("analyst") && project.ownerId !== user.userId && !isSameDepartmentUser) {
     throw new HTTPException(403, {
       message: "Users may access proposal data only for their own projects",
     });
@@ -84,7 +103,9 @@ const submittedProposalScalarColumns = {
   headOfAgency: proposals.headOfAgency,
   dcioName: proposals.dcioName,
   projectManager: proposals.projectManager,
-  totalBudget: proposals.totalBudget,
+  requestedBudgetTotal: proposals.requestedBudgetTotal,
+  estimatedCostTotal: proposals.estimatedCostTotal,
+  submittedAt: proposals.submittedAt,
   background: proposals.background,
   objective: proposals.objective,
   target: proposals.target,
@@ -121,9 +142,10 @@ export const proposalService = {
   // 1. ระบบแบบร่าง (DRAFTS)
   // ============================================================================
 
-  async initializeDraft(projectId: string, userId: string) {
-    await assertUserExists(userId);
-    await assertOwnerCanEditProject(projectId, userId);
+  async initializeDraft(projectId: string, actor: ProposalActor) {
+    await assertUserExists(actorId(actor));
+    await assertOwnerOrDepartmentCanEditProject(projectId, actor);
+    const userId = actorId(actor);
 
     const existing = await db.query.proposalDrafts.findFirst({
       where: eq(proposalDrafts.projectId, projectId)
@@ -157,9 +179,10 @@ export const proposalService = {
   },
 
   // บันทึกแบบร่างอัตโนมัติ (Upsert) -> ถ้าไม่มีให้ Insert, ถ้ามีให้ Update
-  async upsertDraft(projectId: string, userId: string, payload: any) {
-    await assertUserExists(userId);
-    await assertOwnerCanEditProject(projectId, userId);
+  async upsertDraft(projectId: string, actor: ProposalActor, payload: any) {
+    await assertUserExists(actorId(actor));
+    await assertOwnerOrDepartmentCanEditProject(projectId, actor);
+    const userId = actorId(actor);
 
     const existingDraft = await db.query.proposalDrafts.findFirst({
       where: eq(proposalDrafts.projectId, projectId),
@@ -173,6 +196,10 @@ export const proposalService = {
         ? incomingFormData as Record<string, unknown>
         : {}),
     };
+    // Deprecated budget aliases are response-only compatibility fields. Never
+    // persist them in the editable draft payload or accept them as write input.
+    delete formData.totalBudget;
+    delete formData.latestApprovedBudget;
     const summaryData = {
       projectName: payload.projectName !== undefined
         ? payload.projectName || null
@@ -180,9 +207,8 @@ export const proposalService = {
       objective: payload.objective !== undefined
         ? payload.objective || null
         : existingDraft?.objective ?? null,
-      totalBudget: payload.totalBudget !== undefined
-        ? payload.totalBudget === null || payload.totalBudget === "" ? null : String(payload.totalBudget)
-        : existingDraft?.totalBudget ?? null,
+      requestedBudgetTotal: existingDraft?.requestedBudgetTotal ?? null,
+      estimatedCostTotal: existingDraft?.estimatedCostTotal ?? null,
       currentStep: payload.currentStep !== undefined
         ? payload.currentStep || 1
         : existingDraft?.currentStep ?? 1,
@@ -194,6 +220,12 @@ export const proposalService = {
     // ใช้ Upsert ประหยัด Query และกันชน
     const budgetRows = formData.budgetsByYear ?? formData.budgets;
     const hasBudgetRows = Array.isArray(budgetRows);
+    const requestedBudgetTotal = hasBudgetRows
+      ? sumProposalBudgets(budgetRows)
+      : summaryData.requestedBudgetTotal;
+    const estimatedCostTotal = calculateEstimatedCostTotal(formData);
+    summaryData.requestedBudgetTotal = requestedBudgetTotal;
+    summaryData.estimatedCostTotal = estimatedCostTotal;
 
     return await db.transaction(async (tx) => {
       const [upsertedDraft] = await tx.insert(proposalDrafts).values({
@@ -213,12 +245,10 @@ export const proposalService = {
       if (typeof formData.projectName === "string" && formData.projectName.trim()) {
         projectUpdate.projectName = formData.projectName.trim();
       }
-      if (hasBudgetRows) {
-        projectUpdate.latestApprovedBudget = sumProposalBudgets(budgetRows);
-      }
+      if (hasBudgetRows) projectUpdate.latestRequestedBudget = requestedBudgetTotal;
+      projectUpdate.latestEstimatedCost = estimatedCostTotal;
       await tx.update(projects).set(projectUpdate as any).where(and(
         eq(projects.id, projectId),
-        eq(projects.userId, userId),
         isNull(projects.deletedAt),
       ));
 
@@ -235,8 +265,8 @@ export const proposalService = {
     await getProposalProjectAccess(projectId, user);
     try {
       const proposal = await db.query.proposals.findFirst({
-        where: eq(proposals.projectId, projectId),
-        orderBy: (proposal, { desc }) => [desc(proposal.updatedAt), desc(proposal.id)],
+        where: and(eq(proposals.projectId, projectId), eq(proposals.status, "submitted")),
+        orderBy: (proposal, { desc }) => [desc(proposal.submittedAt), desc(proposal.updatedAt), desc(proposal.id)],
         with: {
           budgets: true,
           relatedProjects: true,
@@ -273,7 +303,9 @@ export const proposalService = {
         });
       }
 
-      return proposal;
+      return proposal
+        ? { ...proposal, totalBudget: proposal.requestedBudgetTotal }
+        : proposal;
     } catch (error) {
       console.error("❌ Error in getProposalByProjectId:", error);
       throw error;
@@ -285,6 +317,9 @@ export const proposalService = {
     user: UserContext,
     payload: Record<string, any>,
   ) {
+    throw new HTTPException(409, {
+      message: "Submitted Proposal versions are immutable; edit the current Draft instead",
+    });
     const { project, roles } = await getProposalProjectAccess(projectId, user);
     const isSecretary = roles.includes("secretary");
     const isAssignedAnalyst = roles.includes("analyst") && project.analystId === user.userId;
@@ -321,7 +356,7 @@ export const proposalService = {
 
       for (const [field, column] of Object.entries(submittedProposalScalarColumns)) {
         if (!hasOwn(payload, field) || payload[field] === undefined) continue;
-        scalarUpdates[column.name] = field === "totalBudget" && payload[field] !== null
+        scalarUpdates[column.name] = field === "requestedBudgetTotal" && payload[field] !== null
           ? String(payload[field])
           : payload[field];
       }
@@ -345,7 +380,7 @@ export const proposalService = {
           ? payload.budgets
           : await tx.select().from(proposalBudgets).where(eq(proposalBudgets.proposalId, existing.id));
       await tx.update(projects).set({
-        latestApprovedBudget: sumProposalBudgets(Array.isArray(budgetRows) ? budgetRows : []),
+        latestRequestedBudget: sumProposalBudgets(Array.isArray(budgetRows) ? budgetRows : []),
         updatedBy: user.userId,
         updatedAt: new Date(),
       }).where(and(eq(projects.id, projectId), isNull(projects.deletedAt)));
@@ -382,14 +417,16 @@ export const proposalService = {
           statusId: projects.projectStatusId,
           analystId: projects.analystId,
           returnStage: projects.returnStage,
+          departmentId: divisions.departmentId,
         })
         .from(projects)
+        .innerJoin(divisions, eq(divisions.divisionId, projects.divisionId))
         .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
         .for("update")
         .limit(1);
 
       if (!lockedProject) throw new HTTPException(404, { message: "Project not found" });
-      if (lockedProject.ownerId !== user.userId) {
+      if (lockedProject.ownerId !== user.userId && !isSameDepartmentUser(user, lockedProject.departmentId)) {
         throw new HTTPException(403, { message: "Only the project owner can edit this proposal" });
       }
       if (!OWNER_EDITABLE_STATUS_IDS.includes(lockedProject.statusId as typeof OWNER_EDITABLE_STATUS_IDS[number])) {
@@ -400,13 +437,18 @@ export const proposalService = {
         ? PROJECT_STATUS.PENDING_SECRETARY
         : PROJECT_STATUS.IN_ANALYSIS;
       const budgetRows = data.budgetsByYear;
+      if (!Array.isArray(budgetRows) || budgetRows.length === 0) {
+        throw new HTTPException(400, { message: "At least one requested-budget row is required" });
+      }
       // Keep the exact decimal representation used by the budget utility for
       // the proposal root, project summary, and every nested persistence path.
       // Passing the returned string through Number.isFinite previously turned
       // a valid decimal total into null during resubmission.
       const budgetTotal = sumProposalBudgets(
-        budgetRows.length > 0 ? budgetRows : [{ amount: data.totalBudget }],
+        budgetRows,
       );
+      const estimatedCostTotal = calculateEstimatedCostTotal(data);
+      const submittedAt = new Date();
 
       // 1. จัดการตารางแม่ (Proposals) ด้วย Upsert -> ตัดปัญหา Race Condition 
       const mainProposalData = {
@@ -417,7 +459,9 @@ export const proposalService = {
         headOfAgency: data.headOfAgency,
         dcioName: data.dcioName,
         projectManager: data.projectManager,
-        totalBudget: budgetTotal,
+        requestedBudgetTotal: budgetTotal,
+        estimatedCostTotal,
+        submittedAt,
         background: data.background,
         objective: data.objective,
         target: data.target,
@@ -476,19 +520,21 @@ export const proposalService = {
 
       await syncProposalCollections(tx, proposalId, {
         ...data,
-        totalBudget: budgetTotal,
+        requestedBudgetTotal: budgetTotal,
+        estimatedCostTotal,
         budgetsByYear: data.budgetsByYear ?? data.budgets ?? [],
       });
 
       await tx.update(projects).set({
         projectName: data.projectName,
-        latestApprovedBudget: String(budgetTotal),
+        latestRequestedBudget: String(budgetTotal),
+        latestEstimatedCost: estimatedCostTotal,
         initialRequestedBudget: sql`coalesce(${projects.initialRequestedBudget}, ${budgetTotal})`,
+        initialEstimatedCost: sql`coalesce(${projects.initialEstimatedCost}, ${estimatedCostTotal})`,
         updatedBy: user.userId,
         updatedAt: new Date(),
       }).where(and(
         eq(projects.id, data.projectId),
-        eq(projects.userId, user.userId),
         isNull(projects.deletedAt),
       ));
 

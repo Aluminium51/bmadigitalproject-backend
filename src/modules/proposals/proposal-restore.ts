@@ -219,7 +219,7 @@ export function mapSubmittedProposalToDraftPayload(input: {
   const budgetsByYear = input.budgets.map(mapBudget);
   const calculatedBudget = budgetsByYear.length > 0
     ? Number(sumProposalBudgets(input.budgets))
-    : numberValue(proposal.totalBudget);
+    : numberValue(proposal.requestedBudgetTotal);
 
   return {
     projectName: stringValue(proposal.projectName),
@@ -227,7 +227,8 @@ export function mapSubmittedProposalToDraftPayload(input: {
     headOfAgency: stringValue(proposal.headOfAgency),
     dcioName: stringValue(proposal.dcioName),
     projectManager: stringValue(proposal.projectManager),
-    totalBudget: calculatedBudget,
+    requestedBudgetTotal: calculatedBudget,
+    estimatedCostTotal: numberValue(proposal.estimatedCostTotal),
     budgetsByYear,
 
     background: stringValue(proposal.background),

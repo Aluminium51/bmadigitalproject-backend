@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { v7 as uuidv7 } from "uuid";
 import { basename, join } from "node:path";
@@ -15,6 +15,7 @@ import type { UserContext } from "../../shared/auth/permission.helper";
 import type { PdfCompressor } from "../../shared/app/services";
 import { UploadService, UPLOAD_STORAGE_DIR } from "../uploads/upload.service";
 import { sumProposalBudgets } from "../proposals/proposal-budget.util";
+import { calculateEstimatedCostTotal } from "../proposals/proposal-estimated-cost.util";
 import { submitProposalSchema } from "../proposals/proposal.schema";
 import { buildDraftPayload } from "../projects/project-cancel.service";
 import {
@@ -29,6 +30,7 @@ import type {
   CreateAgendaDTO,
   CreateMeetingDTO,
   EditResolutionDTO,
+  MeetingListQueryDTO,
   RecordResolutionDTO,
   ReorderAgendasDTO,
   TransitionMeetingStatusDTO,
@@ -116,10 +118,15 @@ export function resolutionOutcome(meetingTypeId: number, resolutionType: Resolut
 }
 
 async function getLatestSubmittedProposal(executor: any, projectId: string, lock = false) {
-  let query = executor.select({ id: proposals.id, totalBudget: proposals.totalBudget })
+  let query = executor.select({
+    id: proposals.id,
+    requestedBudgetTotal: proposals.requestedBudgetTotal,
+    estimatedCostTotal: proposals.estimatedCostTotal,
+    submittedAt: proposals.submittedAt,
+  })
     .from(proposals)
     .where(and(eq(proposals.projectId, projectId), eq(proposals.status, "submitted")))
-    .orderBy(desc(proposals.updatedAt))
+    .orderBy(desc(proposals.submittedAt), desc(proposals.updatedAt), desc(proposals.id))
     .limit(1);
   if (lock) query = query.for("update");
   const [proposal] = await query;
@@ -134,7 +141,41 @@ async function getExactProposalBudget(executor: any, projectId: string, lock = f
     .where(eq(proposalBudgets.proposalId, proposal.id));
   if (lock) query = query.for("update");
   const rows = await query;
-  return sumProposalBudgets(rows.length > 0 ? rows : [{ amount: proposal.totalBudget }]);
+  return sumProposalBudgets(rows.length > 0 ? rows : [{ amount: proposal.requestedBudgetTotal ?? "0" }]);
+}
+
+async function getProposalSnapshot(executor: any, proposalId: string | null | undefined, projectId: string, lock = false) {
+  if (proposalId) {
+    let query = executor.select({
+      id: proposals.id,
+      requestedBudgetTotal: proposals.requestedBudgetTotal,
+      estimatedCostTotal: proposals.estimatedCostTotal,
+    }).from(proposals).where(and(
+      eq(proposals.id, proposalId),
+      eq(proposals.projectId, projectId),
+      eq(proposals.status, "submitted"),
+    )).limit(1);
+    if (lock) query = query.for("update");
+    const [proposal] = await query;
+    if (proposal) return proposal;
+  }
+  return getLatestSubmittedProposal(executor, projectId, lock);
+}
+
+async function getEarlierSuccessfulBoardProposal(executor: any, projectId: string, excludedResolutionId: string) {
+  const [resolution] = await executor.select({ governedProposalId: resolutions.governedProposalId })
+    .from(resolutions)
+    .innerJoin(agendas, eq(agendas.id, resolutions.agendaId))
+    .innerJoin(meetings, eq(meetings.id, agendas.meetingId))
+    .where(and(
+      eq(agendas.projectId, projectId),
+      eq(meetings.meetingTypeId, MEETING_TYPE.BIG_BOARD),
+      inArray(resolutions.resolutionType, ["APPROVED", "ACKNOWLEDGED"]),
+      ne(resolutions.id, excludedResolutionId),
+    ))
+    .orderBy(desc(resolutions.resolvedAt), desc(resolutions.updatedAt), desc(resolutions.id))
+    .limit(1);
+  return resolution?.governedProposalId ?? null;
 }
 
 async function persistRestoredDraft(executor: any, project: { id: string; ownerId: string; projectName: string | null }, actorId: string) {
@@ -149,17 +190,15 @@ async function persistRestoredDraft(executor: any, project: { id: string; ownerI
   const [draft] = await executor.insert(proposalDrafts).values({
     id: uuidv7(), projectId: project.id, userId: project.ownerId,
     projectName: payload.projectName, objective: payload.objective,
-    totalBudget: String(sumProposalBudgets(validated.data.budgetsByYear.length
-      ? validated.data.budgetsByYear
-      : [{ amount: validated.data.totalBudget }])),
+    requestedBudgetTotal: String(sumProposalBudgets(validated.data.budgetsByYear)),
+    estimatedCostTotal: calculateEstimatedCostTotal(validated.data as Record<string, unknown>),
     currentStep: 1, draftPayload: validated.data, updatedBy: actorId, updatedAt: now,
   }).onConflictDoUpdate({
     target: proposalDrafts.projectId,
     set: {
       userId: project.ownerId, projectName: payload.projectName, objective: payload.objective,
-      totalBudget: String(sumProposalBudgets(validated.data.budgetsByYear.length
-        ? validated.data.budgetsByYear
-        : [{ amount: validated.data.totalBudget }])),
+      requestedBudgetTotal: String(sumProposalBudgets(validated.data.budgetsByYear)),
+      estimatedCostTotal: calculateEstimatedCostTotal(validated.data as Record<string, unknown>),
       currentStep: 1, draftPayload: validated.data, updatedBy: actorId, updatedAt: now,
     },
   }).returning({ id: proposalDrafts.id, draftPayload: proposalDrafts.draftPayload });
@@ -261,7 +300,7 @@ async function scopedAgendas(meetingId: string, user: UserContext) {
     agendaNumber: agendas.agendaNumber, sortOrder: agendas.sortOrder,
     agendaTypeId: agendas.agendaTypeId, title: agendas.title, description: agendas.description,
     createdAt: agendas.createdAt, updatedAt: agendas.updatedAt,
-    project: { id: projects.id, projectCode: projects.projectCode, projectName: projects.projectName, latestApprovedBudget: projects.latestApprovedBudget, projectStatusId: projects.projectStatusId },
+    project: { id: projects.id, projectCode: projects.projectCode, projectName: projects.projectName, latestRequestedBudget: projects.latestRequestedBudget, projectStatusId: projects.projectStatusId },
     resolution: { id: resolutions.id, resolutionType: resolutions.resolutionType, remark: resolutions.remark, version: resolutions.version, resolvedAt: resolutions.resolvedAt },
   }).from(agendas)
     .leftJoin(projects, eq(projects.id, agendas.projectId))
@@ -279,7 +318,10 @@ async function resolutionContext(executor: any, meetingId: string, agendaId: str
   const [project] = await executor.select({
     id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId,
     analystId: projects.analystId, projectName: projects.projectName,
-    latestApprovedBudget: projects.latestApprovedBudget,
+    latestRequestedBudget: projects.latestRequestedBudget,
+    latestEstimatedCost: projects.latestEstimatedCost,
+    finalApprovedBudget: projects.finalApprovedBudget,
+    finalEstimatedCost: projects.finalEstimatedCost,
   }).from(projects).where(and(eq(projects.id, agenda.projectId), isNull(projects.deletedAt))).for("update").limit(1);
   if (!project) throw new HTTPException(404, { message: "Project not found" });
   return { meeting, agenda, project };
@@ -320,7 +362,7 @@ export const meetingService = {
     return meetingRow(meeting.id);
   },
 
-  async getAllMeetings(user: UserContext) {
+  async getAllMeetings(user: UserContext, query: MeetingListQueryDTO) {
     let ids: string[] | undefined;
     if (!isSecretary(user)) {
       const rows = await db.selectDistinct({ id: meetings.id }).from(meetings)
@@ -328,12 +370,63 @@ export const meetingService = {
         .innerJoin(projects, eq(projects.id, agendas.projectId))
         .where(and(or(eq(projects.userId, user.userId), eq(projects.analystId, user.userId)), isNull(projects.deletedAt)));
       ids = rows.map((row) => row.id);
-      if (ids.length === 0) return [];
+      if (ids.length === 0) {
+        return {
+          data: [],
+          pagination: { page: query.page, limit: query.limit, total: 0, totalPages: 0 },
+        };
+      }
     }
+
+    const statusId = query.status
+      ? ({
+          DRAFT: MEETING_STATUS.DRAFT,
+          SCHEDULED: MEETING_STATUS.SCHEDULED,
+          IN_PROGRESS: MEETING_STATUS.IN_PROGRESS,
+          COMPLETED: MEETING_STATUS.COMPLETED,
+          CANCELLED: MEETING_STATUS.CANCELLED,
+        } satisfies Record<string, number>)[query.status]
+      : undefined;
+    const conditions = [
+      ids ? inArray(meetings.id, ids) : undefined,
+      statusId ? eq(meetings.meetingStatusId, statusId) : undefined,
+      query.meetingTypeId ? eq(meetings.meetingTypeId, query.meetingTypeId) : undefined,
+      query.search
+        ? or(
+            ilike(meetings.meetingNo, `%${query.search}%`),
+            ilike(meetings.title, `%${query.search}%`),
+            ilike(users.firstName, `%${query.search}%`),
+            ilike(users.lastName, `%${query.search}%`),
+          )
+        : undefined,
+    ].filter((condition): condition is NonNullable<typeof condition> => Boolean(condition));
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` })
+      .from(meetings)
+      .leftJoin(users, eq(users.userId, meetings.createdBy))
+      .where(where);
+    const sortColumn = query.sortBy === "meetingNo"
+      ? meetings.meetingNo
+      : query.sortBy === "status"
+        ? meetings.meetingStatusId
+        : meetings.meetingDate;
+    const sortOrder = query.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
     const rows = await db.select({ id: meetings.id }).from(meetings)
-      .where(ids ? inArray(meetings.id, ids) : undefined)
-      .orderBy(desc(meetings.meetingDate));
-    return Promise.all(rows.map((row) => meetingRow(row.id)));
+      .leftJoin(users, eq(users.userId, meetings.createdBy))
+      .where(where)
+      .orderBy(sortOrder, asc(meetings.id))
+      .limit(query.limit)
+      .offset((query.page - 1) * query.limit);
+    const totalCount = Number(total);
+    return {
+      data: await Promise.all(rows.map((row) => meetingRow(row.id))),
+      pagination: {
+        page: query.page,
+        limit: query.limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / query.limit),
+      },
+    };
   },
 
   async getMeetingById(id: string, user: UserContext) {
@@ -512,7 +605,7 @@ export const meetingService = {
     const expectedStatus = boardExpectedStatus(meeting.meetingTypeId);
     return db.select({
       id: projects.id, projectCode: projects.projectCode, projectName: projects.projectName,
-      latestApprovedBudget: projects.latestApprovedBudget, projectStatusId: projects.projectStatusId,
+      latestRequestedBudget: projects.latestRequestedBudget, projectStatusId: projects.projectStatusId,
     }).from(projects).where(and(
       eq(projects.projectStatusId, expectedStatus), isNull(projects.deletedAt),
       sql`not exists (
@@ -542,13 +635,12 @@ export const meetingService = {
         if (existing) throw new HTTPException(409, { message: "A resolution already exists for this agenda" });
 
         const outcome = resolutionOutcome(context.meeting.meetingTypeId, data.resolutionType);
-        const exactBudget = context.meeting.meetingTypeId === MEETING_TYPE.BIG_BOARD
-          ? await getExactProposalBudget(tx, context.project.id, true)
-          : undefined;
+        const governedProposal = await getLatestSubmittedProposal(tx, context.project.id, true);
         const now = new Date();
         const resolutionId = uuidv7();
         const [resolution] = await tx.insert(resolutions).values({
           id: resolutionId, agendaId, resolutionStatusId: RESOLUTION_LEGACY_STATUS_ID[data.resolutionType],
+          governedProposalId: governedProposal.id,
           resolutionType: data.resolutionType, comment: data.remark ?? null, remark: data.remark ?? null,
           recordedBy: user.userId, resolvedAt: now, version: 1, createdAt: now, updatedAt: now,
         }).returning();
@@ -559,7 +651,8 @@ export const meetingService = {
           remark: data.remark, sourceOperation: "BOARD_RESOLUTION_CREATED",
           meetingId, agendaId, resolutionId,
           returnStage: outcome.returnStage,
-          latestApprovedBudget: exactBudget,
+          finalApprovedBudget: outcome.successfulBigBoard ? governedProposal.requestedBudgetTotal : undefined,
+          finalEstimatedCost: outcome.successfulBigBoard ? governedProposal.estimatedCostTotal : undefined,
         });
 
         if (outcome.returnStage) {
@@ -607,9 +700,22 @@ export const meetingService = {
       }
 
       const nextOutcome = resolutionOutcome(context.meeting.meetingTypeId, data.resolutionType);
-      const exactBudget = context.meeting.meetingTypeId === MEETING_TYPE.BIG_BOARD
-        ? await getExactProposalBudget(tx, context.project.id, true)
-        : context.project.latestApprovedBudget;
+      const governedProposal = await getProposalSnapshot(tx, current.governedProposalId, context.project.id, true);
+      let newFinalApprovedBudget = context.project.finalApprovedBudget;
+      let newFinalEstimatedCost = context.project.finalEstimatedCost;
+      if (context.meeting.meetingTypeId === MEETING_TYPE.BIG_BOARD) {
+        if (nextOutcome.successfulBigBoard) {
+          newFinalApprovedBudget = governedProposal.requestedBudgetTotal;
+          newFinalEstimatedCost = governedProposal.estimatedCostTotal;
+        } else {
+          const earlierProposalId = await getEarlierSuccessfulBoardProposal(tx, context.project.id, current.id);
+          const earlierProposal = earlierProposalId
+            ? await getProposalSnapshot(tx, earlierProposalId, context.project.id, true)
+            : null;
+          newFinalApprovedBudget = earlierProposal?.requestedBudgetTotal ?? null;
+          newFinalEstimatedCost = earlierProposal?.estimatedCostTotal ?? null;
+        }
+      }
       const nextVersion = current.version + 1;
       const now = new Date();
       const [updated] = await tx.update(resolutions).set({
@@ -625,7 +731,8 @@ export const meetingService = {
         remark: data.remark, sourceOperation: mode,
         meetingId, agendaId, resolutionId: current.id,
         returnStage: nextOutcome.returnStage,
-        latestApprovedBudget: exactBudget,
+        finalApprovedBudget: context.meeting.meetingTypeId === MEETING_TYPE.BIG_BOARD ? newFinalApprovedBudget : undefined,
+        finalEstimatedCost: context.meeting.meetingTypeId === MEETING_TYPE.BIG_BOARD ? newFinalEstimatedCost : undefined,
       });
 
       const [{ count }] = await tx.select({ count: sql<number>`count(*)::int` }).from(meetingResolutionRevisions).where(eq(meetingResolutionRevisions.resolutionId, current.id));
@@ -634,15 +741,19 @@ export const meetingService = {
         previousResolutionType: current.resolutionType, newResolutionType: data.resolutionType,
         previousRemark: current.remark ?? current.comment, newRemark: data.remark ?? null,
         previousProjectStatusId: previousOutcome.statusId, newProjectStatusId: nextOutcome.statusId,
-        previousLatestApprovedBudget: context.project.latestApprovedBudget,
-        newLatestApprovedBudget: exactBudget,
+        previousLatestApprovedBudget: context.project.latestRequestedBudget,
+        newLatestApprovedBudget: context.project.latestRequestedBudget,
+        previousFinalApprovedBudget: context.project.finalApprovedBudget,
+        newFinalApprovedBudget,
+        previousFinalEstimatedCost: context.project.finalEstimatedCost,
+        newFinalEstimatedCost,
         reason: "reason" in data ? data.reason : null,
         changedBy: user.userId, changeMode: mode, changedAt: now,
       });
       if (nextOutcome.returnStage) {
         await persistRestoredDraft(tx, { id: context.project.id, ownerId: context.project.ownerId, projectName: context.project.projectName }, user.userId);
       }
-      await audit(tx, { actorId: user.userId, action: mode, entityType: "RESOLUTION", entityId: current.id, reason: "reason" in data ? data.reason : data.remark, metadata: { previousOutcome, nextOutcome, previousBudget: context.project.latestApprovedBudget, nextBudget: exactBudget } });
+      await audit(tx, { actorId: user.userId, action: mode, entityType: "RESOLUTION", entityId: current.id, reason: "reason" in data ? data.reason : data.remark, metadata: { previousOutcome, nextOutcome, previousFinalApprovedBudget: context.project.finalApprovedBudget, newFinalApprovedBudget, previousFinalEstimatedCost: context.project.finalEstimatedCost, newFinalEstimatedCost } });
       return updated;
     });
   },

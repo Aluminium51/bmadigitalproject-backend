@@ -10,7 +10,7 @@ test("maps the submitted graph into a complete canonical draft", () => {
       headOfAgency: "หัวหน้าหน่วยงาน",
       dcioName: "ผู้บริหารเทคโนโลยี",
       projectManager: "ผู้จัดการโครงการ",
-      totalBudget: "100000.50",
+      requestedBudgetTotal: "100000.50",
       background: "ข้อมูลความเป็นมาของโครงการที่มีรายละเอียดเพียงพอ",
       objective: "วัตถุประสงค์ของโครงการที่มีรายละเอียดเพียงพอ",
       target: "กลุ่มเป้าหมายของโครงการที่มีรายละเอียดเพียงพอ",
@@ -42,7 +42,7 @@ test("maps the submitted graph into a complete canonical draft", () => {
     cloudVms: [{ id: "old-vm", cloudRequestId: "old-cloud", vmDescription: "VM", osDatabase: "Linux", vcpu: 1, ramGb: 1, gpuGb: 0, storageGb: 10, price: "0" }],
   });
 
-  expect(payload.totalBudget).toBe(100000.5);
+  expect(payload.requestedBudgetTotal).toBe(100000.5);
   expect(payload.projectType).toBe("REPLACEMENT");
   expect(payload.budgetsByYear[0]).not.toHaveProperty("id");
   expect(payload.cloudRequests[0].requestedServiceDate).toBe("2027-01-02");

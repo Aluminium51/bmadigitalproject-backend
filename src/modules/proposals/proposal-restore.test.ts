@@ -10,7 +10,7 @@ test("restores the complete five-step proposal into the editable form shape", ()
       headOfAgency: "หัวหน้าหน่วยงาน",
       dcioName: "ผู้บริหารเทคโนโลยีสารสนเทศ",
       projectManager: "ผู้จัดการโครงการ",
-      totalBudget: "123456.50",
+      requestedBudgetTotal: "123456.50",
       background: "ข้อมูลความเป็นมาของโครงการที่มีรายละเอียดครบถ้วน",
       objective: "วัตถุประสงค์ของโครงการที่มีรายละเอียดครบถ้วน",
       target: "กลุ่มเป้าหมายของโครงการที่มีรายละเอียดครบถ้วน",
@@ -49,7 +49,7 @@ test("restores the complete five-step proposal into the editable form shape", ()
   });
 
   expect(payload.projectType).toBe("REPLACEMENT");
-  expect(payload.totalBudget).toBe(123456.5);
+  expect(payload.requestedBudgetTotal).toBe(123456.5);
   expect(payload.budgetsByYear[0]).toEqual({ year: 2569, amount: 123456.5, budgetType: "งบประมาณรายจ่าย" });
   expect(payload.existingEquipment[0].ageYears).toBe(2.5);
   expect(payload.personnelCoreCosts[0].baseSalary).toBe(25000);

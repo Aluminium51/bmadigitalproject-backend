@@ -54,7 +54,7 @@ export const mockProjectsData = [
     projectStatusId: 15, // Approved
     projectTypeId: 2, // Software
     initialRequestedBudget: "2500000.00",
-    latestApprovedBudget: "2450000.00",
+    latestRequestedBudget: "2450000.00",
     isPublic: false,
   },
   {

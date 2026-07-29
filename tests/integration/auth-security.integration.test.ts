@@ -164,7 +164,7 @@ test("admin cannot assign Super Admin, while an existing Super Admin can", async
   }
 });
 
-test("own profile is scoped to safe fields and proposal access is owner-scoped", async () => {
+test("own profile is scoped to safe fields and proposal access allows same-department collaborators", async () => {
   const context = await getIntegrationContext();
   const records = { userIds: [] as string[], projectIds: [] as string[] };
   const owner = await createTestUser(context.db, { usernamePrefix: "profile-owner" });
@@ -196,7 +196,7 @@ test("own profile is scoped to safe fields and proposal access is owner-scoped",
       method: "GET",
       user: owner.context,
     });
-    expect(otherDraft.response.status).toBe(403);
+    expect(otherDraft.response.status).toBe(200);
   } finally {
     await cleanupTestRecords(context.db, records);
   }

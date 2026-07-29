@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 import { getIntegrationContext } from "../setup/integration";
 import { createTestUser } from "../fixtures/users.fixture";
@@ -81,7 +81,7 @@ test("submit -> cancel submit -> restore -> edit -> resubmit preserves the compl
       ));
 
     expect(cancelledProject?.projectStatusId).toBe(PROJECT_STATUS.DRAFT);
-    expect(remainingSubmitted).toHaveLength(0);
+    expect(remainingSubmitted).toHaveLength(1);
     expect(draft).toBeDefined();
     expect(attachments).toHaveLength(1);
     expect(cancelLogs).toHaveLength(1);
@@ -113,14 +113,14 @@ test("submit -> cancel submit -> restore -> edit -> resubmit preserves the compl
     const editedPayload = {
       ...restoredPayload,
       projectName: "Edited integration project after cancellation",
-      totalBudget: 150000,
+      requestedBudgetTotal: 150000,
       budgetsByYear: [{ ...restoredPayload.budgetsByYear[0], amount: 150000 }],
     };
     await context.proposalService.upsertDraft(project.id, owner.user.userId, {
       currentStep: 5,
       draftPayload: editedPayload,
       projectName: editedPayload.projectName,
-      totalBudget: editedPayload.totalBudget,
+      requestedBudgetTotal: editedPayload.requestedBudgetTotal,
     });
     await context.proposalService.submitProposal(owner.context, {
       ...editedPayload,
@@ -134,7 +134,8 @@ test("submit -> cancel submit -> restore -> edit -> resubmit preserves the compl
     const [resubmittedProposal] = await context.db
       .select()
       .from(context.proposals)
-      .where(eq(context.proposals.projectId, project.id));
+      .where(eq(context.proposals.projectId, project.id))
+      .orderBy(desc(context.proposals.submittedAt), desc(context.proposals.id));
     const resubmittedBudgets = await context.db
       .select()
       .from(context.proposalBudgets)
@@ -156,10 +157,10 @@ test("submit -> cancel submit -> restore -> edit -> resubmit preserves the compl
     expect(resubmittedProject?.projectName).toBe(editedPayload.projectName);
     expect(resubmittedProject?.projectNameOriginal).toBe("Original integration project");
     expect(String(resubmittedProject?.initialRequestedBudget)).toBe("100000.00");
-    expect(String(resubmittedProject?.latestApprovedBudget)).toBe("150000.00");
+    expect(String(resubmittedProject?.latestRequestedBudget)).toBe("150000.00");
     expect(resubmittedProposal?.id).not.toBe(oldProposalId);
     expect(resubmittedProposal?.projectName).toBe(editedPayload.projectName);
-    expect(String(resubmittedProposal?.totalBudget)).toBe("150000.00");
+    expect(String(resubmittedProposal?.requestedBudgetTotal)).toBe("150000.00");
     expect(resubmittedBudgets).toHaveLength(1);
     expect(String(resubmittedBudgets[0].amount)).toBe("150000.00");
     expect(resubmittedTrainings).toHaveLength(1);
