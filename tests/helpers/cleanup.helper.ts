@@ -2,12 +2,12 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   agendas,
   meetingAttachments,
+  meetingResolutionRevisions,
   meetings,
   resolutions,
 } from "../../src/db/schema/meetings";
 import { projectAttachments, projects } from "../../src/db/schema/projects";
 import { projectStatusLogs } from "../../src/db/schema/project_status_logs";
-import { meetingResolutionRevisions } from "../../src/db/schema/meeting_resolution_revisions";
 import { workflowAuditEvents } from "../../src/db/schema/workflow_audit_events";
 import { proposalDrafts } from "../../src/db/schema/proposal_drafts";
 import { proposals } from "../../src/db/schema/proposals";
