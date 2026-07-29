@@ -9,7 +9,7 @@ import { workflowAuditEvents } from "../../db/schema/workflow_audit_events";
 import { projects } from "../../db/schema/projects";
 import { proposalDrafts } from "../../db/schema/proposal_drafts";
 import { proposalBudgets, proposals } from "../../db/schema/proposals";
-import { meetingStatuses, meetingTypes } from "../../db/schema/lookups";
+import { meetingStatuses, meetingTypes, projectStatuses } from "../../db/schema/lookups";
 import { users } from "../../db/schema/users";
 import type { UserContext } from "../../shared/auth/permission.helper";
 import type { PdfCompressor } from "../../shared/app/services";
@@ -26,11 +26,13 @@ import {
 } from "../projects/project-workflow";
 import type {
   CancelMeetingDTO,
+  BulkCreateAgendasDTO,
   CorrectResolutionDTO,
   CreateAgendaDTO,
   CreateMeetingDTO,
   EditResolutionDTO,
   MeetingListQueryDTO,
+  EligibleProjectsQueryDTO,
   RecordResolutionDTO,
   ReorderAgendasDTO,
   TransitionMeetingStatusDTO,
@@ -81,10 +83,61 @@ function isConstraintViolation(error: unknown, code: string) {
   return (error as { code?: unknown } | null)?.code === code;
 }
 
-function boardExpectedStatus(meetingTypeId: number) {
-  if (meetingTypeId === MEETING_TYPE.SMALL_BOARD) return PROJECT_STATUS.PENDING_SMALL_BOARD;
-  if (meetingTypeId === MEETING_TYPE.BIG_BOARD) return PROJECT_STATUS.PENDING_BIG_BOARD;
-  throw new HTTPException(409, { message: "Meeting type is not a supported board stage" });
+const MEETING_FILE_POLICY = {
+  acceptedExtensions: [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png"],
+  acceptedMimeTypes: [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "image/jpeg",
+    "image/png",
+  ],
+  limits: {
+    pdfBytes: 20 * 1024 * 1024,
+    imageBytes: 10 * 1024 * 1024,
+    documentBytes: 25 * 1024 * 1024,
+  },
+};
+
+async function resolveBoardStatus(executor: any, meetingTypeId: number) {
+  const [meetingType] = await executor.select({ code: meetingTypes.code })
+    .from(meetingTypes).where(eq(meetingTypes.id, meetingTypeId)).limit(1);
+  const statusCode = meetingType?.code === "SMALL_BOARD"
+    ? "PROJECT_PENDING_SMALL_BOARD"
+    : meetingType?.code === "BIG_BOARD"
+      ? "PROJECT_PENDING_BIG_BOARD"
+      : null;
+  if (!statusCode) throw new HTTPException(409, { message: "Meeting type is not a supported board stage" });
+  const [status] = await executor.select({ id: projectStatuses.id })
+    .from(projectStatuses).where(eq(projectStatuses.code, statusCode)).limit(1);
+  if (!status) throw new HTTPException(409, { message: `Required project status ${statusCode} is not configured` });
+  return { statusId: status.id, meetingTypeCode: meetingType.code };
+}
+
+function effectiveUploadType(file: File) {
+  const extension = file.name.toLowerCase().split(".").pop();
+  const byExtension: Record<string, string> = {
+    pdf: "application/pdf", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+  };
+  return file.type || (extension ? byExtension[extension] : undefined) || "application/octet-stream";
+}
+
+function validateMeetingFile(file: File) {
+  const contentType = effectiveUploadType(file);
+  const extension = `.${file.name.toLowerCase().split(".").pop() ?? ""}`;
+  if (!MEETING_FILE_POLICY.acceptedExtensions.includes(extension) || !MEETING_FILE_POLICY.acceptedMimeTypes.includes(contentType)) {
+    throw new HTTPException(400, { message: "รองรับเฉพาะไฟล์ PDF, Word, Excel, JPG และ PNG เท่านั้น" });
+  }
+  const limit = contentType === "application/pdf"
+    ? MEETING_FILE_POLICY.limits.pdfBytes
+    : contentType.startsWith("image/")
+      ? MEETING_FILE_POLICY.limits.imageBytes
+      : MEETING_FILE_POLICY.limits.documentBytes;
+  if (file.size > limit) throw new HTTPException(413, { message: `ไฟล์มีขนาดเกิน ${Math.round(limit / 1024 / 1024)} MB` });
 }
 
 export function resolutionOutcome(meetingTypeId: number, resolutionType: ResolutionType) {
@@ -272,8 +325,8 @@ async function assertProjectAssignmentAllowed(executor: any, meeting: { id: stri
   const [project] = await executor.select({ id: projects.id, statusId: projects.projectStatusId })
     .from(projects).where(and(eq(projects.id, projectId), isNull(projects.deletedAt))).for("update").limit(1);
   if (!project) throw new HTTPException(400, { message: "Selected project does not exist" });
-  const expectedStatus = boardExpectedStatus(meeting.meetingTypeId);
-  if (project.statusId !== expectedStatus) {
+  const board = await resolveBoardStatus(executor, meeting.meetingTypeId);
+  if (project.statusId !== board.statusId) {
     throw new HTTPException(409, { message: "Project is not pending for this board stage" });
   }
   const [unresolved] = await executor.select({ agendaId: agendas.id })
@@ -544,6 +597,54 @@ export const meetingService = {
     }
   },
 
+  async bulkCreateAgendas(meetingId: string, data: BulkCreateAgendasDTO, user: UserContext) {
+    assertSecretary(user);
+    if (new Set(data.projectIds).size !== data.projectIds.length) {
+      throw new HTTPException(409, { message: "ไม่สามารถเลือกโครงการซ้ำในชุดเดียวกันได้" });
+    }
+    try {
+      await db.transaction(async (tx) => {
+        const meeting = await lockMeeting(tx, meetingId);
+        await assertAgendaEditable(meeting);
+        const selectedProjects = await tx.select({ id: projects.id, projectName: projects.projectName })
+          .from(projects)
+          .where(and(inArray(projects.id, data.projectIds), isNull(projects.deletedAt)))
+          .orderBy(asc(projects.id))
+          .for("update");
+        if (selectedProjects.length !== data.projectIds.length) {
+          throw new HTTPException(409, { message: "มีโครงการบางรายการไม่พบหรือไม่สามารถใช้งานได้" });
+        }
+        for (const project of selectedProjects) {
+          await assertProjectAssignmentAllowed(tx, meeting, project.id);
+        }
+        const existing = await tx.select({ agendaNumber: agendas.agendaNumber, sortOrder: agendas.sortOrder })
+          .from(agendas).where(eq(agendas.meetingId, meetingId));
+        const usedNumbers = new Set(existing.map((item) => item.agendaNumber));
+        let nextNumber = 1;
+        while (usedNumbers.has(String(nextNumber))) nextNumber += 1;
+        let nextSortOrder = Math.max(0, ...existing.map((item) => item.sortOrder)) + 1;
+        for (const project of selectedProjects) {
+          const agendaNumber = String(nextNumber++);
+          usedNumbers.add(agendaNumber);
+          await tx.insert(agendas).values({
+            id: uuidv7(), meetingId, projectId: project.id,
+            agendaNumber, sortOrder: nextSortOrder++, agendaTypeId: data.agendaTypeId,
+            title: project.projectName?.trim() || "วาระโครงการ", description: null,
+          });
+        }
+        await audit(tx, {
+          actorId: user.userId, action: "AGENDAS_BULK_CREATED", entityType: "MEETING", entityId: meetingId,
+          metadata: { projectIds: selectedProjects.map((project) => project.id), agendaTypeId: data.agendaTypeId },
+        });
+      });
+    } catch (error) {
+      if (error instanceof HTTPException) throw error;
+      if (isConstraintViolation(error, "23505")) throw new HTTPException(409, { message: "มีโครงการที่ถูกเพิ่มในวาระอื่นแล้ว กรุณาโหลดข้อมูลใหม่" });
+      throw error;
+    }
+    return scopedAgendas(meetingId, user);
+  },
+
   async updateAgenda(meetingId: string, agendaId: string, data: UpdateAgendaDTO, user: UserContext) {
     assertSecretary(user);
     return db.transaction(async (tx) => {
@@ -586,6 +687,9 @@ export const meetingService = {
     await db.transaction(async (tx) => {
       const meeting = await lockMeeting(tx, meetingId);
       await assertAgendaEditable(meeting);
+      if (meeting.updatedAt.toISOString() !== data.expectedUpdatedAt) {
+        throw new HTTPException(409, { message: "รายการวาระถูกเปลี่ยนแปลงแล้ว กรุณาโหลดข้อมูลใหม่ก่อนบันทึก" });
+      }
       const ids = data.items.map((item) => item.agendaId);
       const owned = await tx.select({ id: agendas.id }).from(agendas).where(and(eq(agendas.meetingId, meetingId), inArray(agendas.id, ids))).for("update");
       if (owned.length !== ids.length) throw new HTTPException(404, { message: "One or more agendas were not found in this meeting" });
@@ -593,21 +697,20 @@ export const meetingService = {
       for (const item of data.items) {
         await tx.update(agendas).set({ sortOrder: item.sortOrder, updatedAt: new Date() }).where(eq(agendas.id, item.agendaId));
       }
+      await tx.update(meetings).set({ updatedAt: new Date(), updatedBy: user.userId }).where(eq(meetings.id, meetingId));
       await audit(tx, { actorId: user.userId, action: "AGENDAS_REORDERED", entityType: "MEETING", entityId: meetingId, metadata: data.items });
     });
     return scopedAgendas(meetingId, user);
   },
 
-  async eligibleProjects(meetingId: string, user: UserContext) {
+  async eligibleProjects(meetingId: string, query: EligibleProjectsQueryDTO, user: UserContext) {
     assertSecretary(user);
     const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId)).limit(1);
     if (!meeting) throw new HTTPException(404, { message: "Meeting not found" });
-    const expectedStatus = boardExpectedStatus(meeting.meetingTypeId);
-    return db.select({
-      id: projects.id, projectCode: projects.projectCode, projectName: projects.projectName,
-      latestRequestedBudget: projects.latestRequestedBudget, projectStatusId: projects.projectStatusId,
-    }).from(projects).where(and(
-      eq(projects.projectStatusId, expectedStatus), isNull(projects.deletedAt),
+    const board = await resolveBoardStatus(db, meeting.meetingTypeId);
+    const conditions = [
+      eq(projects.projectStatusId, board.statusId),
+      isNull(projects.deletedAt),
       sql`not exists (
         select 1 from agendas a
         join meetings m on m.id = a.meeting_id
@@ -616,9 +719,21 @@ export const meetingService = {
           and m.meeting_type_id = ${meeting.meetingTypeId}
           and m.meeting_status_id <> ${MEETING_STATUS.CANCELLED}
           and r.id is null
-          and m.id <> ${meetingId}
       )`,
-    )).orderBy(asc(projects.projectCode));
+    ];
+    if (query.search) {
+      conditions.push(or(ilike(projects.projectCode, `%${query.search}%`), ilike(projects.projectName, `%${query.search}%`))!);
+    }
+    const sortColumn = query.sortBy === "projectName"
+      ? projects.projectName
+      : query.sortBy === "latestRequestedBudget"
+        ? sql`${projects.latestRequestedBudget}::numeric`
+        : projects.projectCode;
+    const orderBy = query.sortOrder === "desc" ? desc(sortColumn) : asc(sortColumn);
+    return db.select({
+      id: projects.id, projectCode: projects.projectCode, projectName: projects.projectName,
+      latestRequestedBudget: projects.latestRequestedBudget, projectStatusId: projects.projectStatusId,
+    }).from(projects).where(and(...conditions)).orderBy(orderBy, asc(projects.id));
   },
 
   async recordResolution(meetingId: string, agendaId: string, data: RecordResolutionDTO, user: UserContext) {
@@ -629,7 +744,7 @@ export const meetingService = {
         if (context.meeting.meetingStatusId !== MEETING_STATUS.IN_PROGRESS) {
           throw new HTTPException(409, { message: "Resolutions may be recorded only while the meeting is in progress" });
         }
-        const expectedStatus = boardExpectedStatus(context.meeting.meetingTypeId);
+        const expectedStatus = (await resolveBoardStatus(tx, context.meeting.meetingTypeId)).statusId;
         if (context.project.statusId !== expectedStatus) throw new HTTPException(409, { message: "Project is no longer pending for this board" });
         const [existing] = await tx.select({ id: resolutions.id }).from(resolutions).where(eq(resolutions.agendaId, agendaId)).limit(1);
         if (existing) throw new HTTPException(409, { message: "A resolution already exists for this agenda" });
@@ -769,9 +884,16 @@ export const meetingService = {
       .orderBy(desc(meetingResolutionRevisions.revisionNumber));
   },
 
+  async filePolicy(meetingId: string, user: UserContext) {
+    assertSecretary(user);
+    await meetingRow(meetingId);
+    return MEETING_FILE_POLICY;
+  },
+
   async uploadFile(meetingId: string, file: File, documentType: "MEETING_DOCUMENT" | "MEETING_MINUTES", user: UserContext, pdfCompressor: PdfCompressor) {
     assertSecretary(user);
     await meetingRow(meetingId);
+    validateMeetingFile(file);
     const processed = await UploadService.processAndUploadDocument(file, pdfCompressor);
     const id = uuidv7();
     const documentTypeId = documentType === "MEETING_MINUTES" ? 2 : 1;

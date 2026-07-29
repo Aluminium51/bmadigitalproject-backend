@@ -17,6 +17,7 @@ export const ResolutionTypeSchema = z.enum([
   "NOT_CONSIDERED",
 ]);
 export const MeetingDocumentTypeSchema = z.enum(["MEETING_DOCUMENT", "MEETING_MINUTES"]);
+export const EligibleProjectsSortSchema = z.enum(["projectCode", "projectName", "latestRequestedBudget"]);
 
 const DateTimeSchema = z.string().datetime();
 const AgendaTypeIdSchema = z.number().int().min(1).max(5);
@@ -69,6 +70,11 @@ export const MeetingListQuerySchema = z.object({
   sortBy: z.enum(["meetingDate", "meetingNo", "status"]).default("meetingDate"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 }).openapi("MeetingListQuery");
+export const EligibleProjectsQuerySchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  sortBy: EligibleProjectsSortSchema.default("projectCode"),
+  sortOrder: z.enum(["asc", "desc"]).default("asc"),
+}).strict().openapi("EligibleProjectsQuery");
 export const TransitionMeetingStatusSchema = z.object({
   status: z.enum(["SCHEDULED", "IN_PROGRESS", "COMPLETED"]),
 }).strict().openapi("TransitionMeetingStatus");
@@ -112,7 +118,13 @@ export const CreateAgendaSchema = z.object({
 export const UpdateAgendaSchema = CreateAgendaSchema.partial().strict().openapi("UpdateAgenda");
 export const ReorderAgendasSchema = z.object({
   items: z.array(z.object({ agendaId: z.string().uuid(), sortOrder: z.number().int().positive() })).min(1),
+  expectedUpdatedAt: DateTimeSchema,
 }).strict().openapi("ReorderAgendas");
+
+export const BulkCreateAgendasSchema = z.object({
+  projectIds: z.array(z.string().uuid()).min(1).max(100),
+  agendaTypeId: z.number().int().min(3).max(4),
+}).strict().openapi("BulkCreateAgendas");
 
 export const RecordResolutionSchema = z.object({
   resolutionType: ResolutionTypeSchema,
@@ -164,16 +176,28 @@ export const MeetingFileSchema = z.object({
   createdAt: z.union([z.string(), z.date()]),
 }).openapi("MeetingFile");
 
+export const MeetingFilePolicySchema = z.object({
+  acceptedExtensions: z.array(z.string()),
+  acceptedMimeTypes: z.array(z.string()),
+  limits: z.object({
+    pdfBytes: z.number().int(),
+    imageBytes: z.number().int(),
+    documentBytes: z.number().int(),
+  }),
+}).openapi("MeetingFilePolicy");
+
 export const ReopenRejectedProjectSchema = z.object({ reason: z.string().trim().min(1).max(5000) }).strict().openapi("ReopenRejectedProject");
 
 export type CreateMeetingDTO = z.infer<typeof CreateMeetingSchema>;
 export type UpdateMeetingDTO = z.infer<typeof UpdateMeetingSchema>;
 export type MeetingListQueryDTO = z.infer<typeof MeetingListQuerySchema>;
+export type EligibleProjectsQueryDTO = z.infer<typeof EligibleProjectsQuerySchema>;
 export type TransitionMeetingStatusDTO = z.infer<typeof TransitionMeetingStatusSchema>;
 export type CancelMeetingDTO = z.infer<typeof CancelMeetingSchema>;
 export type CreateAgendaDTO = z.infer<typeof CreateAgendaSchema>;
 export type UpdateAgendaDTO = z.infer<typeof UpdateAgendaSchema>;
 export type ReorderAgendasDTO = z.infer<typeof ReorderAgendasSchema>;
+export type BulkCreateAgendasDTO = z.infer<typeof BulkCreateAgendasSchema>;
 export type RecordResolutionDTO = z.infer<typeof RecordResolutionSchema>;
 export type EditResolutionDTO = z.infer<typeof EditResolutionSchema>;
 export type CorrectResolutionDTO = z.infer<typeof CorrectResolutionSchema>;

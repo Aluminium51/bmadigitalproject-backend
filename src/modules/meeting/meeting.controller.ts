@@ -5,6 +5,7 @@ import { getAppServices } from "../../shared/app/services";
 import { meetingService } from "./meeting.service";
 import type {
   CancelMeetingDTO,
+  BulkCreateAgendasDTO,
   CorrectResolutionDTO,
   CreateAgendaDTO,
   CreateMeetingDTO,
@@ -15,6 +16,7 @@ import type {
   UpdateAgendaDTO,
   UpdateMeetingDTO,
   MeetingListQueryDTO,
+  EligibleProjectsQueryDTO,
 } from "./meeting.schema";
 
 export const meetingController = {
@@ -36,14 +38,17 @@ export const meetingController = {
   async cancelMeeting(c: Context, id: string, body: CancelMeetingDTO) {
     return c.json({ data: await meetingService.cancelMeeting(id, body, getUserContext(c)) }, 200);
   },
-  async eligibleProjects(c: Context, id: string) {
-    return c.json({ data: await meetingService.eligibleProjects(id, getUserContext(c)) }, 200);
+  async eligibleProjects(c: Context, id: string, query: EligibleProjectsQueryDTO) {
+    return c.json({ data: await meetingService.eligibleProjects(id, query, getUserContext(c)) }, 200);
   },
   async getAgendas(c: Context, meetingId: string) {
     return c.json({ data: await meetingService.getAgendas(meetingId, getUserContext(c)) }, 200);
   },
   async createAgenda(c: Context, meetingId: string, body: CreateAgendaDTO) {
     return c.json({ data: await meetingService.createAgenda(meetingId, body, getUserContext(c)) }, 201);
+  },
+  async bulkCreateAgendas(c: Context, meetingId: string, body: BulkCreateAgendasDTO) {
+    return c.json({ data: await meetingService.bulkCreateAgendas(meetingId, body, getUserContext(c)) }, 201);
   },
   async updateAgenda(c: Context, meetingId: string, agendaId: string, body: UpdateAgendaDTO) {
     return c.json({ data: await meetingService.updateAgenda(meetingId, agendaId, body, getUserContext(c)) }, 200);
@@ -65,6 +70,9 @@ export const meetingController = {
   },
   async history(c: Context, meetingId: string, agendaId: string) {
     return c.json({ data: await meetingService.resolutionHistory(meetingId, agendaId, getUserContext(c)) }, 200);
+  },
+  async filePolicy(c: Context, meetingId: string) {
+    return c.json({ data: await meetingService.filePolicy(meetingId, getUserContext(c)) }, 200);
   },
   async uploadFile(c: Context, meetingId: string) {
     const body = await c.req.parseBody();

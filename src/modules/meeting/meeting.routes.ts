@@ -5,6 +5,7 @@ import * as projectController from "../projects/project.controller";
 import { ReopenRejectedProjectSchema } from "../projects/project.schema";
 import {
   AgendaSchema,
+  BulkCreateAgendasSchema,
   CancelMeetingSchema,
   CorrectResolutionSchema,
   CreateAgendaSchema,
@@ -26,6 +27,8 @@ import {
   UpdateMeetingSchema,
   MeetingFileSchema,
   MeetingListQuerySchema,
+  EligibleProjectsQuerySchema,
+  MeetingFilePolicySchema,
 } from "./meeting.schema";
 
 const meetingsRouter = new OpenAPIHono();
@@ -73,15 +76,13 @@ meetingsRouter.openapi(createRoute({
 }), (c) => meetingController.cancelMeeting(c, c.req.valid("param").id, c.req.valid("json")));
 
 meetingsRouter.openapi(createRoute({
-  method: "get", path: "/{id}/eligible-projects", tags: ["Meetings", "Agendas"], request: { params: IdParamSchema },
+  method: "get", path: "/{id}/eligible-projects", tags: ["Meetings", "Agendas"],
+  request: { params: IdParamSchema, query: EligibleProjectsQuerySchema },
   responses: { 200: { description: "Eligible projects", content: { "application/json": { schema: z.object({ data: z.array(z.object({
-    id: z.string().uuid(),
-    projectCode: z.string().nullable(),
-    projectName: z.string().nullable(),
-    latestRequestedBudget: z.string().nullable(),
-    projectStatusId: z.number().int(),
+    id: z.string().uuid(), projectCode: z.string().nullable(), projectName: z.string().nullable(),
+    latestRequestedBudget: z.string().nullable(), projectStatusId: z.number().int(),
   })) }) } } }, ...errors },
-}), (c) => meetingController.eligibleProjects(c, c.req.valid("param").id));
+}), (c) => meetingController.eligibleProjects(c, c.req.valid("param").id, c.req.valid("query")));
 
 meetingsRouter.openapi(createRoute({
   method: "get", path: "/{meetingId}/agendas", tags: ["Agendas"], request: { params: MeetingIdParamSchema },
@@ -92,6 +93,12 @@ meetingsRouter.openapi(createRoute({
   method: "post", path: "/{meetingId}/agendas", tags: ["Agendas"], request: { params: MeetingIdParamSchema, body: { content: { "application/json": { schema: CreateAgendaSchema } } } },
   responses: { 201: { description: "Agenda created", content: { "application/json": { schema: z.object({ data: z.any() }) } } }, ...errors },
 }), (c) => meetingController.createAgenda(c, c.req.valid("param").meetingId, c.req.valid("json")));
+
+meetingsRouter.openapi(createRoute({
+  method: "post", path: "/{meetingId}/agendas/bulk", tags: ["Agendas"],
+  request: { params: MeetingIdParamSchema, body: { content: { "application/json": { schema: BulkCreateAgendasSchema } } } },
+  responses: { 201: { description: "Agendas created", content: { "application/json": { schema: z.object({ data: z.array(AgendaSchema) }) } } }, ...errors },
+}), (c) => meetingController.bulkCreateAgendas(c, c.req.valid("param").meetingId, c.req.valid("json")));
 
 meetingsRouter.openapi(createRoute({
   method: "patch", path: "/{meetingId}/agendas/{agendaId}", tags: ["Agendas"], request: { params: MeetingAgendaParamSchema, body: { content: { "application/json": { schema: UpdateAgendaSchema } } } },
@@ -122,6 +129,11 @@ meetingsRouter.openapi(createRoute({
   method: "get", path: "/{meetingId}/agendas/{agendaId}/resolution/history", tags: ["Resolutions"], request: { params: MeetingAgendaParamSchema },
   responses: { 200: { description: "Resolution history", content: { "application/json": { schema: z.object({ data: z.array(ResolutionRevisionSchema) }) } } }, ...errors },
 }), (c) => { const p = c.req.valid("param"); return meetingController.history(c, p.meetingId, p.agendaId); });
+
+meetingsRouter.openapi(createRoute({
+  method: "get", path: "/{meetingId}/files/policy", tags: ["Meeting Files"], request: { params: MeetingIdParamSchema },
+  responses: { 200: { description: "Meeting file policy", content: { "application/json": { schema: z.object({ data: MeetingFilePolicySchema }) } } }, ...errors },
+}), (c) => meetingController.filePolicy(c, c.req.valid("param").meetingId));
 
 meetingsRouter.openapi(createRoute({
   method: "post", path: "/{meetingId}/files", tags: ["Meeting Files"], request: { params: MeetingIdParamSchema, body: { content: { "multipart/form-data": { schema: z.object({ file: z.any(), documentType: MeetingDocumentTypeSchema }) } } } },
