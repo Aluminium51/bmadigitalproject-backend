@@ -35,7 +35,7 @@ type Executor = any;
  * understood by the existing proposal wizard. The operation runs with the
  * transaction executor so the draft can never be created from a partial read.
  */
-async function buildDraftPayload(tx: Executor, proposalId: string) {
+export async function buildDraftPayload(tx: Executor, proposalId: string) {
   const [proposal] = await tx
     .select()
     .from(proposals)

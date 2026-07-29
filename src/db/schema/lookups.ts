@@ -76,26 +76,31 @@ export const deputyGovernors = pgTable("deputy_governors", {
 // ---------------------------------------------------------------------------
 export const meetingStatuses = pgTable("meeting_statuses", {
   id: serial("id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   name: varchar("name", { length: 255 }).notNull().unique(), 
 });
 
 export const meetingTypes = pgTable("meeting_types", {
   id: serial("id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   name: varchar("name", { length: 255 }).notNull().unique(), 
 });
 
 export const meetingAttachmentTypes = pgTable("meeting_attachment_types", {
   id: serial("id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   name: varchar("name", { length: 255 }).notNull().unique(), 
 });
 
 export const agendaTypes = pgTable("agenda_types", {
   id: serial("id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   name: varchar("name", { length: 255 }).notNull().unique(), 
 });
 
 export const resolutionStatuses = pgTable("resolution_statuses", {
   id: serial("id").primaryKey(),
+  code: varchar("code", { length: 64 }).unique(),
   name: varchar("name", { length: 255 }).notNull().unique(), 
   // สถานะแนะนำ: 1=Approved, 2=Need Revision, 3=Rejected, 4=Acknowledged
 });

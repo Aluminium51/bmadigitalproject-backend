@@ -29,6 +29,22 @@ test("a Secretary can manage meetings while a normal user cannot", async () => {
     const meetingId = (created.data as any)?.data?.id;
     expect(meetingId).toBeString();
     records.meetingIds.push(meetingId);
+    expect((created.data as any)?.data?.meetingStatusId).toBe(5);
+
+    for (const status of ["SCHEDULED", "IN_PROGRESS", "COMPLETED"]) {
+      const transition = await requestJson(context.app, `/api/v1/meetings/${meetingId}/status`, {
+        method: "POST",
+        user: secretary.context,
+        body: { status },
+      });
+      expect(transition.response.status).toBe(200);
+    }
+    const terminalTransition = await requestJson(context.app, `/api/v1/meetings/${meetingId}/status`, {
+      method: "POST",
+      user: secretary.context,
+      body: { status: "IN_PROGRESS" },
+    });
+    expect(terminalTransition.response.status).toBe(409);
 
     const normalUserAttempt = await requestJson(context.app, "/api/v1/meetings/", {
       method: "POST",

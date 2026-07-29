@@ -17,6 +17,7 @@ import type {
   AnalystReassignmentDTO,
   AnalystReviewDTO,
   UpdateProjectVisibilityDTO,
+  ReopenRejectedProjectDTO,
 } from "./project.schema";
 
 export const getProjects = async (c: Context, query: any) => {
@@ -166,4 +167,9 @@ export const deleteProject = async (c: Context, id: string) => {
   const user = getUserContext(c); 
   await projectService.removeProject(id, user);
   return c.json({ message: "ลบโครงการสำเร็จ" }, 200);
+};
+
+export const reopenRejectedProject = async (c: Context, id: string, body: ReopenRejectedProjectDTO) => {
+  const project = await projectService.reopenRejectedProject(id, body, getUserContext(c));
+  return c.json({ message: "เปิดโครงการที่ถูกปฏิเสธเพื่อแก้ไขอีกครั้งสำเร็จ", project }, 200);
 };

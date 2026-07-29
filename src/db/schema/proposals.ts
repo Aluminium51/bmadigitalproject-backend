@@ -39,7 +39,7 @@ export const proposals = pgTable("proposals", {
   id: uuid("id").primaryKey(),
   status: proposalStatusEnum("status").default("draft").notNull(),
   
-  projectId: uuid("project_id").references(() => projects.id).unique(), 
+  projectId: uuid("project_id").references(() => projects.id),
   userId: uuid("user_id").references(() => users.userId).notNull(),
   updatedBy: uuid("updated_by").references(() => users.userId),
   version: integer("version").default(1), 

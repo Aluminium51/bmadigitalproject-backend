@@ -1,6 +1,6 @@
 // src/modules/proposals/proposal.service.ts
 import { db } from "../../db";
-import { and, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import {
   proposals,
   proposalBudgets,
@@ -236,6 +236,7 @@ export const proposalService = {
     try {
       const proposal = await db.query.proposals.findFirst({
         where: eq(proposals.projectId, projectId),
+        orderBy: (proposal, { desc }) => [desc(proposal.updatedAt), desc(proposal.id)],
         with: {
           budgets: true,
           relatedProjects: true,
@@ -307,7 +308,8 @@ export const proposalService = {
     const [existing] = await db
       .select({ id: proposals.id, projectId: proposals.projectId })
       .from(proposals)
-      .where(eq(proposals.projectId, projectId))
+      .where(and(eq(proposals.projectId, projectId), eq(proposals.status, "submitted")))
+      .orderBy(desc(proposals.updatedAt), desc(proposals.id))
       .limit(1);
 
     if (!existing) {
@@ -374,7 +376,13 @@ export const proposalService = {
 
     return await db.transaction(async (tx) => {
       const [lockedProject] = await tx
-        .select({ id: projects.id, ownerId: projects.userId, statusId: projects.projectStatusId })
+        .select({
+          id: projects.id,
+          ownerId: projects.userId,
+          statusId: projects.projectStatusId,
+          analystId: projects.analystId,
+          returnStage: projects.returnStage,
+        })
         .from(projects)
         .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
         .for("update")
@@ -443,9 +451,6 @@ export const proposalService = {
         id: uuidv7(),
         projectId: data.projectId,
         ...mainProposalData
-      }).onConflictDoUpdate({
-        target: proposals.projectId, // 🌟 ต้องมี Unique constraint ที่ projectId เสมอ
-        set: mainProposalData
       }).returning({ id: proposals.id });
 
       const proposalId = upsertedProposal.id;

@@ -1,6 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
 import { cors } from "hono/cors";
+import { trimTrailingSlash } from "hono/trailing-slash";
 import { HTTPException } from "hono/http-exception";
 import uploadRoutes from "./modules/uploads/upload.routes";
 import userRoutesV1 from "./modules/users/user.routes";
@@ -9,7 +10,10 @@ import healthRoutes from "./modules/health/health.routes";
 import projectRoutes from "./modules/projects/project.routes";
 import publicProjectRoutes from "./modules/projects/public-project.routes";
 import proposalRoutes from "./modules/proposals/proposal.routes";
-import meetingRoutes from "./modules/meeting/meeting.routes";
+import meetingRoutes, { meetingAdminRouter } from "./modules/meeting/meeting.routes";
+import { meetingController } from "./modules/meeting/meeting.controller";
+import { CreateMeetingSchema } from "./modules/meeting/meeting.schema";
+import { authMiddleware } from "./middlewares/auth.middleware";
 import internalRoutes from "./modules/internal/internal.routes";
 import lookupRoutes from "./modules/lookups/lookup.routes";
 import { startCronJobs } from "./jobs/cron";
@@ -35,6 +39,7 @@ export function createApp(options: CreateAppOptions = {}) {
   };
 
   const app = new OpenAPIHono<{ Variables: { appServices: AppServices } }>();
+  app.use("*", trimTrailingSlash());
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) {
@@ -66,6 +71,14 @@ export function createApp(options: CreateAppOptions = {}) {
   v1.route("/public", publicProjectRoutes);
   v1.route("/proposals", proposalRoutes);
   v1.route("/meetings", meetingRoutes);
+  // Compatibility for clients that retained a trailing slash on the collection
+  // route. Canonical OpenAPI remains POST /meetings.
+  v1.post("/meetings/", authMiddleware, async (c) => {
+    const parsed = CreateMeetingSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ message: "Invalid meeting request" }, 400);
+    return meetingController.createMeeting(c, parsed.data);
+  });
+  v1.route("/admin", meetingAdminRouter);
   v1.route("/internal", internalRoutes);
   v1.route("/lookups", lookupRoutes);
   app.route("/api/v1", v1);

@@ -7,11 +7,11 @@ import {
 } from "./data/organization-lookup-data";
 
 export const agendaTypeSeedData = [
-  { id: 1, name: "Chairman's Announcements" },
-  { id: 2, name: "Adoption of Minutes" },
-  { id: 3, name: "Matters Arising / Follow-up" },
-  { id: 4, name: "Matters for Consideration" },
-  { id: 5, name: "Any Other Business" },
+  { id: 1, code: "FOR_INFORMATION", name: "Chairman's Announcements" },
+  { id: 2, code: "APPROVE_MINUTES", name: "Adoption of Minutes" },
+  { id: 3, code: "FOLLOW_UP", name: "Matters Arising / Follow-up" },
+  { id: 4, code: "FOR_CONSIDERATION", name: "Matters for Consideration" },
+  { id: 5, code: "OTHER", name: "Any Other Business" },
 ];
 
 export const seedData = {
@@ -95,32 +95,34 @@ mockUsers: [
     { id: 7, code: "PROJECT_RETURNED_ANALYST", statusName: "Returned by Analyst" },
     { id: 8, code: "PROJECT_REJECTED_ANALYST", statusName: "Rejected by Analyst" },
     { id: 9, code: "PROJECT_PENDING_SMALL_BOARD", statusName: "Pending Small Board" },
-    { id: 10, code: "PROJECT_RETURNED_SMALL_BOARD", statusName: "Returned by Small Board" },
-    { id: 11, code: "PROJECT_REJECTED_SMALL_BOARD", statusName: "Rejected by Small Board" },
+    { id: 10, code: "PROJECT_RETURNED_FROM_SMALL_BOARD", statusName: "Returned from Small Board" },
+    { id: 11, code: "PROJECT_REJECTED_BY_SMALL_BOARD", statusName: "Rejected by Small Board" },
     { id: 12, code: "PROJECT_PENDING_BIG_BOARD", statusName: "Pending Big Board" },
-    { id: 13, code: "PROJECT_RETURNED_BIG_BOARD", statusName: "Returned by Big Board" },
-    { id: 14, code: "PROJECT_REJECTED_BIG_BOARD", statusName: "Rejected by Big Board" },
+    { id: 13, code: "PROJECT_RETURNED_FROM_BIG_BOARD", statusName: "Returned from Big Board" },
+    { id: 14, code: "PROJECT_REJECTED_BY_BIG_BOARD", statusName: "Rejected by Big Board" },
     { id: 15, code: "PROJECT_APPROVED", statusName: "Approved" },
+    { id: 16, code: "PROJECT_ACKNOWLEDGED", statusName: "Acknowledged" },
   ],
 
   projectAttachmentTypes: PROJECT_ATTACHMENT_TYPES,
 
   meetingStatuses: [
-    { id: 1, name: "Scheduled (รอการประชุม)" },
-    { id: 2, name: "In Progress (กำลังดำเนินการ)" },
-    { id: 3, name: "Completed (เสร็จสิ้น)" },
-    { id: 4, name: "Cancelled (ยกเลิก)" }
+    { id: 1, code: "SCHEDULED", name: "Scheduled" },
+    { id: 2, code: "IN_PROGRESS", name: "In Progress" },
+    { id: 3, code: "COMPLETED", name: "Completed" },
+    { id: 4, code: "CANCELLED", name: "Cancelled" },
+    { id: 5, code: "DRAFT", name: "Draft" },
   ],
 
   meetingTypes: [
-    { id: 1, name: "คณะกรรมการกลั่นกรอง (Small Board)" },
-    { id: 2, name: "คณะกรรมการนโยบาย (Big Board)" }
+    { id: 1, code: "SMALL_BOARD", name: "Small Board" },
+    { id: 2, code: "BIG_BOARD", name: "Big Board" },
   ],
 
   meetingAttachmentTypes: [
-    { id: 1, name: "ระเบียบวาระการประชุม" },
-    { id: 2, name: "รายงานการประชุม" },
-    { id: 3, name: "เอกสารประกอบการพิจารณา" }
+    { id: 1, code: "MEETING_DOCUMENT", name: "Meeting Document" },
+    { id: 2, code: "MEETING_MINUTES", name: "Meeting Minutes" },
+    { id: 3, code: "SUPPORTING_DOCUMENT", name: "Supporting Document" },
   ],
 
   agendaTypes: [
@@ -131,10 +133,12 @@ mockUsers: [
   ],
 
   resolutionStatuses: [
-    { id: 1, name: "Approved (อนุมัติ)" },
-    { id: 2, name: "Need Revision (ให้แก้ไข)" },
-    { id: 3, name: "Rejected (ไม่อนุมัติ)" },
-    { id: 4, name: "Acknowledged (รับทราบ)" },
-    { id: 5, name: "Pending (รอการพิจารณา)" }
+    { id: 1, code: "APPROVED", name: "Approved" },
+    { id: 2, code: "CONDITIONAL_APPROVAL", name: "Conditional Approval" },
+    { id: 3, code: "NOT_APPROVED", name: "Not Approved" },
+    { id: 4, code: "ACKNOWLEDGED", name: "Acknowledged" },
+    { id: 5, code: "PENDING_LEGACY", name: "Pending (Legacy)" },
+    { id: 6, code: "RECONSIDER", name: "Reconsider" },
+    { id: 7, code: "NOT_CONSIDERED", name: "Not Considered" },
   ]
 };

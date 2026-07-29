@@ -42,18 +42,26 @@ export const ProjectSchema = z.object({
   projectCode: z.string().nullable().openapi({ example: 'BMA-69-0001' }),
   userId: z.string().uuid().openapi({ example: '550e8400-e29b-41d4-a716-446655440000' }),
   divisionId: z.number().openapi({ example: 12 }),
+
   projectStatusId: z.number().nullable().openapi({ example: 1 }),
+  returnStage: z.enum(['SMALL_BOARD', 'BIG_BOARD']).nullable(),
+  workflowVersion: z.number().int(),
   projectTypeId: z.number().nullable().openapi({ example: 2 }),
+
   fourQuadrantsId: z.number().nullable().openapi({ example: 1 }),
   deputyGovernorId: z.number().nullable().openapi({ example: 3 }),
   externalTaskId: z.string().nullable().openapi({ example: null }),
+
   projectName: z.string().nullable().openapi({ example: 'โครงการพัฒนาระบบให้บริการประชาชน' }),
   projectNameOriginal: z.string().nullable().openapi({ example: 'โครงการพัฒนาระบบให้บริการประชาชน' }),
   initialRequestedBudget: z.string().nullable().openapi({ example: '5000000.00' }),
   latestApprovedBudget: z.string().nullable().openapi({ example: '4500000.00' }),
+
   analystId: z.string().uuid().nullable().openapi({ example: null }),
+  assignedAnalystId: z.string().uuid().nullable().optional().openapi({ example: null }),
   assignedBy: z.string().uuid().nullable().openapi({ example: null }),
   assignedAt: z.union([z.string(), z.date()]).nullable().openapi({ type: 'string', format: 'date-time', example: null }),
+
   isPublic: z.boolean().openapi({ example: false }),
   publicToken: z.string().nullable().openapi({ example: null }),
   createdAt: z.union([z.string(), z.date()]).openapi({ type: 'string', format: 'date-time' }),
@@ -314,6 +322,10 @@ export const PaginatedPublicProjectResponseSchema = z.object({
   }),
 }).openapi('PaginatedPublicProjectResponse');
 
+export const ReopenRejectedProjectSchema = z.object({
+  reason: z.string().trim().min(1).max(5000),
+}).strict().openapi('ReopenRejectedProjectRequest');
+
 export type CreateProjectDTO = z.infer<typeof CreateProjectSchema>;
 export type UpdateProjectDTO = z.infer<typeof UpdateProjectSchema>;
 export type UpdateProjectStatusDTO = z.infer<typeof UpdateProjectStatusSchema>;
@@ -329,3 +341,4 @@ export type AnalystAssignedProjectQueryDTO = z.infer<typeof AnalystAssignedProje
 export type AnalystReassignmentDTO = z.infer<typeof AnalystReassignmentRequestSchema>;
 export type AnalystReviewDTO = z.infer<typeof AnalystReviewRequestSchema>;
 export type ProjectQueryDTO = z.infer<typeof ProjectQuerySchema>;
+export type ReopenRejectedProjectDTO = z.infer<typeof ReopenRejectedProjectSchema>;

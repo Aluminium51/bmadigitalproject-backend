@@ -19,6 +19,7 @@ import { agendas, meetingAttachments } from "../../db/schema/meetings";
 import { proposals } from "../../db/schema/proposals";
 import { proposalDrafts } from "../../db/schema/proposal_drafts";
 import { projectStatusLogs } from "../../db/schema/project_status_logs";
+import { workflowAuditEvents } from "../../db/schema/workflow_audit_events";
 import { HTTPException } from "hono/http-exception";
 import type {
   AssignProjectDTO,
@@ -36,6 +37,7 @@ import type {
   ProjectQueryDTO,
   UpdateProjectVisibilityDTO,
   PublicProjectQueryDTO,
+  ReopenRejectedProjectDTO,
 } from "./project.schema";
 import {
   divisions,
@@ -59,6 +61,9 @@ import {
 import { basename, join } from "node:path";
 import { unlink } from "node:fs/promises";
 import { appEnv } from "@/config/app-env";
+import { buildDraftPayload } from "./project-cancel.service";
+import { submitProposalSchema } from "../proposals/proposal.schema";
+import { sumProposalBudgets } from "../proposals/proposal-budget.util";
 
 const UPLOAD_STORAGE_DIR = appEnv.UPLOAD_STORAGE_DIR;
 
@@ -141,6 +146,7 @@ const getBaseProjectQuery = () => {
 const mapJoinedProject = (row: any) => {
   return {
     ...row.project,
+    assignedAnalystId: row.project.analystId ?? null,
     division: row.division?.id
       ? {
           id: row.division.id,
@@ -190,8 +196,8 @@ const normalizeProjectStatusIds = (value: unknown): number[] | undefined => {
 
   const statusIds = [...new Set(tokens.map(Number))];
   if (
-    statusIds.length > 15 ||
-    statusIds.some((statusId) => !Number.isInteger(statusId) || statusId < 1 || statusId > 15)
+    statusIds.length > 16 ||
+    statusIds.some((statusId) => !Number.isInteger(statusId) || statusId < 1 || statusId > 16)
   ) {
     throw new HTTPException(400, {
       message: "statusIds must contain between 1 and 15 valid status IDs",
@@ -758,7 +764,9 @@ export const reviewAnalystProject = async (
   }
 
   const newStatusId = data.decision === "approve"
-    ? PROJECT_STATUS.PENDING_SMALL_BOARD
+    ? project.returnStage === "BIG_BOARD"
+      ? PROJECT_STATUS.PENDING_BIG_BOARD
+      : PROJECT_STATUS.PENDING_SMALL_BOARD
     : data.decision === "return"
       ? PROJECT_STATUS.RETURNED_ANALYST
       : PROJECT_STATUS.REJECTED_ANALYST;
@@ -771,6 +779,8 @@ export const reviewAnalystProject = async (
       oldStatusId: PROJECT_STATUS.IN_ANALYSIS,
       newStatusId,
       remark,
+      sourceOperation: "ANALYST_REVIEW",
+      clearReturnStage: data.decision === "approve" && Boolean(project.returnStage),
     });
   });
 
@@ -1013,6 +1023,24 @@ export const updateProjectStatus = async (
   user: UserContext,
 ) => {
   const project = await findProjectById(id, user);
+  const meetingManagedStatuses = new Set<number>([
+    PROJECT_STATUS.PENDING_SMALL_BOARD,
+    PROJECT_STATUS.RETURNED_FROM_SMALL_BOARD,
+    PROJECT_STATUS.REJECTED_BY_SMALL_BOARD,
+    PROJECT_STATUS.PENDING_BIG_BOARD,
+    PROJECT_STATUS.RETURNED_FROM_BIG_BOARD,
+    PROJECT_STATUS.REJECTED_BY_BIG_BOARD,
+    PROJECT_STATUS.APPROVED,
+    PROJECT_STATUS.ACKNOWLEDGED,
+  ]);
+  if (
+    meetingManagedStatuses.has(project.projectStatusId) ||
+    meetingManagedStatuses.has(data.projectStatusId)
+  ) {
+    throw new HTTPException(409, {
+      message: "Board-managed statuses must be changed through meeting resolutions or the audited reopening action",
+    });
+  }
 
   const normalizedRoles = normalizedUserRoles(user);
   const isPrivileged = normalizedRoles.some((role) => ["admin", "super_admin"].includes(role));
@@ -1331,7 +1359,7 @@ export const getPublicProjects = async (queryParams: PublicProjectQueryDTO) => {
   const offset = (page - 1) * limit;
   const conditions: SQL[] = [
     eq(projects.isPublic, true),
-    eq(projects.projectStatusId, PROJECT_STATUS.APPROVED),
+    inArray(projects.projectStatusId, [PROJECT_STATUS.APPROVED, PROJECT_STATUS.ACKNOWLEDGED]),
     isNull(projects.deletedAt),
   ];
 
@@ -1402,11 +1430,92 @@ export const getPublicProjectById = async (id: string) => {
     .where(and(
       eq(projects.id, id),
       eq(projects.isPublic, true),
-      eq(projects.projectStatusId, PROJECT_STATUS.APPROVED),
+      inArray(projects.projectStatusId, [PROJECT_STATUS.APPROVED, PROJECT_STATUS.ACKNOWLEDGED]),
       isNull(projects.deletedAt),
     ))
     .limit(1);
 
   if (!row) throw new HTTPException(404, { message: "Public project not found" });
   return mapPublicProject(row);
+};
+
+export const reopenRejectedProject = async (
+  id: string,
+  data: ReopenRejectedProjectDTO,
+  user: UserContext,
+) => {
+  if (!hasRole(user, "super_admin")) {
+    throw new HTTPException(403, { message: "Only Super Admin may reopen a board-rejected project" });
+  }
+
+  await db.transaction(async (tx) => {
+    const [project] = await tx.select({
+      id: projects.id,
+      ownerId: projects.userId,
+      statusId: projects.projectStatusId,
+      analystId: projects.analystId,
+      projectName: projects.projectName,
+    }).from(projects).where(and(eq(projects.id, id), isNull(projects.deletedAt))).for("update").limit(1);
+    if (!project) throw new HTTPException(404, { message: "Project not found" });
+
+    const isSmall = project.statusId === PROJECT_STATUS.REJECTED_BY_SMALL_BOARD;
+    const isBig = project.statusId === PROJECT_STATUS.REJECTED_BY_BIG_BOARD;
+    if (!isSmall && !isBig) {
+      throw new HTTPException(409, { message: "Only projects rejected by a board can be reopened" });
+    }
+    if (!project.analystId) {
+      throw new HTTPException(409, { message: "Rejected project has no assigned Analyst to preserve" });
+    }
+
+    const [proposal] = await tx.select({ id: proposals.id }).from(proposals)
+      .where(and(eq(proposals.projectId, id), eq(proposals.status, "submitted")))
+      .orderBy(desc(proposals.updatedAt), desc(proposals.id)).for("update").limit(1);
+    if (!proposal) throw new HTTPException(409, { message: "Submitted proposal history was not found" });
+
+    const restored = await buildDraftPayload(tx, proposal.id);
+    const payload = { ...restored, projectName: project.projectName ?? restored.projectName };
+    const validated = submitProposalSchema.safeParse(payload);
+    if (!validated.success) {
+      throw new HTTPException(409, { message: "Historical proposal cannot be restored as an editable draft" });
+    }
+    const budget = sumProposalBudgets(validated.data.budgetsByYear.length
+      ? validated.data.budgetsByYear
+      : [{ amount: validated.data.totalBudget }]);
+    const now = new Date();
+    const [draft] = await tx.insert(proposalDrafts).values({
+      id: uuidv7(), projectId: id, userId: project.ownerId,
+      projectName: payload.projectName, objective: payload.objective,
+      totalBudget: budget, currentStep: 1, draftPayload: validated.data,
+      updatedBy: user.userId, updatedAt: now,
+    }).onConflictDoUpdate({
+      target: proposalDrafts.projectId,
+      set: {
+        userId: project.ownerId, projectName: payload.projectName,
+        objective: payload.objective, totalBudget: budget, currentStep: 1,
+        draftPayload: validated.data, updatedBy: user.userId, updatedAt: now,
+      },
+    }).returning({ id: proposalDrafts.id, draftPayload: proposalDrafts.draftPayload });
+    if (!draft || !submitProposalSchema.safeParse(draft.draftPayload).success) {
+      throw new HTTPException(409, { message: "Restored proposal draft failed verification" });
+    }
+
+    const targetStatus = isSmall
+      ? PROJECT_STATUS.RETURNED_FROM_SMALL_BOARD
+      : PROJECT_STATUS.RETURNED_FROM_BIG_BOARD;
+    const returnStage = isSmall ? "SMALL_BOARD" as const : "BIG_BOARD" as const;
+    await applyProjectStatusTransition(tx, {
+      projectId: id, userId: user.userId, oldStatusId: project.statusId,
+      newStatusId: targetStatus, remark: data.reason,
+      sourceOperation: "SUPER_ADMIN_REOPEN_REJECTED",
+      returnStage,
+    });
+    await tx.insert(workflowAuditEvents).values({
+      actorId: user.userId, action: "PROJECT_REOPENED_AFTER_BOARD_REJECTION",
+      entityType: "PROJECT", entityId: id, reason: data.reason,
+      metadata: { previousStatusId: project.statusId, newStatusId: targetStatus, returnStage, analystId: project.analystId },
+      createdAt: now,
+    });
+  });
+
+  return findProjectById(id, user);
 };

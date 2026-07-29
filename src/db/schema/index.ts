@@ -5,4 +5,6 @@ export * from "./projects";
 export * from "./proposal_drafts";
 export * from "./proposals";
 export * from "./meetings";
+export * from "./meeting_resolution_revisions";
+export * from "./workflow_audit_events";
 export * from "./project_status_logs";

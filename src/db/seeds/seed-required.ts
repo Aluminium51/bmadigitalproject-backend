@@ -300,8 +300,8 @@ async function seedRequiredData() {
       where: eq(meetingStatuses.id, item.id),
     });
     if (!existing) await db.insert(meetingStatuses).values(item);
-    else if (existing.name !== item.name) {
-      await db.update(meetingStatuses).set({ name: item.name }).where(eq(meetingStatuses.id, item.id));
+    else if (existing.name !== item.name || existing.code !== item.code) {
+      await db.update(meetingStatuses).set({ name: item.name, code: item.code }).where(eq(meetingStatuses.id, item.id));
     }
   }
 
@@ -310,8 +310,8 @@ async function seedRequiredData() {
       where: eq(meetingTypes.id, item.id),
     });
     if (!existing) await db.insert(meetingTypes).values(item);
-    else if (existing.name !== item.name) {
-      await db.update(meetingTypes).set({ name: item.name }).where(eq(meetingTypes.id, item.id));
+    else if (existing.name !== item.name || existing.code !== item.code) {
+      await db.update(meetingTypes).set({ name: item.name, code: item.code }).where(eq(meetingTypes.id, item.id));
     }
   }
 
@@ -320,8 +320,8 @@ async function seedRequiredData() {
       where: eq(meetingAttachmentTypes.id, item.id),
     });
     if (!existing) await db.insert(meetingAttachmentTypes).values(item);
-    else if (existing.name !== item.name) {
-      await db.update(meetingAttachmentTypes).set({ name: item.name }).where(eq(meetingAttachmentTypes.id, item.id));
+    else if (existing.name !== item.name || existing.code !== item.code) {
+      await db.update(meetingAttachmentTypes).set({ name: item.name, code: item.code }).where(eq(meetingAttachmentTypes.id, item.id));
     }
   }
 
@@ -330,8 +330,8 @@ async function seedRequiredData() {
       where: eq(agendaTypes.id, item.id),
     });
     if (!existing) await db.insert(agendaTypes).values(item);
-    else if (existing.name !== item.name) {
-      await db.update(agendaTypes).set({ name: item.name }).where(eq(agendaTypes.id, item.id));
+    else if (existing.name !== item.name || existing.code !== item.code) {
+      await db.update(agendaTypes).set({ name: item.name, code: item.code }).where(eq(agendaTypes.id, item.id));
     }
   }
 
@@ -340,8 +340,8 @@ async function seedRequiredData() {
       where: eq(resolutionStatuses.id, item.id),
     });
     if (!existing) await db.insert(resolutionStatuses).values(item);
-    else if (existing.name !== item.name) {
-      await db.update(resolutionStatuses).set({ name: item.name }).where(eq(resolutionStatuses.id, item.id));
+    else if (existing.name !== item.name || existing.code !== item.code) {
+      await db.update(resolutionStatuses).set({ name: item.name, code: item.code }).where(eq(resolutionStatuses.id, item.id));
     }
   }
 }

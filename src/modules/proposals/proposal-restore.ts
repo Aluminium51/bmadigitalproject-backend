@@ -1,4 +1,5 @@
 type ProposalRow = Record<string, any>;
+import { sumProposalBudgets } from "./proposal-budget.util";
 
 const FOOD_DEFAULTS = [
   { itemName: "PARTIAL_MEAL", mealsCount: 0, ratePerMeal: 0, traineesCount: 0, days: 0 },
@@ -217,7 +218,7 @@ export function mapSubmittedProposalToDraftPayload(input: {
   const { proposal } = input;
   const budgetsByYear = input.budgets.map(mapBudget);
   const calculatedBudget = budgetsByYear.length > 0
-    ? budgetsByYear.reduce((total, row) => total + row.amount, 0)
+    ? Number(sumProposalBudgets(input.budgets))
     : numberValue(proposal.totalBudget);
 
   return {

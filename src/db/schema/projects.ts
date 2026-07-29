@@ -10,10 +10,13 @@ import {
   uuid,
   text,
   bigint,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { fourQuadrants, deputyGovernors, divisions } from "./lookups";
 import { projectStatuses, projectTypes, projectAttachmentTypes } from "./lookups";
 import { users } from "./users";
+
+export const projectReturnStageEnum = pgEnum("project_return_stage", ["SMALL_BOARD", "BIG_BOARD"]);
 
 // ---------------------------------------------------------------------------
 // MAIN TABLE: Project
@@ -26,6 +29,8 @@ export const projects = pgTable("projects", {
   divisionId: integer("division_id").references(() => divisions.divisionId).notNull(), // ส่วนราชการเจ้าของโครงการ
 
   projectStatusId: integer("project_status_id").references(() => projectStatuses.id).notNull().default(1),
+  returnStage: projectReturnStageEnum("return_stage"),
+  workflowVersion: integer("workflow_version").default(0).notNull(),
   projectTypeId: integer("project_type_id").references(() => projectTypes.id),
   fourQuadrantsId: integer("four_quadrants_id").references(() => fourQuadrants.id).notNull(),
   deputyGovernorId: integer("deputy_governor_id").references(() => deputyGovernors.id).notNull(),
