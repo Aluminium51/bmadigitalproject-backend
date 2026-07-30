@@ -233,6 +233,10 @@ export class UploadService {
   ) {
     const contentType = getEffectiveContentType(file);
 
+    if (file.size > appEnv.MAX_UPLOAD_SIZE) {
+      throw new UploadValidationError(`Files must be smaller than ${Math.floor(appEnv.MAX_UPLOAD_SIZE / 1024 / 1024)} MB`);
+    }
+
     if (contentType === "application/pdf" && file.size > MAX_PDF_UPLOAD_BYTES) {
       throw new UploadValidationError("PDF files must be smaller than 20 MB");
     }
