@@ -136,6 +136,17 @@ const submittedProposalScalarColumns = {
 const hasOwn = (payload: Record<string, unknown>, key: string) =>
   Object.prototype.hasOwnProperty.call(payload, key);
 
+const SUBMIT_PROPOSAL_FIELD_NAMES = new Set(Object.keys(submitProposalSchema.shape));
+
+function sanitizeDraftFormData(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => SUBMIT_PROPOSAL_FIELD_NAMES.has(key)),
+  );
+}
+
 export const proposalService = {
 
   // ============================================================================
@@ -187,14 +198,11 @@ export const proposalService = {
     const existingDraft = await db.query.proposalDrafts.findFirst({
       where: eq(proposalDrafts.projectId, projectId),
     });
+    const existingFormData = sanitizeDraftFormData(existingDraft?.draftPayload);
     const incomingFormData = payload.draftPayload || payload;
     const formData = {
-      ...(existingDraft?.draftPayload && typeof existingDraft.draftPayload === "object"
-        ? existingDraft.draftPayload as Record<string, unknown>
-        : {}),
-      ...(incomingFormData && typeof incomingFormData === "object"
-        ? incomingFormData as Record<string, unknown>
-        : {}),
+      ...existingFormData,
+      ...sanitizeDraftFormData(incomingFormData),
     };
     // Deprecated budget aliases are response-only compatibility fields. Never
     // persist them in the editable draft payload or accept them as write input.

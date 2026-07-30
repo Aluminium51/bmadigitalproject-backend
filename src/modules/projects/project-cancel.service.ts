@@ -112,6 +112,83 @@ export async function buildDraftPayload(tx: Executor, proposalId: string) {
   });
 }
 
+/**
+ * Restore a submitted proposal as the project's single editable draft.
+ *
+ * This helper is intentionally transaction-scoped. Callers must invoke it
+ * before changing the project workflow state so a failed restoration rolls
+ * back the draft and leaves the submitted proposal untouched.
+ */
+export async function restoreEditableProposalDraft(
+  tx: Executor,
+  input: {
+    proposalId: string;
+    projectId: string;
+    draftUserId: string;
+    updatedBy: string;
+    projectName?: string | null;
+  },
+) {
+  const submittedPayload = await buildDraftPayload(tx, input.proposalId);
+  const draftPayload = {
+    ...submittedPayload,
+    ...(input.projectName !== undefined
+      ? { projectName: input.projectName ?? submittedPayload.projectName }
+      : {}),
+  };
+  const validatedDraft = submitProposalSchema.safeParse(draftPayload);
+  if (!validatedDraft.success) {
+    throw new HTTPException(409, {
+      message: "Submitted proposal cannot be restored as an editable draft",
+    });
+  }
+
+  const requestedBudgetTotal = sumProposalBudgets(validatedDraft.data.budgetsByYear);
+  const estimatedCostTotal = calculateEstimatedCostTotal(validatedDraft.data);
+  const now = new Date();
+  const [persistedDraft] = await tx
+    .insert(proposalDrafts)
+    .values({
+      id: uuidv7(),
+      projectId: input.projectId,
+      userId: input.draftUserId,
+      projectName: draftPayload.projectName,
+      objective: draftPayload.objective,
+      requestedBudgetTotal,
+      estimatedCostTotal,
+      currentStep: 1,
+      draftPayload: validatedDraft.data,
+      updatedBy: input.updatedBy,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: proposalDrafts.projectId,
+      set: {
+        userId: input.draftUserId,
+        projectName: draftPayload.projectName,
+        objective: draftPayload.objective,
+        requestedBudgetTotal,
+        estimatedCostTotal,
+        currentStep: 1,
+        draftPayload: validatedDraft.data,
+        updatedBy: input.updatedBy,
+        updatedAt: now,
+      },
+    })
+    .returning({ id: proposalDrafts.id, draftPayload: proposalDrafts.draftPayload });
+
+  if (!persistedDraft?.draftPayload || !submitProposalSchema.safeParse(persistedDraft.draftPayload).success) {
+    throw new HTTPException(409, { message: "Restored proposal draft failed verification" });
+  }
+
+  return {
+    draftId: persistedDraft.id,
+    payload: validatedDraft.data,
+    requestedBudgetTotal,
+    estimatedCostTotal,
+  };
+}
+
 export async function cancelProjectSubmit(projectId: string, user: UserContext) {
   await db.transaction(async (tx) => {
     const [current] = await tx
@@ -153,64 +230,21 @@ export async function cancelProjectSubmit(projectId: string, user: UserContext) 
       throw new HTTPException(409, { message: "Submitted proposal not found" });
     }
 
-    const submittedPayload = await buildDraftPayload(tx, submitted.id);
-    const draftPayload = {
-      ...submittedPayload,
-      projectName: current.projectName ?? submittedPayload.projectName,
-    };
-    const validatedDraft = submitProposalSchema.safeParse(draftPayload);
-    if (!validatedDraft.success) {
-      throw new HTTPException(409, {
-        message: "Submitted proposal cannot be restored as an editable draft",
-      });
-    }
-    const now = new Date();
-
-    // Create the complete editable draft first. If any nested read or insert
-    // fails, the submitted proposal remains intact because the transaction
-    // rolls back.
-    const [persistedDraft] = await tx.insert(proposalDrafts).values({
-      id: uuidv7(),
+    const restored = await restoreEditableProposalDraft(tx, {
+      proposalId: submitted.id,
       projectId,
-      userId: user.userId,
-      projectName: draftPayload.projectName,
-      objective: draftPayload.objective,
-      requestedBudgetTotal: sumProposalBudgets(validatedDraft.data.budgetsByYear),
-      estimatedCostTotal: calculateEstimatedCostTotal(validatedDraft.data),
-      currentStep: 1,
-      draftPayload: validatedDraft.data,
+      draftUserId: user.userId,
       updatedBy: user.userId,
-      updatedAt: now,
-    }).onConflictDoUpdate({
-      target: proposalDrafts.projectId,
-      set: {
-        userId: user.userId,
-        projectName: draftPayload.projectName,
-        objective: draftPayload.objective,
-        requestedBudgetTotal: sumProposalBudgets(validatedDraft.data.budgetsByYear),
-        estimatedCostTotal: calculateEstimatedCostTotal(validatedDraft.data),
-        currentStep: 1,
-        draftPayload: validatedDraft.data,
-        updatedBy: user.userId,
-        updatedAt: now,
-      },
-    }).returning({ id: proposalDrafts.id, draftPayload: proposalDrafts.draftPayload });
-
-    if (!persistedDraft || !persistedDraft.draftPayload) {
-      throw new HTTPException(409, { message: "Restored proposal draft could not be verified" });
-    }
-
-    const verifiedDraft = submitProposalSchema.safeParse(persistedDraft.draftPayload);
-    if (!verifiedDraft.success) {
-      throw new HTTPException(409, { message: "Restored proposal draft failed verification" });
-    }
+      projectName: current.projectName,
+    });
+    const now = new Date();
 
     const updated = await tx
       .update(projects)
       .set({
         projectStatusId: PROJECT_STATUS.DRAFT,
-        latestRequestedBudget: sumProposalBudgets(validatedDraft.data.budgetsByYear),
-        latestEstimatedCost: calculateEstimatedCostTotal(validatedDraft.data),
+        latestRequestedBudget: restored.requestedBudgetTotal,
+        latestEstimatedCost: restored.estimatedCostTotal,
         updatedBy: user.userId,
         updatedAt: now,
       })

@@ -61,7 +61,7 @@ import {
 import { basename, join } from "node:path";
 import { unlink } from "node:fs/promises";
 import { appEnv } from "@/config/app-env";
-import { buildDraftPayload } from "./project-cancel.service";
+import { buildDraftPayload, restoreEditableProposalDraft } from "./project-cancel.service";
 import { submitProposalSchema } from "../proposals/proposal.schema";
 import { sumProposalBudgets } from "../proposals/proposal-budget.util";
 import { calculateEstimatedCostTotal } from "../proposals/proposal-estimated-cost.util";
@@ -421,6 +421,11 @@ export const findProjectById = async (id: string, user: UserContext) => {
     throw new HTTPException(404, { message: "ไม่พบข้อมูลโครงการ" });
 
   const project = mapJoinedProject(rows[0]);
+  const [editableDraft] = await db
+    .select({ id: proposalDrafts.id })
+    .from(proposalDrafts)
+    .where(eq(proposalDrafts.projectId, id))
+    .limit(1);
 
   // เช็คสิทธิ์การอ่าน
   checkPermission(user, "read", "project", {
@@ -506,7 +511,10 @@ export const findProjectById = async (id: string, user: UserContext) => {
   const canEditProposal = isSecretary || isAnalystEditableStage ||
     ((isOwner || isDepartmentCollaborator) && isOwnerEditableStage);
   const canSubmitProposal =
-    !isSecretaryOnlyUser(user) && (isOwner || isDepartmentCollaborator) && isOwnerEditableStage;
+    !isSecretaryOnlyUser(user) &&
+    (isOwner || isDepartmentCollaborator) &&
+    isOwnerEditableStage &&
+    Boolean(editableDraft);
   const canCancelSubmit = isOwner && project.projectStatusId === PROJECT_STATUS.PENDING_SECRETARY;
   const canChangeVisibility = isAdmin;
   const canManageAttachments = isSecretary || isSuperAdmin || isAnalystEditableStage || (
@@ -869,7 +877,7 @@ export const reviewSecretaryProject = async (
 
   await db.transaction(async (tx) => {
     const current = await tx
-      .select({ id: projects.id })
+      .select({ id: projects.id, ownerId: projects.userId, projectName: projects.projectName })
       .from(projects)
       .where(
         and(
@@ -904,6 +912,36 @@ export const reviewSecretaryProject = async (
           message: "Project status changed before its category was saved",
         });
       }
+    }
+
+    if (data.decision === "return") {
+      const [submitted] = await tx
+        .select({ id: proposals.id })
+        .from(proposals)
+        .where(and(eq(proposals.projectId, id), eq(proposals.status, "submitted")))
+        .orderBy(desc(proposals.submittedAt), desc(proposals.updatedAt), desc(proposals.id))
+        .for("update")
+        .limit(1);
+
+      if (!submitted) {
+        throw new HTTPException(409, { message: "Submitted proposal history was not found" });
+      }
+
+      const restored = await restoreEditableProposalDraft(tx, {
+        proposalId: submitted.id,
+        projectId: id,
+        draftUserId: current[0].ownerId,
+        updatedBy: user.userId,
+        projectName: current[0].projectName,
+      });
+
+      await tx
+        .update(projects)
+        .set({
+          latestRequestedBudget: restored.requestedBudgetTotal,
+          latestEstimatedCost: restored.estimatedCostTotal,
+        })
+        .where(and(eq(projects.id, id), eq(projects.projectStatusId, PROJECT_STATUS.PENDING_SECRETARY)));
     }
 
     await applyProjectStatusTransition(tx, {
