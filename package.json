@@ -9,6 +9,7 @@
     "db:reset-attachment-types": "bun run src/db/scripts/reset-attachment-types.ts",
     "db:backfill-attachment-sizes": "bun run src/db/scripts/backfill-attachment-sizes.ts",
     "db:backfill-project-snapshots": "bun run src/db/scripts/backfill-project-snapshots.ts",
+    "db:create-super-admin": "bun run src/db/scripts/create-super-admin.ts",
     "db:seed": "bun run db:seed:required",
     "db:seed:required": "bun run src/db/seeds/seed-required.ts",
     "db:seed:demo": "bun run src/db/seeds/seed-demo.ts",
