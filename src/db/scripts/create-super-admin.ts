@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { v7 as uuidv7 } from "uuid";
 import { departments, divisions } from "@/db/schema/lookups";
@@ -106,6 +106,11 @@ try {
   const hashedPassword = await Bun.password.hash(data.password);
 
   const result = await db.transaction(async (tx) => {
+    // Serialize all bootstrap attempts. The role_user primary key only
+    // prevents duplicate roles for one user; it cannot enforce one global
+    // Super Admin across concurrent transactions.
+    await tx.execute(sql`select pg_advisory_xact_lock(2026073001::bigint)`);
+
     const existingUser = await tx
       .select({ userId: users.userId, username: users.username, email: users.email })
       .from(users)
@@ -181,7 +186,17 @@ try {
   console.log(`Super Admin created successfully: ${result.username} (${result.userId})`);
   console.log("The account is active and email-verified. No password or token was printed.");
 } catch (error) {
-  console.error(error instanceof Error ? error.message : "Super Admin bootstrap failed");
+  const message = error instanceof Error ? error.message : "";
+  const safeMessage = [
+    /^A user already exists for username or email \(userId: [0-9a-f-]+\)$/i,
+    /^A Super Admin already exists \(userId: [0-9a-f-]+\); use protected user management instead$/i,
+    /^SUPER_ADMIN role is missing; run migrations and db:seed:required first$/,
+    /^Division code not found: [A-Za-z0-9]{8}$/,
+    /^Division ID not found: [0-9]+$/,
+  ].some((pattern) => pattern.test(message))
+    ? message
+    : "Super Admin bootstrap failed; transaction rolled back and sensitive details were not exposed.";
+  console.error(safeMessage);
   process.exitCode = 1;
 } finally {
   await db.$client.end();
