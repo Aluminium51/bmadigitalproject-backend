@@ -1,157 +1,207 @@
-This is backend project for BMA digital project. It is a full-stack web application that uses Bun as the runtime and package manager, Hono.js as the web framework, Drizzle ORM for database interactions, PostgreSQL as the database, Zod for validation, and Docker for deployment.
+# BMA Digital Project Backend
 
-## Core Features (Backend)
+The Backend is the BMA Digital Project API. It owns authentication,
+authorization, project and proposal workflows, meetings, lookups, file metadata,
+and audit-related business rules. The Frontend consumes its versioned HTTP API;
+PostgreSQL stores relational data and the configured upload directory stores file
+contents.
 
-*   **RESTful API & OpenAPI Standard:** ให้บริการ API ที่มีโครงสร้างชัดเจน พร้อมสร้าง Document อัตโนมัติผ่าน Swagger UI (`/docs`) ด้วย OpenAPIHono
-*   **Transaction-Safe Mutations:** จัดการฟอร์มข้อเสนอโครงการ (Proposal) ขนาดใหญ่ที่มีความสัมพันธ์กว่า 12 ตารางลูก ด้วย Atomic Operations และ `Promise.all` เพื่อประสิทธิภาพขั้นสุดและป้องกัน Data Inconsistency
-*   **Centralized Authentication & RBAC:** ตรวจสอบสิทธิ์ผู้ใช้ผ่าน JWT Middleware และแยกแยะ Role (เช่น User, Admin, Board) ก่อนอนุญาตให้เข้าถึง Resource 
-*   **Automated Background Jobs (Cron):** มีระบบตั้งเวลาเพื่อลบข้อมูลขยะ (Garbage Collection) เช่น แบบร่างที่ไม่มีการอัปเดตเกิน 30 วัน
-*   **PDF Compression & Storage:** รองรับการอัปโหลดไฟล์ บีบอัด PDF อัตโนมัติ และจัดการ Storage อย่างปลอดภัย
+## Background and purpose
 
-### Tech Stack
-- **Runtime & Package Manager:** Bun
-- **Framework:** Hono.js (Fast Web Framework)
-- **Database ORM:** Drizzle ORM (Type-safe ORM)
-- **Database:** PostgreSQL
-- **Validation:** Zod + `drizzle-zod`
-- **Deployment:** Docker + Docker Compose
-- **Swagger/OpenAPI:** OpenAPIHono (Auto-generate API Documentation)
+BMA Digital Project supports the Bangkok Metropolitan Administration’s process
+for proposing, reviewing, coordinating, and tracking digital projects. The
+system brings project proposals, budgets, technical details, department
+collaboration, secretary and analyst review, meetings, and board decisions
+into one shared and auditable workflow.
 
----
+The Backend is the system-of-record API for this process. It validates and
+persists workflow state, protects data with authentication and role-based
+authorization, calculates financial summaries with exact decimal handling, and
+keeps proposal, meeting, upload, and audit data consistent.
 
-### How to run the backend project
-1. **Prerequisites**
-   Make sure you have Bun and Docker / Docker Compose installed on your machine.
-2. **Install dependencies:**
-   Clone the repository, navigate to the backend directory, and install packages:
-    ```bash
-    git clone <repository-url>
-    cd <backend-directory>
-    bun install
-    ```
-3. **Environment Variables:**
-   Create a `.env` file in the backend root directory. Configure your database connection and other secrets (e.g., `DATABASE_URL`).
-4. **Start the Backend Server (and Database):**
-   Use Docker Compose to spin up the database and the backend service:
-   ```bash
-   docker-compose up -d --build
-   ```
-5. **Database Migration & Seeding:**
-    Once the database container is running, generate the Drizzle ORM types, sync the schema, and seed the initial master data:
-    ```bash
-    bun run db:generate
-    bun run db:migrate
-    bun run db:seed:required
-    bun run db:seed:demo # เฉพาะ Development
-    ```
-6. **Verify Backend:**
-   The backend server should now be running and accessible at `http://localhost:8081`. You can access the API documentation at `http://localhost:8081/docs/`. You can also test the health check endpoint at `http://localhost:8081/health`.
+## Technology stack
 
----
+- Bun 1.3.5 and TypeScript
+- Hono with `@hono/zod-openapi` and Swagger UI
+- PostgreSQL with Drizzle ORM and Drizzle Kit
+- Zod and `drizzle-zod` validation
+- Nodemailer/Resend adapters and Ghostscript-backed PDF compression
+- Bun's test runner, Docker, and Docker Compose
 
-## Directory Tree
+## Prerequisites
+
+- Bun 1.3.5 or a compatible Bun release
+- PostgreSQL for development, or Docker Desktop/Compose for the test database
+- Docker for building and running the production image
+
+## Quick start
+
+Install dependencies from this directory:
+
+```bash
+bun install --frozen-lockfile
+```
+
+Create an untracked `.env` file with the required variables shown below. This
+repository currently provides [`.env.test.example`](.env.test.example) for test
+configuration, but does not include a committed development `.env.example`.
+
+Prepare a development database explicitly, then start the API:
+
+```bash
+bun run db:migrate
+bun run db:seed:required
+bun run dev
+```
+
+With `PORT=8081`, useful local URLs are:
+
+- API: `http://localhost:8081/api/v1`
+- OpenAPI JSON: `http://localhost:8081/openapi-v1.json`
+- Swagger UI: `http://localhost:8081/docs/`
+
+Do not run demo seed data against shared, staging, or production databases.
+
+## Environment variables
+
+The runtime validates its environment in
+[`src/config/app-env.ts`](src/config/app-env.ts). Values below are safe examples,
+not deployable secrets.
+
+| Variable | Required | Purpose | Safe example |
+| --- | --- | --- | --- |
+| `NODE_ENV` | No | `development`, `test`, or `production` | `development` |
+| `PORT` | No | HTTP listening port | `8081` |
+| `DATABASE_URL` | Yes | PostgreSQL connection URL | `postgresql://app_user:URL_ENCODED_PASSWORD@127.0.0.1:5432/bma_db` |
+| `JWT_SECRET` | Yes | JWT signing secret; at least 32 characters | Generate a unique local secret |
+| `PUBLIC_API_URL` | No | Public API base URL used in generated links | `http://localhost:8081/api/v1` |
+| `CORS_ORIGINS` | No | Comma-separated allowed browser origins | `http://localhost:3000` |
+| `UPLOAD_STORAGE_DIR` | No | Filesystem directory for uploads | `./uploads` |
+| `MAX_UPLOAD_SIZE` | No | Global upload limit in bytes | `26214400` |
+| `TRUST_PROXY` | No | Trust forwarded proxy headers | `false` |
+| `COOKIE_SECURE` | No | Mark cookies secure | `false` locally |
+| `COOKIE_SAME_SITE` | No | Cookie same-site policy | `lax` |
+| `COOKIE_DOMAIN` | No | Optional cookie domain | empty |
+
+Production also requires an absolute upload path, explicit non-wildcard CORS,
+and a non-placeholder `JWT_SECRET`.
+
+## Available scripts
+
+| Command | Purpose |
+| --- | --- |
+| `bun run dev` | Start the API with hot reload. |
+| `bun run start` | Start the production entry point. |
+| `bun run typecheck` | Run TypeScript validation. |
+| `bun run db:generate` | Generate Drizzle migration artifacts from schema changes. |
+| `bun run db:migrate` | Run the migration preflight and apply migrations. Use only on the intended database. |
+| `bun run db:seed:required` | Seed required lookup and constant data; idempotent for supported data. |
+| `bun run db:seed:demo` | Add development demo data. Do not use in staging or production. |
+| `bun run db:create-super-admin` | Create the first Super Admin from environment/CLI input. Sensitive administrative operation. |
+| `bun run db:backfill-attachment-sizes` | Backfill attachment metadata. Review scope before running. |
+| `bun run db:backfill-project-snapshots` | Backfill project financial snapshots. Review scope before running. |
+| `bun run db:reset-attachment-types` | Development-only attachment-type reset. Destructive. |
+| `bun run test` | Run unit tests. |
+| `bun run test:integration` | Prepare the test database and run integration tests. |
+| `bun run test:coverage` | Run unit and integration tests with coverage. |
+| `bun run test:all` | Run typecheck, unit tests, and integration tests. |
+| `bun run test:ci` | Run the full backend CI command set. |
+| `bun run test:db:up` / `test:db:down` | Start or stop the dedicated test PostgreSQL service. |
+| `bun run test:db:prepare` | Migrate and seed the dedicated test database. |
+| `bun run test:db:reset` | Reset only the explicitly named test database/volume. Destructive. |
+| `bun run test:contract:backend` | Verify Backend OpenAPI registration and schemas. |
+| `bun run test:contract:frontend` | Verify Frontend generation when the sibling Frontend repository is available. |
+
+## Architecture
 
 ```text
 src/
-├── config/                 # environment, permissions and application configuration
-├── db/
-│   ├── index.ts            # Drizzle/PostgreSQL connection
-│   ├── schema/             # Drizzle table definitions and relations
-│   ├── seeds/              # required/demo seed runners
-│   │   └── data/           # versioned lookup and seed datasets
-│   ├── scripts/            # migrations and one-off/backfill operations
-│   └── seed.ts             # compatibility entrypoint for required seed
-├── infrastructure/        # external/system integrations
-│   ├── audit/              # audit/event logging adapters
-│   ├── email/              # email provider integration
-│   └── files/              # file/PDF processing
-├── jobs/                   # scheduled and standalone background jobs
-├── middlewares/            # Hono request middleware
-├── modules/                # feature modules: routes, controllers, schemas, services
-├── shared/                 # cross-cutting application helpers
-│   ├── auth/               # authorization and permission helpers
-│   ├── cache/              # shared cache utilities
-│   ├── http/               # controller and error-response helpers
-│   └── security/           # rate limiting and security helpers
-└── index.ts                # API composition and server entrypoint
+  app.ts                 API composition and dependency injection
+  index.ts               production bootstrap
+  config/                validated runtime configuration
+  db/                    connection, Drizzle schema, migrations, seeds, scripts
+  middlewares/           authentication and request middleware
+  modules/               feature routes, schemas, controllers, and services
+  infrastructure/        email, files, and external adapters
+  shared/                authorization, time, and cross-cutting utilities
+  jobs/                  explicitly started background jobs
+tests/
+  unit/ integration/     focused and API-level regression coverage
+  setup/ fixtures/       test database lifecycle and reusable data
 ```
 
-Database commands are grouped by purpose: `db:seed:*` runs files under
-`src/db/seeds`, while migration/backfill commands run files under
-`src/db/scripts`. Feature code should import shared helpers through the
-`@/shared/*` and `@/infrastructure/*` aliases instead of a miscellaneous
-`utils` folder.
+Routes define OpenAPI-aware contracts and validation. Controllers translate HTTP
+requests into service calls; services own workflow, transaction, and persistence
+rules. Feature modules may have additional helpers where the domain needs them.
 
----
+## Database workflow
 
-## Module Structure
-for every module, we have the following structure:
-## 1. *.routes.ts (The Router & API Contract)
-- หน้าที่: 
-    - บอกว่ามีเส้นทาง (Endpoint) ไหนเปิดให้บริการบ้าง 
-    - บอกว่าเส้นทางนั้นต้องการข้อมูลอะไร (Input) จะคืนค่าอะไร (Output)
-- สิ่งที่ทำ:
-    - กำหนด Method (GET, POST, PUT, DELETE) และ Path (เช่น /users)
-    - import Schema จาก *.schema.ts มาผูกกับ Request (Body, Query, Params) และ Response
-    - ทำตัวเป็น API Documentation (ด้วย OpenAPIHono เพื่อสร้าง Swagger)
-    - ส่งต่อ (Delegate) Context (c) และข้อมูลที่ผ่านการ Validate แล้วไปให้ Controller
-- ข้อแตกต่าง: 
-    - ทำหน้าที่แค่ผูก Endpoint เข้ากับ Schema และ Controller 
-    - ห้ามเขียน Business Logic (if-else, วนลูปประมวลผล) หรือเขียนคำสั่ง SQL (Drizzle) ในไฟล์นี้เด็ดขาด
+Apply migrations and required lookup data as explicit operations. Application
+startup does not run migrations, seeds, or demo data. Integration tests use the
+dedicated `TEST_DATABASE_URL`; they must never point at development, staging, or
+production data.
 
-## 2. *.controller.ts (The Orchestrator)
-- หน้าที่: 
-    - รับของที่ผ่านการตรวจสอบจาก Route มาสั่งการ Service และแพ็กของที่ Service ทำเสร็จกลับไปเป็น HTTP Response
-- สิ่งที่ทำ:
-    - รับค่าจาก Route (เช่น body, params)
-    - ดึงค่าจาก Context (เช่น ดึง User ID จาก Session หรือ JWT)
-    - ส่งข้อมูลทั้งหมดไปให้ Service จัดการ
-    - รับผลลัพธ์จาก Service แล้วนำมาแปลงเป็น JSON พร้อมกำหนด HTTP Status Code (เช่น c.json(data, 201)) หรือจัดการดักจับ Error เบื้องต้น
-- ข้อแตกต่าง: 
-    - Controller จะยุ่งเกี่ยวกับการแปลงข้อมูลให้อยู่ในรูป HTTP Response 
-    - แต่ จะไม่ไปแตะ Database หรือเขียน Logic คำนวณซับซ้อนโดยตรง (ส่งต่อให้ Service ทำ)
+Proposal financial values use exact-decimal handling. Do not replace budget or
+cost calculations with JavaScript floating-point arithmetic.
 
-## 3. *.service.ts (The Brain & Business Logic)
-- หน้าที่: 
-    - เป็น "สมอง" ของระบบ จัดการเงื่อนไขทางธุรกิจ (Business Rules) และคุยกับ Database
-- สิ่งที่ทำ:
-    - เขียน Business Logic ทั้งหมด (เช่น เช็คสิทธิ์ว่าทำได้ไหม, ตรวจสอบเงื่อนไขการสร้าง Project, อนุมัติ Workflow)
-    - Query Database ผ่าน Drizzle ORM (เช่น insert, select, update, delete)
-    - ติดต่อ External Service (เช่น อัปโหลดไฟล์ไป S3, ส่งอีเมล, เข้ารหัสผ่าน)
-    - โยน Error ออกมา (throw Error) ถ้ามีเงื่อนไขผิดพลาด เพื่อให้ Controller หรือ Global Error Handler ไปจัดการต่อ
-- ข้อแตกต่าง: 
-    - Service ต้องไม่รู้เรื่อง HTTP Context เลย (ไม่รับตัวแปร c ของ Hono) 
-    - รับแค่ Parameters ธรรมดา (เช่น createUser(userData)) 
-    - ทำให้เราสามารถเอาฟังก์ชันใน Service ไปใช้ที่อื่นได้ง่าย
+## Authentication and authorization
 
-## 4. *.schema.ts (The Definition)
-- หน้าที่: 
-    - เป็นศูนย์กลางในการ "นิยาม" โครงสร้างข้อมูล (Data Shape) กฎเกณฑ์ (Validation Rules) และ Typescript Type
-- สิ่งที่ทำ:
-    - ใช้ drizzle-zod หรือ zod สร้าง Schema เช่น CreateUserSchema, UserSchema
-    - ใช้กำหนด Error Schema แบบมาตรฐาน
-    - ดึง Type ออกมาใช้งาน (เช่น export type User = z.infer<typeof UserSchema>)
-- ข้อแตกต่าง: 
-    - No Business Logic, No Database Query, No HTTP Context (c)
+Authentication is JWT-based and authorization is enforced by Backend policies.
+RBAC, department collaboration rules, project state, and assignment determine
+what a caller can do. Project responses may include resolved capabilities such
+as `canEditProject`, `canEditProposal`, and `canSubmitProposal`; clients must not
+treat their own visibility logic as an authorization boundary.
 
+Mutations should preserve the authenticated actor and existing audit/status-log
+expectations. Administrative bootstrap and workflow corrections are intentionally
+separate from ordinary user operations.
 
-## AI Developer Notes (System Prompt Instructions)
+## API documentation and health checks
 
-If you are an AI Assistant, Copilot, or Cursor agent working on this backend repository, you MUST strictly adhere to the following **Separation of Concerns (Route -> Controller -> Service -> Schema)** architecture:
+- `GET /openapi-v1.json` exposes the generated OpenAPI document.
+- `GET /docs/` serves Swagger UI.
+- `GET /health/live` checks that the process can serve requests; it does not
+  require PostgreSQL.
+- `GET /health/ready` checks PostgreSQL and verifies upload-directory write
+  access with a temporary exclusive probe file.
 
-1.  **`*.routes.ts` (API Contract ONLY):**
-    *   Use `@hono/zod-openapi` to define paths, methods, request validations (params, query, body), and response schemas.
-    *   **STRICT RULE:** NO business logic, NO database queries, and NO `if-else` processing here. Just validate and delegate to the Controller.
-2.  **`*.controller.ts` (Orchestrator ONLY):**
-    *   Extract validated data from the context (`c.req.valid(...)`) and user info (`c.get('user')`).
-    *   Pass the clean parameters to the `*.service.ts` function.
-    *   Return the standard HTTP JSON response (`return c.json({...}, 200)`).
-    *   **STRICT RULE:** Controllers must NOT execute raw database queries.
-3.  **`*.service.ts` (Business Logic & Database):**
-    *   This is the brain. Handle business rules, data formatting, and Drizzle ORM queries (`db.insert`, `db.select`, etc.).
-    *   **STRICT RULE:** Services must NOT know about Hono Context (`c`). Accept standard TypeScript primitives/objects as arguments.
-4.  **`*.schema.ts` (Single Source of Truth):**
-    *   Define all Drizzle table schemas and Zod validation schemas here. Export inferred types for DTOs.
-5.  **Global Error Handling:**
-    *   Do NOT return manual error JSONs (e.g., `return c.json({ error: "..." }, 400)`) inside controllers or services.
-    *   **STRICT RULE:** Always `throw new HTTPException(STATUS_CODE, { message: "..." })` and let the global error handler (`src/utils/error-handler.ts`) format the response uniformly.
+## File uploads
+
+Upload metadata is stored in PostgreSQL while file contents are written to
+`UPLOAD_STORAGE_DIR` (a mounted volume in containers). Upload routes enforce
+validation and authorization; meeting files remain private to authorized roles.
+Back up the database and upload storage together to retain valid metadata/file
+relationships.
+
+## Testing and verification
+
+Start the isolated test database from the sibling Infrastructure repository:
+
+```bash
+bun run test:db:up
+bun run test:db:prepare
+bun run test:all
+bun run test:db:down
+```
+
+The normal shutdown preserves the test volume. `test:db:reset` is the only
+reset command and must be used only for the named test environment.
+
+## Docker and deployment
+
+The [`Dockerfile`](Dockerfile) builds a non-root Bun image, exposes port 8081,
+and expects runtime configuration including `DATABASE_URL` and an upload mount.
+For local Compose, staging image references, Nginx routing, backups, and
+production procedures, use the sibling
+[Infrastructure runbook](../infrastructure/docs/staging-runbook.md).
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Configuration error at startup | Confirm required `.env` values, URL syntax, and a 32+ character `JWT_SECRET`. |
+| Database connection failure | Confirm PostgreSQL is running, `DATABASE_URL` targets the intended database, and migrations have been applied. |
+| Lookup-related validation failure | Run `bun run db:seed:required` against the intended local/test database. |
+| Port already in use | Change `PORT` or stop the process using the selected port. |
+| Readiness returns `503` | Check PostgreSQL connectivity and upload-directory existence/write permissions. |
+| Upload fails after deployment | Verify the mounted upload path, ownership, free space, and configured size/type rules. |
